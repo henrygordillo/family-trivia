@@ -1563,7 +1563,7 @@ function init(){
   apiKeySaveBtn.addEventListener('click',()=>{
     const k=apiKeyInput.value.trim();
     if(!k.startsWith('sk-ant-')){
-      apiKeyErr.textContent="That doesn't look right — key should start with sk-ant-";
+      apiKeyErr.textContent='Key should start with sk-ant-';
       apiKeyErr.style.display='block';
       return;
     }
