@@ -371,11 +371,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="add-p" id="addPlayerBtn">+ New Player</button>
     </div>
     <!-- Add player form (hidden by default) -->
-    <div id="addPlayerForm" style="display:none;background:rgba(255,255,255,.04);border-radius:12px;padding:14px;margin-top:8px;">
-      <div style="font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:10px;">New Player</div>
-      <input id="newFirstName" placeholder="First name" style="width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 12px;color:#fff;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
-      <input id="newLastName" placeholder="Last name" style="width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 12px;color:#fff;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
-      <input id="newNickname" placeholder="Nickname (shown in game)" style="width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 12px;color:#fff;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
+    <div id="addPlayerForm" style="display:none;background:rgba(0,0,0,.04);border-radius:12px;padding:14px;margin-top:8px;border:1px solid rgba(0,0,0,.1);">
+      <div style="font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(0,0,0,.4);margin-bottom:10px;">New Player</div>
+      <input id="newFirstName" placeholder="First name" style="width:100%;background:rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.15);border-radius:8px;padding:8px 12px;color:#111;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
+      <input id="newLastName" placeholder="Last name" style="width:100%;background:rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.15);border-radius:8px;padding:8px 12px;color:#111;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
+      <input id="newNickname" placeholder="Nickname (shown in game)" style="width:100%;background:rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.15);border-radius:8px;padding:8px 12px;color:#111;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
       <input id="newEmail" placeholder="Email (unique identifier)" type="email" style="width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 12px;color:#fff;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:10px;box-sizing:border-box;">
       <div style="display:flex;gap:8px;">
         <button id="savePlayerBtn" style="flex:1;padding:10px;background:var(--teal-hi);border:none;border-radius:10px;color:#000;font-family:Outfit,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Save Player</button>
