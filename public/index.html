@@ -873,8 +873,8 @@ function buildPTable(answererIdx){
 
     const num=activeNum++;
 
-    // Hit rate for this player
-    const pAttempts=(G.attempts||[]).filter(a=>a.player===G.players[i]&&a.type==='main');
+    // Hit rate for this player — overall (turn questions + steals combined)
+    const pAttempts=(G.attempts||[]).filter(a=>a.player===G.players[i]);
     const pOK=pAttempts.filter(a=>a.correct).length;
     const hitStr=pAttempts.length>0?Math.round(pOK/pAttempts.length*100)+'%':'—';
     return `<tr class="${cls}" onclick="openPlayerStats(${i})" style="cursor:pointer;">
@@ -901,30 +901,27 @@ function buildPTable(answererIdx){
 // atts: [{cat, tier, correct, pts, type?}]; opts: {hasType, totalPts?, catList?}
 function statsBlockHTML(atts, opts){
   opts=opts||{};
-  const hasType=!!opts.hasType;
-  const main=hasType?atts.filter(a=>a.type==='main'):atts.slice();
-  const steals=hasType?atts.filter(a=>a.type==='steal'):[];
-  const mOK=main.filter(a=>a.correct).length;
-  const sOK=steals.filter(a=>a.correct).length;
-  const totalPct=main.length>0?Math.round(mOK/main.length*100):0;
+  const ansd=atts.length;
+  const allOK=atts.filter(a=>a.correct).length;
+  const overallPct=ansd>0?Math.round(allOK/ansd*100):0;
   const totalPts=(opts.totalPts!=null)?opts.totalPts:atts.filter(a=>a.correct).reduce((s,a)=>s+(a.pts||0),0);
 
   let html=`<div style="display:flex;gap:16px;margin-bottom:16px;">
     <div style="flex:1;background:rgba(255,255,255,.06);border-radius:10px;padding:10px;text-align:center;">
-      <div style="font-size:22px;font-weight:700;color:var(--gold-hi);">${main.length>0?totalPct+'%':'\u2014'}</div>
+      <div style="font-size:22px;font-weight:700;color:var(--gold-hi);">${ansd>0?overallPct+'%':'\u2014'}</div>
       <div style="font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px;">Hit Rate</div>
     </div>
     <div style="flex:1;background:rgba(255,255,255,.06);border-radius:10px;padding:10px;text-align:center;">
       <div style="font-size:22px;font-weight:700;color:var(--gold-hi);">${totalPts}</div>
-      <div style="font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px;">${hasType?'Total Pts':'Pts (all)'}</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px;">Total Pts</div>
     </div>
     <div style="flex:1;background:rgba(255,255,255,.06);border-radius:10px;padding:10px;text-align:center;">
-      <div style="font-size:22px;font-weight:700;color:var(--purple-hi);">${hasType?(steals.length>0?sOK+'/'+steals.length:'\u2014'):main.length}</div>
-      <div style="font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px;">${hasType?'Steals':'Answered'}</div>
+      <div style="font-size:22px;font-weight:700;color:var(--purple-hi);">${ansd}</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px;">Answered</div>
     </div>
   </div>`;
 
-  const cats=(opts.catList&&opts.catList.length)?opts.catList:[...new Set(main.map(a=>a.cat))];
+  const cats=(opts.catList&&opts.catList.length)?opts.catList:[...new Set(atts.map(a=>a.cat))];
   const tiers=[100,200,300,400,500];
 
   if(cats.length>0&&tiers.length>0){
@@ -942,7 +939,7 @@ function statsBlockHTML(atts, opts){
       html+=`<tr style="border-top:1px solid rgba(255,255,255,.06);">`;
       html+=`<td style="padding:6px 6px;font-size:10px;font-weight:700;color:rgba(255,255,255,.4);white-space:nowrap;">${tier}pts</td>`;
       cats.forEach(cat=>{
-        const cell=main.filter(a=>a.tier===tier&&a.cat===cat);
+        const cell=atts.filter(a=>a.tier===tier&&a.cat===cat);
         if(cell.length===0){
           html+=`<td style="padding:4px 4px;text-align:center;vertical-align:middle;">
             <div style="font-size:10px;color:rgba(255,255,255,.15);">0/0</div>
@@ -972,49 +969,12 @@ let _statsName='', _statsIdx=-1, _statsPid=null, _lifetimeAtts=null;
 
 function openPlayerStats(playerIdx){
   const pName=G.players[playerIdx];
-  _statsName=pName; _statsIdx=playerIdx;
-  _statsPid=(G.playerProfiles&&G.playerProfiles[pName])?G.playerProfiles[pName].id:null;
-  _lifetimeAtts=null;
-  document.getElementById('playerStatsModal').classList.add('show');
-  showStatsTab('session');
-  if(_statsPid){
-    dbGetAttempts(_statsPid).then(rows=>{
-      _lifetimeAtts=(Array.isArray(rows)?rows:[]).map(r=>({
-        cat:r.category, tier:Number(r.tier), correct:!!r.correct, pts:Number(r.pts)||0
-      }));
-      // If the Lifetime tab is the one currently showing, refresh it now that data arrived
-      if(document.getElementById('stTabLifetime')&&document.getElementById('stTabLifetime').classList.contains('active')){
-        showStatsTab('lifetime');
-      }
-    });
-  }
-}
-
-function showStatsTab(which){
-  const pName=_statsName;
+  const sessionAtts=(G.attempts||[]).filter(a=>a.player===pName);
   let html=`<div style="font-size:22px;font-weight:900;font-family:'Playfair Display',serif;color:var(--gold-hi);margin-bottom:4px;">${pName}</div>`;
-  html+=`<div style="font-size:11px;color:rgba(255,255,255,.4);letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;">Player Stats</div>`;
-  const tab=(active)=>`flex:1;padding:8px;border:none;border-radius:8px;font-family:Outfit,sans-serif;font-size:12px;font-weight:700;cursor:pointer;background:${active?'var(--gold)':'rgba(255,255,255,.08)'};color:${active?'#000':'rgba(255,255,255,.6)'};`;
-  html+=`<div style="display:flex;gap:8px;margin-bottom:16px;">
-    <button id="stTabSession" class="${which==='session'?'active':''}" onclick="showStatsTab('session')" style="${tab(which==='session')}">This Session</button>
-    <button id="stTabLifetime" class="${which==='lifetime'?'active':''}" onclick="showStatsTab('lifetime')" style="${tab(which==='lifetime')}">Lifetime</button>
-  </div>`;
-
-  if(which==='session'){
-    const sessionAtts=(G.attempts||[]).filter(a=>a.player===pName);
-    html+=statsBlockHTML(sessionAtts,{hasType:true,totalPts:G.scores[_statsIdx],catList:G.categories});
-  } else {
-    if(!_statsPid){
-      html+='<div style="color:rgba(255,255,255,.4);font-size:13px;text-align:center;padding:24px 0;">This player isn\u2019t linked to a saved profile, so there are no lifetime stats.</div>';
-    } else if(_lifetimeAtts===null){
-      html+='<div style="color:rgba(255,255,255,.4);font-size:13px;text-align:center;padding:24px 0;">Loading lifetime stats\u2026</div>';
-    } else if(_lifetimeAtts.length===0){
-      html+='<div style="color:rgba(255,255,255,.4);font-size:13px;text-align:center;padding:24px 0;">No lifetime answers recorded yet.</div>';
-    } else {
-      html+=statsBlockHTML(_lifetimeAtts,{hasType:false});
-    }
-  }
+  html+=`<div style="font-size:11px;color:rgba(255,255,255,.4);letter-spacing:2px;text-transform:uppercase;margin-bottom:16px;">This Game</div>`;
+  html+=statsBlockHTML(sessionAtts,{hasType:true,totalPts:G.scores[playerIdx],catList:G.categories});
   document.getElementById('playerStatsContent').innerHTML=html;
+  document.getElementById('playerStatsModal').classList.add('show');
 }
 function closePlayerStats(){ document.getElementById('playerStatsModal').classList.remove('show'); }
 
@@ -2041,42 +2001,57 @@ function endGame(){
 
 function openRestart(){ document.getElementById('restartModal').classList.add('show'); }
 
+// Shared by-tier calibration table (used by Session and All-Games tabs)
+function tierTableHTML(byTier){
+  const TARGET_RATES={100:75,200:66,300:50,400:33,500:20};
+  const tiers=[100,200,300,400,500];
+  let html='<table class="stats-table"><tr><th>Tier</th><th>Att</th><th>OK</th><th>Actual</th><th>Target</th></tr>';
+  let totalAtt=0,totalOK=0,weightedTarget=0;
+  tiers.forEach(tier=>{
+    const att=(byTier[tier]&&byTier[tier].att)||0;
+    const ok=(byTier[tier]&&byTier[tier].ok)||0;
+    totalAtt+=att; totalOK+=ok;
+    if(att>0) weightedTarget+=TARGET_RATES[tier]*att;
+    const actual=att>0?Math.round(ok/att*100):0;
+    const target=TARGET_RATES[tier];
+    const diff=att>0?actual-target:0;
+    const cls=att===0?'':Math.abs(diff)<=10?'hit-ok':diff>0?'hit-good':'hit-low';
+    html+='<tr><td>'+tier+'</td><td>'+att+'</td><td>'+ok+'</td><td class="'+cls+'">'+(att>0?actual+'%':'0%')+'</td><td>'+target+'%</td></tr>';
+  });
+  if(totalAtt>0){
+    const actualTotal=Math.round(totalOK/totalAtt*100);
+    const targetTotal=Math.round(weightedTarget/totalAtt);
+    const diff=actualTotal-targetTotal;
+    const cls=Math.abs(diff)<=10?'hit-ok':diff>0?'hit-good':'hit-low';
+    html+='<tr style="border-top:2px solid rgba(255,255,255,.2);font-weight:700;color:#fff;"><td>Total</td><td>'+totalAtt+'</td><td>'+totalOK+'</td><td class="'+cls+'">'+actualTotal+'%</td><td>'+targetTotal+'%</td></tr>';
+  } else {
+    html+='<tr style="border-top:2px solid rgba(255,255,255,.2);color:rgba(255,255,255,.4);"><td>Total</td><td>0</td><td>0</td><td>0%</td><td>\u2014</td></tr>';
+  }
+  html+='</table>';
+  return html;
+}
+
+// All-time calibration view (from server aggregate)
+function lifetimeStatsHTML(agg){
+  if(!agg||(agg.total||0)===0){
+    return '<div style="color:rgba(255,255,255,.4);text-align:center;padding:24px 0;">No all-time answers recorded yet.</div>';
+  }
+  let html='<div class="stats-section">By Tier (All Games)</div>'+tierTableHTML(agg.byTier||{});
+  html+='<div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:14px;line-height:1.5;">Based on '+agg.total+' recorded answers across all games. Steal and per-player breakdowns aren\u2019t tracked historically yet \u2014 coming with the next data update.</div>';
+  return html;
+}
+
 function buildStatsHTML(){
   const TARGET_RATES={100:75,200:66,300:50,400:33,500:20};
   const tiers=[100,200,300,400,500];
   const allAttempts=G.attempts||[];
   let html='';
 
-  // By Tier — totals as last row in same table
-  html+='<div class="stats-section">By Tier</div>';
-  html+='<table class="stats-table"><tr><th>Tier</th><th>Att</th><th>OK</th><th>Actual</th><th>Target</th></tr>';
-  let totalAtt=0,totalOK=0,weightedTarget=0;
-  tiers.forEach(tier=>{
-    const att=allAttempts.filter(a=>a.tier===tier);
-    const ok=att.filter(a=>a.correct).length;
-    totalAtt+=att.length; totalOK+=ok;
-    if(att.length>0) weightedTarget+=TARGET_RATES[tier]*att.length;
-    const actual=att.length>0?Math.round(ok/att.length*100):0;
-    const target=TARGET_RATES[tier];
-    const diff=att.length>0?actual-target:0;
-    const cls=att.length===0?'':Math.abs(diff)<=10?'hit-ok':diff>0?'hit-good':'hit-low';
-    html+='<tr><td>'+tier+'</td><td>'+att.length+'</td><td>'+ok+'</td>'
-      +'<td class="'+cls+'">'+(att.length>0?actual+'%':'0%')+'</td><td>'+target+'%</td></tr>';
-  });
-  // Totals row
-  if(totalAtt>0){
-    const actualTotal=Math.round(totalOK/totalAtt*100);
-    const targetTotal=Math.round(weightedTarget/totalAtt);
-    const diff=actualTotal-targetTotal;
-    const cls=Math.abs(diff)<=10?'hit-ok':diff>0?'hit-good':'hit-low';
-    html+='<tr style="border-top:2px solid rgba(255,255,255,.2);font-weight:700;color:#fff;">'
-      +'<td>Total</td><td>'+totalAtt+'</td><td>'+totalOK+'</td>'
-      +'<td class="'+cls+'">'+actualTotal+'%</td><td>'+targetTotal+'%</td></tr>';
-  } else {
-    html+='<tr style="border-top:2px solid rgba(255,255,255,.2);color:rgba(255,255,255,.4);">'
-      +'<td>Total</td><td>0</td><td>0</td><td>0%</td><td>—</td></tr>';
-  }
-  html+='</table>';
+  // By Tier — built from session attempts, rendered by shared helper
+  const byTier={};
+  tiers.forEach(t=>byTier[t]={att:0,ok:0});
+  allAttempts.forEach(a=>{ if(byTier[a.tier]){ byTier[a.tier].att++; if(a.correct) byTier[a.tier].ok++; } });
+  html+='<div class="stats-section">By Tier</div>'+tierTableHTML(byTier);
 
   // Steals
   const steals=allAttempts.filter(a=>a.type==="steal");
@@ -2111,9 +2086,37 @@ function buildStatsHTML(){
   return html;
 }
 
+let _adminLife=null; // cached all-time aggregate
+
 function openStats(){
-  document.getElementById('statsContent').innerHTML=buildStatsHTML();
+  _adminLife=null;
   document.getElementById('statsModal').classList.add('show');
+  showAdminTab('session');
+}
+
+function showAdminTab(which){
+  const tab=(active)=>`flex:1;padding:8px;border:none;border-radius:8px;font-family:Outfit,sans-serif;font-size:12px;font-weight:700;cursor:pointer;background:${active?'var(--gold)':'rgba(255,255,255,.08)'};color:${active?'#000':'rgba(255,255,255,.6)'};`;
+  let html=`<div style="display:flex;gap:8px;margin-bottom:16px;">
+    <button id="adTabSession" class="${which==='session'?'active':''}" onclick="showAdminTab('session')" style="${tab(which==='session')}">This Game</button>
+    <button id="adTabLifetime" class="${which==='lifetime'?'active':''}" onclick="showAdminTab('lifetime')" style="${tab(which==='lifetime')}">All Games</button>
+  </div>`;
+  if(which==='session'){
+    html+=buildStatsHTML();
+    document.getElementById('statsContent').innerHTML=html;
+  } else {
+    if(_adminLife===null){
+      html+='<div style="color:rgba(255,255,255,.4);text-align:center;padding:24px 0;">Loading all-time stats\u2026</div>';
+      document.getElementById('statsContent').innerHTML=html;
+      dbGetTierStats().then(agg=>{
+        _adminLife=agg||{byTier:{},total:0,totalOK:0};
+        const lt=document.getElementById('adTabLifetime');
+        if(lt&&lt.classList.contains('active')) showAdminTab('lifetime');
+      });
+      return;
+    }
+    html+=lifetimeStatsHTML(_adminLife);
+    document.getElementById('statsContent').innerHTML=html;
+  }
 }
 function closeStats(){ document.getElementById('statsModal').classList.remove('show'); }
 function closeRestart(){ document.getElementById('restartModal').classList.remove('show'); }
@@ -2178,6 +2181,13 @@ async function dbGetAttempts(player_id){
     const r=await fetch(BACKEND+'/api/attempts/'+player_id);
     return await r.json();
   }catch(e){ return []; }
+}
+
+async function dbGetTierStats(){
+  try{
+    const r=await fetch(BACKEND+'/api/stats/tiers');
+    return await r.json();
+  }catch(e){ return {byTier:{},total:0,totalOK:0}; }
 }
 
 async function dbCheckQuestion(fingerprint){
