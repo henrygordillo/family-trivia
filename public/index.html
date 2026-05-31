@@ -628,24 +628,27 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 <!-- PLAYER PICKER MODAL -->
 <div class="modal-bg" id="playerPickerModal">
-  <div class="modal-box" style="max-width:380px;text-align:left;max-height:82vh;overflow-y:auto;">
-    <div style="font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:16px;">Select Players</div>
+  <div class="modal-box" style="background:var(--card);border:1px solid var(--card3);max-width:400px;text-align:left;max-height:82vh;overflow-y:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <span class="slabel" style="margin-bottom:0;color:var(--muted);">Select Players</span>
+      <button id="reloadRosterBtn" title="Reload players" style="background:none;border:1.5px solid var(--card3);border-radius:8px;color:var(--muted);font-family:Outfit,sans-serif;font-size:12px;font-weight:700;padding:5px 10px;cursor:pointer;">&#8635; Reload</button>
+    </div>
     <div id="rosterList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;"></div>
-    <div id="rosterLoading" style="font-size:12px;color:rgba(255,255,255,.5);text-align:center;padding:8px;">Loading players…</div>
-    <button class="add-p" id="addPlayerBtn" style="width:100%;color:#fff;border-color:rgba(255,255,255,.2);background:rgba(255,255,255,.06);">+ New Player</button>
+    <div id="rosterLoading" style="font-size:12px;color:var(--muted);text-align:center;padding:8px;">Loading players&#8230;</div>
+    <button class="add-p" id="addPlayerBtn" style="width:100%;color:var(--ink);border-color:var(--card3);background:var(--card2);">+ New Player</button>
 
     <!-- Add player form (hidden by default) -->
-    <div id="addPlayerForm" style="display:none;background:rgba(255,255,255,.05);border-radius:12px;padding:14px;margin-top:10px;border:1px solid rgba(255,255,255,.15);">
-      <div style="font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.6);margin-bottom:12px;display:block;">New Player</div>
-      <input id="newFirstName" placeholder="First name" style="width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:10px 12px;color:#fff;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
-      <input id="newLastName" placeholder="Last name" style="width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:10px 12px;color:#fff;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
-      <input id="newNickname" placeholder="Nickname (shown in game)" style="width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:10px 12px;color:#fff;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
-      <input id="newEmail" placeholder="Email (unique identifier)" type="text" style="width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:10px 12px;color:#fff;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:10px;box-sizing:border-box;">
+    <div id="addPlayerForm" style="display:none;background:var(--card2);border-radius:12px;padding:14px;margin-top:10px;border:2px solid var(--card3);">
+      <div style="font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--ink);margin-bottom:12px;display:block;">New Player</div>
+      <input id="newFirstName" placeholder="First name" style="width:100%;background:#fff;border:1px solid var(--card3);border-radius:8px;padding:10px 12px;color:var(--ink);font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
+      <input id="newLastName" placeholder="Last name" style="width:100%;background:#fff;border:1px solid var(--card3);border-radius:8px;padding:10px 12px;color:var(--ink);font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
+      <input id="newNickname" placeholder="Nickname (shown in game)" style="width:100%;background:#fff;border:1px solid var(--card3);border-radius:8px;padding:10px 12px;color:var(--ink);font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
+      <input id="newEmail" placeholder="Email (unique identifier)" type="text" style="width:100%;background:#fff;border:1px solid var(--card3);border-radius:8px;padding:10px 12px;color:var(--ink);font-family:Outfit,sans-serif;font-size:14px;margin-bottom:10px;box-sizing:border-box;">
       <div style="display:flex;gap:8px;">
         <button id="savePlayerBtn" style="flex:1;padding:10px;background:var(--gold);border:none;border-radius:10px;color:#000;font-family:Outfit,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Save Player</button>
-        <button id="cancelPlayerBtn" style="flex:1;padding:10px;background:transparent;border:1.5px solid rgba(255,255,255,.2);border-radius:10px;color:rgba(255,255,255,.7);font-family:Outfit,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Cancel</button>
+        <button id="cancelPlayerBtn" style="flex:1;padding:10px;background:transparent;border:1.5px solid var(--card3);border-radius:10px;color:var(--ink);font-family:Outfit,sans-serif;font-weight:700;font-size:13px;cursor:pointer;opacity:.7;">Cancel</button>
       </div>
-      <div id="playerFormError" style="font-size:12px;color:#e05c6e;margin-top:8px;display:none;"></div>
+      <div id="playerFormError" style="font-size:12px;color:var(--red);margin-top:8px;display:none;"></div>
     </div>
 
     <button id="pickerDoneBtn" style="width:100%;margin-top:18px;padding:12px;background:var(--gold);border:none;border-radius:12px;color:#000;font-family:Outfit,sans-serif;font-weight:700;font-size:15px;cursor:pointer;">Done</button>
@@ -1014,7 +1017,7 @@ async function loadRoster(){
     roster=[];
     const list=document.getElementById('rosterList');
     if(list) list.innerHTML='';
-    if(loading){ loading.style.display='block'; loading.textContent='Couldn\u2019t reach the server. Close this and try again in a moment.'; }
+    if(loading){ loading.style.display='block'; loading.textContent='Couldn\u2019t reach the server \u2014 it may be waking up. Tap \u21BB Reload in a few seconds.'; }
     return;
   }
   roster=players;
@@ -2217,6 +2220,7 @@ function init(){
   renderSelectedSummary();
   document.getElementById('openPickerBtn').addEventListener('click',openPicker);
   document.getElementById('pickerDoneBtn').addEventListener('click',closePicker);
+  document.getElementById('reloadRosterBtn').addEventListener('click',loadRoster);
   document.getElementById('addPlayerBtn').addEventListener('click',()=>{
     document.getElementById('addPlayerForm').style.display='block';
     document.getElementById('addPlayerBtn').style.display='none';
