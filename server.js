@@ -61,6 +61,22 @@ app.post('/api/players', async (req, res) => {
   res.json(data);
 });
 
+// ── Player update ────────────────────────────────────────────────────────────
+app.put('/api/players/:id', async (req, res) => {
+  const { first_name, last_name, nickname } = req.body;
+  if (!first_name || !last_name || !nickname) {
+    return res.status(400).json({ error: 'All fields required' });
+  }
+  const { data, error } = await supabase
+    .from('players')
+    .update({ first_name, last_name, nickname })
+    .eq('id', req.params.id)
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
 // ── Attempts ──────────────────────────────────────────────────────────────────
 app.post('/api/attempts', async (req, res) => {
   const { player_id, category, tier, correct, pts } = req.body;
