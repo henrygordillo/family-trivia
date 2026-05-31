@@ -1,0 +1,131 @@
+const express = require('express');
+const cors = require('cors');
+const fetch = require('node-fetch');
+const { createClient } = require('@supabase/supabase-js');
+const path = require('path');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// Serve the game HTML file
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY
+);
+
+// ── Anthropic proxy ───────────────────────────────────────────────────────────
+app.post('/api/claude', async (req, res) => {
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify(req.body)
+    });
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error('Claude API error:', err);
+    res.status(500).json({ error: 'Claude API request failed' });
+  }
+});
+
+// ── Players ───────────────────────────────────────────────────────────────────
+app.get('/api/players', async (req, res) => {
+  const { data, error } = await supabase
+    .from('players')
+    .select('*')
+    .order('nickname');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.post('/api/players', async (req, res) => {
+  const { full_name, nickname } = req.body;
+  if (!full_name || !nickname) {
+    return res.status(400).json({ error: 'full_name and nickname are required' });
+  }
+  const { data, error } = await supabase
+    .from('players')
+    .insert({ full_name, nickname })
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+// ── Attempts ──────────────────────────────────────────────────────────────────
+app.post('/api/attempts', async (req, res) => {
+  const { player_id, category, tier, correct, pts } = req.body;
+  const { data, error } = await supabase
+    .from('attempts')
+    .insert({ player_id, category, tier, correct, pts })
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.get('/api/attempts/:player_id', async (req, res) => {
+  const { data, error } = await supabase
+    .from('attempts')
+    .select('*')
+    .eq('player_id', req.params.player_id)
+    .order('attempted_at', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+// ── Questions (deduplication) ─────────────────────────────────────────────────
+app.post('/api/questions/check', async (req, res) => {
+  const { fingerprint } = req.body;
+  const { data, error } = await supabase
+    .from('questions')
+    .select('id')
+    .eq('fingerprint', fingerprint)
+    .single();
+  if (error && error.code !== 'PGRST116') {
+    return res.status(500).json({ error: error.message });
+  }
+  res.json({ exists: !!data });
+});
+
+app.post('/api/questions', async (req, res) => {
+  const { category, tier, fingerprint } = req.body;
+  const { data, error } = await supabase
+    .from('questions')
+    .insert({ category, tier, fingerprint })
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.get('/api/questions/recent/:category', async (req, res) => {
+  const { data, error } = await supabase
+    .from('questions')
+    .select('fingerprint')
+    .eq('category', req.params.category)
+    .order('asked_at', { ascending: false })
+    .limit(20);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+// ── Health check ──────────────────────────────────────────────────────────────
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
+// ── Fallback to game ──────────────────────────────────────────────────────────
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Family Trivia server running on port ${PORT}`));
