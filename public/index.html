@@ -988,11 +988,18 @@ let selectedPlayers=[]; // currently selected player objects
 
 async function loadRoster(){
   const loading=document.getElementById('rosterLoading');
-  const list=document.getElementById('rosterList');
-  if(loading) loading.style.display='block';
-  roster=await dbGetPlayers();
-  if(loading) loading.style.display='none';
-  renderRoster();
+  if(loading){ loading.style.display='block'; loading.textContent='Loading players…'; }
+  const players=await dbGetPlayers();
+  if(players===null){
+    // Server unreachable or returned an error — say so instead of hanging
+    roster=[];
+    const list=document.getElementById('rosterList');
+    if(list) list.innerHTML='';
+    if(loading){ loading.style.display='block'; loading.textContent='Couldn\u2019t reach the server. Wait a moment and reload, or tap + New Player.'; }
+    return;
+  }
+  roster=players;
+  renderRoster(); // renderRoster hides the loading text and draws the cards (or "No players yet")
 }
 
 function renderRoster(){
@@ -2014,8 +2021,10 @@ window.pickQ=pickQ;
 async function dbGetPlayers(){
   try{
     const r=await fetch(BACKEND+'/api/players');
-    return await r.json();
-  }catch(e){ return []; }
+    const d=await r.json();
+    if(!Array.isArray(d)) return null; // server returned an error object, not a list
+    return d;
+  }catch(e){ return null; }
 }
 
 async function dbCreatePlayer(first_name, last_name, nickname, email){
@@ -2157,6 +2166,8 @@ async function saveEditPlayer(){
 }
 
 function init(){
+  // Load saved players from the database first, so it can't be blocked by later setup
+  loadRoster();
   // Setup
   document.getElementById('addPlayerBtn').addEventListener('click',()=>{
     document.getElementById('addPlayerForm').style.display='block';
