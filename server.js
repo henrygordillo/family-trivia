@@ -48,13 +48,13 @@ app.get('/api/players', async (req, res) => {
 });
 
 app.post('/api/players', async (req, res) => {
-  const { full_name, nickname } = req.body;
-  if (!full_name || !nickname) {
-    return res.status(400).json({ error: 'full_name and nickname are required' });
+  const { first_name, last_name, nickname, email } = req.body;
+  if (!first_name || !last_name || !nickname || !email) {
+    return res.status(400).json({ error: 'first_name, last_name, nickname and email are required' });
   }
   const { data, error } = await supabase
     .from('players')
-    .insert({ full_name, nickname })
+    .insert({ first_name, last_name, nickname, email })
     .select()
     .single();
   if (error) return res.status(500).json({ error: error.message });
