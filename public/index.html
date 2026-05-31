@@ -45,6 +45,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .p-row input::placeholder{color:#aaa;font-weight:400;}
 .p-del{background:none;border:none;cursor:pointer;color:#bbb;font-size:20px;line-height:1;padding:0 2px;transition:color .2s;}
 .p-del:hover{color:var(--red);}
+.roster-player{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.1);border-radius:10px;cursor:pointer;transition:all .15s;}
+.roster-player.selected{background:rgba(31,173,160,.15);border-color:var(--teal-hi);}
+.roster-player .rp-name{font-size:15px;font-weight:700;color:#fff;}
+.roster-player .rp-full{font-size:11px;color:rgba(255,255,255,.4);margin-top:2px;}
+.roster-player .rp-check{font-size:18px;color:var(--teal-hi);opacity:0;transition:opacity .15s;}
+.roster-player.selected .rp-check{opacity:1;}
 .add-p{width:100%;padding:9px;background:none;border:2px dashed var(--card3);border-radius:12px;cursor:pointer;
   font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;color:var(--muted);transition:all .2s;}
 .add-p:hover{border-color:var(--gold);color:var(--gold-lo);}
@@ -360,8 +366,22 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <div class="setup-card">
     <div class="sec">
       <span class="slabel">Players</span>
-      <div id="playerList"></div>
-      <button class="add-p" id="addPlayerBtn">+ Add Player</button>
+      <div id="rosterList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;"></div>
+      <div id="rosterLoading" style="font-size:12px;color:var(--muted);text-align:center;padding:8px;">Loading players...</div>
+      <button class="add-p" id="addPlayerBtn">+ New Player</button>
+    </div>
+    <!-- Add player form (hidden by default) -->
+    <div id="addPlayerForm" style="display:none;background:rgba(255,255,255,.04);border-radius:12px;padding:14px;margin-top:8px;">
+      <div style="font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:10px;">New Player</div>
+      <input id="newFirstName" placeholder="First name" style="width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 12px;color:#fff;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
+      <input id="newLastName" placeholder="Last name" style="width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 12px;color:#fff;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
+      <input id="newNickname" placeholder="Nickname (shown in game)" style="width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 12px;color:#fff;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
+      <input id="newEmail" placeholder="Email (unique identifier)" type="email" style="width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 12px;color:#fff;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:10px;box-sizing:border-box;">
+      <div style="display:flex;gap:8px;">
+        <button id="savePlayerBtn" style="flex:1;padding:10px;background:var(--teal-hi);border:none;border-radius:10px;color:#000;font-family:Outfit,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Save Player</button>
+        <button id="cancelPlayerBtn" style="flex:1;padding:10px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:10px;color:rgba(255,255,255,.6);font-family:Outfit,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Cancel</button>
+      </div>
+      <div id="playerFormError" style="font-size:12px;color:#e05c6e;margin-top:8px;display:none;"></div>
     </div>
     <div class="sep"></div>
     <div class="sec">
@@ -937,6 +957,100 @@ function renderTables(answererIdx){
 // ═══════════════════════════════════════════════════════════════════
 // SETUP
 // ═══════════════════════════════════════════════════════════════════
+// ── Roster management ────────────────────────────────────────────────────────
+let roster=[]; // all players from DB
+let selectedPlayers=[]; // currently selected player objects
+
+async function loadRoster(){
+  const loading=document.getElementById('rosterLoading');
+  const list=document.getElementById('rosterList');
+  if(loading) loading.style.display='block';
+  roster=await dbGetPlayers();
+  if(loading) loading.style.display='none';
+  renderRoster();
+}
+
+function renderRoster(){
+  const list=document.getElementById('rosterList');
+  if(!list) return;
+  if(roster.length===0){
+    list.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:8px;">No players yet — add your first player below</div>';
+    return;
+  }
+  list.innerHTML=roster.map(p=>{
+    const sel=selectedPlayers.find(s=>s.id===p.id);
+    return `<div class="roster-player${sel?' selected':''}" onclick="togglePlayerSelect('${p.id}')">
+      <div>
+        <div class="rp-name">${p.nickname}</div>
+        <div class="rp-full">${p.first_name} ${p.last_name}</div>
+      </div>
+      <div class="rp-check">✓</div>
+    </div>`;
+  }).join('');
+}
+
+function togglePlayerSelect(playerId){
+  const player=roster.find(p=>p.id===playerId);
+  if(!player) return;
+  const idx=selectedPlayers.findIndex(p=>p.id===playerId);
+  if(idx>=0){
+    selectedPlayers.splice(idx,1);
+  } else {
+    if(selectedPlayers.length>=5){
+      alert('Maximum 5 players');
+      return;
+    }
+    selectedPlayers.push(player);
+  }
+  renderRoster();
+  updateStartBtn();
+}
+
+function updateStartBtn(){
+  const btn=document.getElementById('startBtn');
+  if(!btn) return;
+  const n=selectedPlayers.length;
+  btn.disabled=n<2;
+  btn.style.opacity=n<2?'0.4':'1';
+  btn.textContent=n<2?`Select at least 2 players (${n} selected)`:`Let's Play → (${n} players)`;
+}
+
+async function saveNewPlayer(){
+  const fn=document.getElementById('newFirstName').value.trim();
+  const ln=document.getElementById('newLastName').value.trim();
+  const nn=document.getElementById('newNickname').value.trim();
+  const em=document.getElementById('newEmail').value.trim();
+  const err=document.getElementById('playerFormError');
+
+  if(!fn||!ln||!nn||!em){
+    err.textContent='All fields are required';err.style.display='block';return;
+  }
+  if(!em.includes('@')){
+    err.textContent='Please enter a valid email';err.style.display='block';return;
+  }
+
+  const btn=document.getElementById('savePlayerBtn');
+  btn.textContent='Saving...';btn.disabled=true;
+
+  const result=await dbCreatePlayer(fn,ln,nn,em);
+  if(result&&result.id){
+    roster.push(result);
+    selectedPlayers.push(result);
+    document.getElementById('addPlayerForm').style.display='none';
+    document.getElementById('newFirstName').value='';
+    document.getElementById('newLastName').value='';
+    document.getElementById('newNickname').value='';
+    document.getElementById('newEmail').value='';
+    err.style.display='none';
+    renderRoster();
+    updateStartBtn();
+  } else {
+    err.textContent=result?.error||'Failed to save player. Email may already exist.';
+    err.style.display='block';
+  }
+  btn.textContent='Save Player';btn.disabled=false;
+}
+
 function renderPlayers(){
   const list=document.getElementById('playerList');
   list.innerHTML=pDefs.map((p,i)=>`
@@ -958,7 +1072,8 @@ function renderPlayers(){
 function addPlayer(){
   if(pDefs.length>=8)return;
   pDefs.push({n:'',ph:`Player ${pDefs.length+1}`});
-  renderPlayers();
+  loadRoster();
+  updateStartBtn();
   setTimeout(()=>document.getElementById('pi'+(pDefs.length-1))?.focus(),50);
 }
 function removePlayer(i){ pDefs.splice(i,1); renderPlayers(); }
@@ -1007,8 +1122,12 @@ function initShuffleToggle(){
 // START GAME
 // ═══════════════════════════════════════════════════════════════════
 function startGame(){
-  const names=pDefs.map((p,i)=>document.getElementById('pi'+i)?.value.trim()||p.n||p.ph);
-  if(names.length<2){ toast('Need at least 2 players!'); return; }
+  if(selectedPlayers.length<2){ toast('Select at least 2 players!'); return; }
+  const names=selectedPlayers.map(p=>p.nickname);
+
+  // Build playerProfiles map: nickname -> player object (with id for DB)
+  G.playerProfiles={};
+  selectedPlayers.forEach(p=>{ G.playerProfiles[p.nickname]=p; });
 
   G.players=names;
   G.setupNames=[...names];
@@ -1881,12 +2000,12 @@ async function dbGetPlayers(){
   }catch(e){ return []; }
 }
 
-async function dbCreatePlayer(full_name, nickname){
+async function dbCreatePlayer(first_name, last_name, nickname, email){
   try{
     const r=await fetch(BACKEND+'/api/players',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({full_name,nickname})
+      body:JSON.stringify({first_name,last_name,nickname,email})
     });
     return await r.json();
   }catch(e){ return null; }
@@ -1938,7 +2057,15 @@ function makeFingerprint(question){
 
 function init(){
   // Setup
-  document.getElementById('addPlayerBtn').addEventListener('click',addPlayer);
+  document.getElementById('addPlayerBtn').addEventListener('click',()=>{
+    document.getElementById('addPlayerForm').style.display='block';
+    document.getElementById('addPlayerBtn').style.display='none';
+  });
+  document.getElementById('cancelPlayerBtn').addEventListener('click',()=>{
+    document.getElementById('addPlayerForm').style.display='none';
+    document.getElementById('addPlayerBtn').style.display='block';
+  });
+  document.getElementById('savePlayerBtn').addEventListener('click',saveNewPlayer);
   document.getElementById('startBtn').addEventListener('click',startGame);
   document.querySelectorAll('.judge-card').forEach(c=>c.addEventListener('click',()=>pickJudge(c.dataset.jm)));
   document.querySelectorAll('.chip[data-g]').forEach(c=>c.addEventListener('click',()=>chipClick(c)));
