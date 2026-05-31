@@ -1083,20 +1083,7 @@ async function saveNewPlayer(){
 }
 
 function renderPlayers(){
-  const list=document.getElementById('playerList');
-  list.innerHTML=pDefs.map((p,i)=>`
-    <div class="p-row">
-      <input type="text" placeholder="${p.ph}" id="pi${i}" value="${p.n}" maxlength="16"/>
-      ${pDefs.length>2?`<button class="p-del" data-idx="${i}">×</button>`:''}
-    </div>`).join('');
-  // Bind inputs
-  pDefs.forEach((_,i)=>{
-    const inp=document.getElementById('pi'+i);
-    if(inp) inp.addEventListener('input',()=>{pDefs[i].n=inp.value;rebuildJudgeChips();});
-  });
-  document.querySelectorAll('.p-del').forEach(btn=>{
-    btn.addEventListener('click',()=>removePlayer(+btn.dataset.idx));
-  });
+  // Legacy function — roster now handled by renderRoster()
   rebuildJudgeChips();
 }
 
