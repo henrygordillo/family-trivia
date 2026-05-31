@@ -45,10 +45,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .p-row input::placeholder{color:#aaa;font-weight:400;}
 .p-del{background:none;border:none;cursor:pointer;color:#bbb;font-size:20px;line-height:1;padding:0 2px;transition:color .2s;}
 .p-del:hover{color:var(--red);}
-.roster-player{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(0,0,0,.04);border:1.5px solid rgba(0,0,0,.1);border-radius:10px;cursor:pointer;transition:all .15s;margin-bottom:6px;}
-.roster-player.selected{background:rgba(31,173,160,.12);border-color:var(--teal-hi);}
-.roster-player .rp-name{font-size:15px;font-weight:700;color:#111;}
-.roster-player .rp-full{font-size:11px;color:rgba(0,0,0,.4);margin-top:2px;}
+.roster-player{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--card);border:1.5px solid var(--card3);border-radius:10px;cursor:pointer;transition:all .15s;margin-bottom:6px;}
+.roster-player.selected{background:rgba(31,173,160,.12);border-color:var(--teal);}
+.roster-player .rp-name{font-size:15px;font-weight:700;color:var(--ink);}
+.roster-player .rp-full{font-size:11px;color:var(--muted);margin-top:2px;}
 .roster-player .rp-check{font-size:18px;color:var(--teal-hi);opacity:0;transition:opacity .15s;}
 .roster-player.selected .rp-check{opacity:1;}
 .add-p{width:100%;padding:9px;background:none;border:2px dashed var(--card3);border-radius:12px;cursor:pointer;
@@ -364,22 +364,22 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <div id="setup" class="screen active">
   <div class="logo"><h1>Trivia<br>Night</h1><p>AI-Powered · No Prep · En Español También</p></div>
   <div class="setup-card">
-    <div class="sec" style="background:rgba(212,168,67,.06);border:1.5px solid rgba(212,168,67,.25);border-radius:14px;padding:14px;">
-      <span class="slabel" style="color:#7a5800;font-weight:800;">Players</span>
+    <div class="sec" style="background:var(--card2);border:2px solid var(--card3);border-radius:14px;padding:16px;">
+      <span class="slabel" style="color:var(--ink);font-weight:800;">Players</span>
       <div id="rosterList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;"></div>
       <div id="rosterLoading" style="font-size:12px;color:var(--muted);text-align:center;padding:8px;">Loading players...</div>
-      <button class="add-p" id="addPlayerBtn" style="color:#111;border-color:rgba(212,168,67,.5);background:rgba(212,168,67,.1);">+ New Player</button>
+      <button class="add-p" id="addPlayerBtn" style="color:var(--ink);border-color:var(--card3);background:var(--card);">+ New Player</button>
     </div>
     <!-- Add player form (hidden by default) -->
-    <div id="addPlayerForm" style="display:none;background:rgba(212,168,67,.06);border-radius:12px;padding:14px;margin-top:10px;border:1px solid rgba(212,168,67,.2);">
-      <div style="font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gold-hi);margin-bottom:10px;">New Player</div>
-      <input id="newFirstName" placeholder="First name" style="width:100%;background:rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.15);border-radius:8px;padding:8px 12px;color:#111;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
-      <input id="newLastName" placeholder="Last name" style="width:100%;background:rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.15);border-radius:8px;padding:8px 12px;color:#111;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
-      <input id="newNickname" placeholder="Nickname (shown in game)" style="width:100%;background:rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.15);border-radius:8px;padding:8px 12px;color:#111;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
+    <div id="addPlayerForm" style="display:none;background:var(--card2);border-radius:12px;padding:14px;margin-top:10px;border:2px solid var(--card3);">
+      <div style="font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--ink);margin-bottom:12px;display:block;">New Player</div>
+      <input id="newFirstName" placeholder="First name" style="width:100%;background:#fff;border:1px solid var(--card3);border-radius:8px;padding:10px 12px;color:var(--ink);font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
+      <input id="newLastName" placeholder="Last name" style="width:100%;background:#fff;border:1px solid var(--card3);border-radius:8px;padding:10px 12px;color:var(--ink);font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
+      <input id="newNickname" placeholder="Nickname (shown in game)" style="width:100%;background:#fff;border:1px solid var(--card3);border-radius:8px;padding:10px 12px;color:var(--ink);font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
       <input id="newEmail" placeholder="Email (unique identifier)" type="email" style="width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 12px;color:#fff;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:10px;box-sizing:border-box;">
       <div style="display:flex;gap:8px;">
-        <button id="savePlayerBtn" style="flex:1;padding:10px;background:var(--teal-hi);border:none;border-radius:10px;color:#000;font-family:Outfit,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Save Player</button>
-        <button id="cancelPlayerBtn" style="flex:1;padding:10px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:10px;color:rgba(255,255,255,.6);font-family:Outfit,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Cancel</button>
+        <button id="savePlayerBtn" style="flex:1;padding:10px;background:var(--gold);border:none;border-radius:10px;color:#000;font-family:Outfit,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Save Player</button>
+        <button id="cancelPlayerBtn" style="flex:1;padding:10px;background:transparent;border:1px solid rgba(255,255,255,.2);border-radius:10px;color:rgba(255,255,255,.7);font-family:Outfit,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Cancel</button>
       </div>
       <div id="playerFormError" style="font-size:12px;color:#e05c6e;margin-top:8px;display:none;"></div>
     </div>
@@ -436,7 +436,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
     <div class="sep"></div>
     <button class="go" id="startBtn">Let's Play →</button>
-    <button id="endGameBtnSetup" style="width:100%;padding:10px;margin-top:8px;border:none;border-radius:12px;cursor:pointer;background:rgba(192,57,43,.15);border:1px solid rgba(192,57,43,.4);font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;color:#ff8a80;letter-spacing:1px;">End Game Session</button>
+    <button id="endGameBtnSetup" style="width:100%;padding:10px;margin-top:8px;background:transparent;border:1.5px solid rgba(0,0,0,.2);border-radius:12px;cursor:pointer;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;color:var(--ink);letter-spacing:1px;opacity:.7;">End Game Session</button>
 
   </div>
 </div>
@@ -976,7 +976,7 @@ function renderRoster(){
   if(loading) loading.style.display='none';
   if(!list) return;
   if(roster.length===0){
-    list.innerHTML='<div style="font-size:12px;color:rgba(0,0,0,.4);text-align:center;padding:12px 0;">No players yet — add your first player below</div>';
+    list.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px 0;">No players yet — add your first player below</div>';
     return;
   }
   list.innerHTML=roster.map(p=>{
