@@ -1088,16 +1088,27 @@ function togglePlayerSelect(playerId){
   }
   renderRoster();
   renderSelectedSummary();
+  rebuildJudgeChips();
   updateStartBtn();
 }
 
 function updateStartBtn(){
   const btn=document.getElementById('startBtn');
   if(!btn) return;
+  const human=document.querySelector('.judge-card.on')?.dataset.jm==='human';
   const n=selectedPlayers.length;
-  btn.disabled=n<2;
-  btn.style.opacity=n<2?'0.4':'1';
-  btn.textContent=n<2?`Select at least 2 players (${n} selected)`:`Let's Play → (${n} players)`;
+  const effective=n-(human?1:0); // players who actually answer questions
+  const ok=effective>=1;
+  btn.disabled=!ok;
+  btn.style.opacity=ok?'1':'0.4';
+  btn.style.cursor=ok?'pointer':'not-allowed';
+  if(ok){
+    btn.textContent=`Let's Play \u2192 (${n} player${n!==1?'s':''})`;
+  } else if(human){
+    btn.textContent=`Add a player besides the judge (${n} selected)`;
+  } else {
+    btn.textContent='Select at least 1 player';
+  }
 }
 
 async function saveNewPlayer(){
@@ -1131,6 +1142,7 @@ async function saveNewPlayer(){
     document.getElementById('addPlayerBtn').style.display='block';
     renderRoster();
     renderSelectedSummary();
+    rebuildJudgeChips();
     updateStartBtn();
   } else {
     err.textContent=result?.error||'Failed to save player. Email may already exist.';
@@ -1155,11 +1167,17 @@ function removePlayer(i){ pDefs.splice(i,1); renderPlayers(); }
 
 function rebuildJudgeChips(){
   const c=document.getElementById('judgeChips'); if(!c)return;
-  const names=pDefs.map((p,i)=>document.getElementById('pi'+i)?.value.trim()||p.n||p.ph);
-  const prev=+(document.querySelector('#judgeChips .jchip.on')?.dataset.idx??0);
-  const sel=Math.min(prev,names.length-1);
+  const names=selectedPlayers.map(p=>p.nickname);
+  if(names.length===0){
+    c.innerHTML='<div style="font-size:12px;color:#8a6a20;padding:4px 0;">Select players first to choose a judge.</div>';
+    return;
+  }
+  // Keep the current judge if that player is still selected; otherwise default to the first
+  const prevName=document.querySelector('#judgeChips .jchip.on')?.dataset.name;
+  let sel=names.indexOf(prevName);
+  if(sel<0) sel=0;
   c.innerHTML=names.map((n,i)=>`
-    <button class="jchip${i===sel?' on':''}" data-idx="${i}">${n}</button>`).join('');
+    <button class="jchip${i===sel?' on':''}" data-idx="${i}" data-name="${n}">${n}</button>`).join('');
   c.querySelectorAll('.jchip').forEach(btn=>{
     btn.addEventListener('click',()=>{
       c.querySelectorAll('.jchip').forEach(b=>b.classList.remove('on'));
@@ -1173,6 +1191,7 @@ function pickJudge(mode){
   document.querySelector(`[data-jm="${mode}"]`).classList.add('on');
   G.judgeMode=mode;
   document.getElementById('hjPanel').style.display=mode==='human'?'block':'none';
+  updateStartBtn();
 }
 
 function chipClick(btn){
@@ -1197,7 +1216,12 @@ function initShuffleToggle(){
 // START GAME
 // ═══════════════════════════════════════════════════════════════════
 function startGame(){
-  if(selectedPlayers.length<2){ toast('Select at least 2 players!'); return; }
+  const isHuman=document.querySelector('.judge-card.on')?.dataset.jm==='human';
+  const effective=selectedPlayers.length-(isHuman?1:0);
+  if(effective<1){
+    toast(isHuman?'Need a player besides the judge!':'Select at least 1 player!');
+    return;
+  }
   const names=selectedPlayers.map(p=>p.nickname);
 
   // Build playerProfiles map: nickname -> player object (with id for DB)
