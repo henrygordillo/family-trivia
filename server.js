@@ -137,6 +137,23 @@ app.get('/api/questions/recent/:category', async (req, res) => {
   res.json(data);
 });
 
+// ── Stats: all-time by-tier aggregate (server-side) ────────────────────────────
+app.get('/api/stats/tiers', async (req, res) => {
+  const { data, error } = await supabase
+    .from('attempts')
+    .select('tier, correct');
+  if (error) return res.status(500).json({ error: error.message });
+  const byTier = {};
+  let total = 0, totalOK = 0;
+  (data || []).forEach(r => {
+    const t = r.tier;
+    if (!byTier[t]) byTier[t] = { att: 0, ok: 0 };
+    byTier[t].att++; total++;
+    if (r.correct) { byTier[t].ok++; totalOK++; }
+  });
+  res.json({ byTier, total, totalOK });
+});
+
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
