@@ -45,10 +45,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .p-row input::placeholder{color:#aaa;font-weight:400;}
 .p-del{background:none;border:none;cursor:pointer;color:#bbb;font-size:20px;line-height:1;padding:0 2px;transition:color .2s;}
 .p-del:hover{color:var(--red);}
-.roster-player{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.1);border-radius:10px;cursor:pointer;transition:all .15s;}
-.roster-player.selected{background:rgba(31,173,160,.15);border-color:var(--teal-hi);}
-.roster-player .rp-name{font-size:15px;font-weight:700;color:#fff;}
-.roster-player .rp-full{font-size:11px;color:rgba(255,255,255,.4);margin-top:2px;}
+.roster-player{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(0,0,0,.04);border:1.5px solid rgba(0,0,0,.1);border-radius:10px;cursor:pointer;transition:all .15s;margin-bottom:6px;}
+.roster-player.selected{background:rgba(31,173,160,.12);border-color:var(--teal-hi);}
+.roster-player .rp-name{font-size:15px;font-weight:700;color:#111;}
+.roster-player .rp-full{font-size:11px;color:rgba(0,0,0,.4);margin-top:2px;}
 .roster-player .rp-check{font-size:18px;color:var(--teal-hi);opacity:0;transition:opacity .15s;}
 .roster-player.selected .rp-check{opacity:1;}
 .add-p{width:100%;padding:9px;background:none;border:2px dashed var(--card3);border-radius:12px;cursor:pointer;
@@ -364,15 +364,15 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <div id="setup" class="screen active">
   <div class="logo"><h1>Trivia<br>Night</h1><p>AI-Powered · No Prep · En Español También</p></div>
   <div class="setup-card">
-    <div class="sec">
-      <span class="slabel">Players</span>
+    <div class="sec" style="background:rgba(212,168,67,.06);border:1.5px solid rgba(212,168,67,.25);border-radius:14px;padding:14px;">
+      <span class="slabel" style="color:#7a5800;font-weight:800;">Players</span>
       <div id="rosterList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;"></div>
       <div id="rosterLoading" style="font-size:12px;color:var(--muted);text-align:center;padding:8px;">Loading players...</div>
-      <button class="add-p" id="addPlayerBtn">+ New Player</button>
+      <button class="add-p" id="addPlayerBtn" style="color:#111;border-color:rgba(212,168,67,.5);background:rgba(212,168,67,.1);">+ New Player</button>
     </div>
     <!-- Add player form (hidden by default) -->
-    <div id="addPlayerForm" style="display:none;background:rgba(0,0,0,.04);border-radius:12px;padding:14px;margin-top:8px;border:1px solid rgba(0,0,0,.1);">
-      <div style="font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(0,0,0,.4);margin-bottom:10px;">New Player</div>
+    <div id="addPlayerForm" style="display:none;background:rgba(212,168,67,.06);border-radius:12px;padding:14px;margin-top:10px;border:1px solid rgba(212,168,67,.2);">
+      <div style="font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gold-hi);margin-bottom:10px;">New Player</div>
       <input id="newFirstName" placeholder="First name" style="width:100%;background:rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.15);border-radius:8px;padding:8px 12px;color:#111;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
       <input id="newLastName" placeholder="Last name" style="width:100%;background:rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.15);border-radius:8px;padding:8px 12px;color:#111;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
       <input id="newNickname" placeholder="Nickname (shown in game)" style="width:100%;background:rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.15);border-radius:8px;padding:8px 12px;color:#111;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
@@ -972,9 +972,11 @@ async function loadRoster(){
 
 function renderRoster(){
   const list=document.getElementById('rosterList');
+  const loading=document.getElementById('rosterLoading');
+  if(loading) loading.style.display='none';
   if(!list) return;
   if(roster.length===0){
-    list.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:8px;">No players yet — add your first player below</div>';
+    list.innerHTML='<div style="font-size:12px;color:rgba(0,0,0,.4);text-align:center;padding:12px 0;">No players yet — add your first player below</div>';
     return;
   }
   list.innerHTML=roster.map(p=>{
