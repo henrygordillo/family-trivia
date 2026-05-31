@@ -623,6 +623,15 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <input id="editFirstName" placeholder="First name" style="width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:10px 12px;color:#fff;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
     <input id="editLastName" placeholder="Last name" style="width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:10px 12px;color:#fff;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
     <input id="editNickname" placeholder="Nickname" style="width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:10px 12px;color:#fff;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:16px;box-sizing:border-box;">
+    
+    <!-- Change email section -->
+    <div style="border-top:1px solid rgba(255,255,255,.1);padding-top:14px;margin-bottom:14px;">
+      <button onclick="toggleEmailChange()" id="emailChangeToggle" style="background:none;border:none;color:rgba(255,255,255,.5);font-family:Outfit,sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;padding:0;margin-bottom:10px;">▶ Change Email</button>
+      <div id="emailChangeSection" style="display:none;">
+        <input id="editNewEmail" placeholder="New email address" type="text" style="width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:10px 12px;color:#fff;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:0;box-sizing:border-box;">
+      </div>
+    </div>
+
     <div id="editPlayerError" style="font-size:12px;color:#e05c6e;margin-bottom:10px;display:none;"></div>
     <div style="display:flex;gap:8px;">
       <button id="saveEditBtn" style="flex:1;padding:10px;background:var(--gold);border:none;border-radius:10px;color:#000;font-family:Outfit,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Save Changes</button>
@@ -1000,7 +1009,7 @@ function renderRoster(){
     return `<div class="roster-player${sel?' selected':''}" onclick="togglePlayerSelect('${p.id}')">
       <div style="flex:1;">
         <div class="rp-name">${p.nickname}</div>
-        <div class="rp-full">${p.first_name} ${p.last_name}</div>
+        <div class="rp-full">${p.first_name} ${p.last_name} · ${p.email}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
         <button onclick="event.stopPropagation();openEditPlayer('${p.id}')" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--muted);padding:4px 6px;border-radius:6px;">✏️</button>
@@ -2077,6 +2086,18 @@ function makeFingerprint(question){
   return question.toLowerCase().replace(/[^a-z0-9\s]/g,'').substring(0,60).trim();
 }
 
+function toggleEmailChange(){
+  const sec=document.getElementById('emailChangeSection');
+  const btn=document.getElementById('emailChangeToggle');
+  const open=sec.style.display!=='none';
+  sec.style.display=open?'none':'block';
+  btn.textContent=(open?'▶':'▼')+' Change Email';
+  if(open){
+    document.getElementById('editCurrentEmail').value='';
+    document.getElementById('editNewEmail').value='';
+  }
+}
+
 function openEditPlayer(playerId){
   const p=roster.find(r=>r.id===playerId);
   if(!p) return;
@@ -2090,6 +2111,9 @@ function openEditPlayer(playerId){
 
 function closeEditPlayer(){
   document.getElementById('editPlayerModal').classList.remove('show');
+  document.getElementById('emailChangeSection').style.display='none';
+  document.getElementById('emailChangeToggle').textContent='▶ Change Email';
+  document.getElementById('editNewEmail').value='';
 }
 
 async function saveEditPlayer(){
@@ -2103,21 +2127,37 @@ async function saveEditPlayer(){
     err.textContent='All fields are required';err.style.display='block';return;
   }
 
+  // Email change validation
+  const emailSectionOpen=document.getElementById('emailChangeSection').style.display!=='none';
+  let newEmail=null;
+  if(emailSectionOpen){
+    newEmail=document.getElementById('editNewEmail').value.trim();
+    if(!newEmail){
+      err.textContent='Please enter a new email address';err.style.display='block';return;
+    }
+    const emailOK=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail);
+    if(!emailOK){
+      err.textContent='Please enter a valid email address';err.style.display='block';return;
+    }
+  }
+
   const btn=document.getElementById('saveEditBtn');
   btn.textContent='Saving...';btn.disabled=true;
 
   try{
+    const body={first_name,last_name,nickname};
+    if(newEmail) body.email=newEmail;
     const r=await fetch(BACKEND+'/api/players/'+id,{
       method:'PUT',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({first_name,last_name,nickname})
+      body:JSON.stringify(body)
     });
     const data=await r.json();
     if(data.id){
       const idx=roster.findIndex(p=>p.id===id);
-      if(idx>=0) roster[idx]={...roster[idx],first_name,last_name,nickname};
+      if(idx>=0) roster[idx]={...roster[idx],first_name,last_name,nickname,...(newEmail?{email:newEmail}:{})};
       const sidx=selectedPlayers.findIndex(p=>p.id===id);
-      if(sidx>=0) selectedPlayers[sidx]={...selectedPlayers[sidx],first_name,last_name,nickname};
+      if(sidx>=0) selectedPlayers[sidx]={...selectedPlayers[sidx],first_name,last_name,nickname,...(newEmail?{email:newEmail}:{})};
       closeEditPlayer();
       renderRoster();
     } else {
