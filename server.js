@@ -63,13 +63,15 @@ app.post('/api/players', async (req, res) => {
 
 // ── Player update ────────────────────────────────────────────────────────────
 app.put('/api/players/:id', async (req, res) => {
-  const { first_name, last_name, nickname } = req.body;
+  const { first_name, last_name, nickname, email } = req.body;
   if (!first_name || !last_name || !nickname) {
     return res.status(400).json({ error: 'All fields required' });
   }
+  const updates = { first_name, last_name, nickname };
+  if (email) updates.email = email;
   const { data, error } = await supabase
     .from('players')
-    .update({ first_name, last_name, nickname })
+    .update(updates)
     .eq('id', req.params.id)
     .select()
     .single();
