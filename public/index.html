@@ -889,51 +889,47 @@ function buildPTable(answererIdx){
   return rows;
 }
 
-function openPlayerStats(playerIdx){
-  const pName=G.players[playerIdx];
-  const allAtt=(G.attempts||[]).filter(a=>a.player===pName);
-  const main=allAtt.filter(a=>a.type==='main');
-  const steals=allAtt.filter(a=>a.type==='steal');
+// ── Shared stats renderer (used by both Session and Lifetime tabs) ──
+// atts: [{cat, tier, correct, pts, type?}]; opts: {hasType, totalPts?, catList?}
+function statsBlockHTML(atts, opts){
+  opts=opts||{};
+  const hasType=!!opts.hasType;
+  const main=hasType?atts.filter(a=>a.type==='main'):atts.slice();
+  const steals=hasType?atts.filter(a=>a.type==='steal'):[];
   const mOK=main.filter(a=>a.correct).length;
   const sOK=steals.filter(a=>a.correct).length;
-
-  let html=`<div style="font-size:22px;font-weight:900;font-family:'Playfair Display',serif;color:var(--gold-hi);margin-bottom:4px;">${pName}</div>`;
-  html+=`<div style="font-size:11px;color:rgba(255,255,255,.4);letter-spacing:2px;text-transform:uppercase;margin-bottom:16px;">Player Stats</div>`;
-
-  // Overall
   const totalPct=main.length>0?Math.round(mOK/main.length*100):0;
-  html+=`<div style="display:flex;gap:16px;margin-bottom:16px;">
+  const totalPts=(opts.totalPts!=null)?opts.totalPts:atts.filter(a=>a.correct).reduce((s,a)=>s+(a.pts||0),0);
+
+  let html=`<div style="display:flex;gap:16px;margin-bottom:16px;">
     <div style="flex:1;background:rgba(255,255,255,.06);border-radius:10px;padding:10px;text-align:center;">
-      <div style="font-size:22px;font-weight:700;color:var(--gold-hi);">${main.length>0?totalPct+'%':'—'}</div>
+      <div style="font-size:22px;font-weight:700;color:var(--gold-hi);">${main.length>0?totalPct+'%':'\u2014'}</div>
       <div style="font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px;">Hit Rate</div>
     </div>
     <div style="flex:1;background:rgba(255,255,255,.06);border-radius:10px;padding:10px;text-align:center;">
-      <div style="font-size:22px;font-weight:700;color:var(--gold-hi);">${G.scores[playerIdx]}</div>
-      <div style="font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px;">Total Pts</div>
+      <div style="font-size:22px;font-weight:700;color:var(--gold-hi);">${totalPts}</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px;">${hasType?'Total Pts':'Pts (all)'}</div>
     </div>
     <div style="flex:1;background:rgba(255,255,255,.06);border-radius:10px;padding:10px;text-align:center;">
-      <div style="font-size:22px;font-weight:700;color:var(--purple-hi);">${steals.length>0?sOK+'/'+steals.length:'—'}</div>
-      <div style="font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px;">Steals</div>
+      <div style="font-size:22px;font-weight:700;color:var(--purple-hi);">${hasType?(steals.length>0?sOK+'/'+steals.length:'\u2014'):main.length}</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px;">${hasType?'Steals':'Answered'}</div>
     </div>
   </div>`;
 
-  // Grid: rows=tiers, cols=categories
-  const cats=G.categories||[...new Set(main.map(a=>a.cat))];
-  const tiers=[100,200,300,400,500].slice(0,G.numQ||5);
+  const cats=(opts.catList&&opts.catList.length)?opts.catList:[...new Set(main.map(a=>a.cat))];
+  const tiers=[100,200,300,400,500];
 
   if(cats.length>0&&tiers.length>0){
     html+=`<div style="font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:8px;">Performance Grid</div>`;
     html+=`<div style="overflow-x:auto;">`;
     html+=`<table style="border-collapse:collapse;font-size:10px;min-width:100%;">`;
-    // Header row — categories
     const thStyle='padding:4px 6px;text-align:center;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.35);border-bottom:1px solid rgba(255,255,255,.1);white-space:nowrap;max-width:70px;overflow:hidden;text-overflow:ellipsis;';
     html+=`<tr><th style="${thStyle}text-align:left;">Tier</th>`;
     cats.forEach(cat=>{
-      const short=cat.length>10?cat.slice(0,10)+'…':cat;
+      const short=cat.length>10?cat.slice(0,10)+'\u2026':cat;
       html+=`<th style="${thStyle}" title="${cat}">${short}</th>`;
     });
     html+=`</tr>`;
-    // Data rows — one per tier
     tiers.forEach(tier=>{
       html+=`<tr style="border-top:1px solid rgba(255,255,255,.06);">`;
       html+=`<td style="padding:6px 6px;font-size:10px;font-weight:700;color:rgba(255,255,255,.4);white-space:nowrap;">${tier}pts</td>`;
@@ -942,7 +938,7 @@ function openPlayerStats(playerIdx){
         if(cell.length===0){
           html+=`<td style="padding:4px 4px;text-align:center;vertical-align:middle;">
             <div style="font-size:10px;color:rgba(255,255,255,.15);">0/0</div>
-            <div style="font-size:9px;color:rgba(255,255,255,.1);">—</div>
+            <div style="font-size:9px;color:rgba(255,255,255,.1);">\u2014</div>
             <div style="font-size:9px;color:rgba(255,255,255,.1);">0p</div>
           </td>`;
         } else {
@@ -961,9 +957,56 @@ function openPlayerStats(playerIdx){
     });
     html+=`</table></div>`;
   }
+  return html;
+}
 
-  document.getElementById('playerStatsContent').innerHTML=html;
+let _statsName='', _statsIdx=-1, _statsPid=null, _lifetimeAtts=null;
+
+function openPlayerStats(playerIdx){
+  const pName=G.players[playerIdx];
+  _statsName=pName; _statsIdx=playerIdx;
+  _statsPid=(G.playerProfiles&&G.playerProfiles[pName])?G.playerProfiles[pName].id:null;
+  _lifetimeAtts=null;
   document.getElementById('playerStatsModal').classList.add('show');
+  showStatsTab('session');
+  if(_statsPid){
+    dbGetAttempts(_statsPid).then(rows=>{
+      _lifetimeAtts=(Array.isArray(rows)?rows:[]).map(r=>({
+        cat:r.category, tier:Number(r.tier), correct:!!r.correct, pts:Number(r.pts)||0
+      }));
+      // If the Lifetime tab is the one currently showing, refresh it now that data arrived
+      if(document.getElementById('stTabLifetime')&&document.getElementById('stTabLifetime').classList.contains('active')){
+        showStatsTab('lifetime');
+      }
+    });
+  }
+}
+
+function showStatsTab(which){
+  const pName=_statsName;
+  let html=`<div style="font-size:22px;font-weight:900;font-family:'Playfair Display',serif;color:var(--gold-hi);margin-bottom:4px;">${pName}</div>`;
+  html+=`<div style="font-size:11px;color:rgba(255,255,255,.4);letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;">Player Stats</div>`;
+  const tab=(active)=>`flex:1;padding:8px;border:none;border-radius:8px;font-family:Outfit,sans-serif;font-size:12px;font-weight:700;cursor:pointer;background:${active?'var(--gold)':'rgba(255,255,255,.08)'};color:${active?'#000':'rgba(255,255,255,.6)'};`;
+  html+=`<div style="display:flex;gap:8px;margin-bottom:16px;">
+    <button id="stTabSession" class="${which==='session'?'active':''}" onclick="showStatsTab('session')" style="${tab(which==='session')}">This Session</button>
+    <button id="stTabLifetime" class="${which==='lifetime'?'active':''}" onclick="showStatsTab('lifetime')" style="${tab(which==='lifetime')}">Lifetime</button>
+  </div>`;
+
+  if(which==='session'){
+    const sessionAtts=(G.attempts||[]).filter(a=>a.player===pName);
+    html+=statsBlockHTML(sessionAtts,{hasType:true,totalPts:G.scores[_statsIdx],catList:G.categories});
+  } else {
+    if(!_statsPid){
+      html+='<div style="color:rgba(255,255,255,.4);font-size:13px;text-align:center;padding:24px 0;">This player isn\u2019t linked to a saved profile, so there are no lifetime stats.</div>';
+    } else if(_lifetimeAtts===null){
+      html+='<div style="color:rgba(255,255,255,.4);font-size:13px;text-align:center;padding:24px 0;">Loading lifetime stats\u2026</div>';
+    } else if(_lifetimeAtts.length===0){
+      html+='<div style="color:rgba(255,255,255,.4);font-size:13px;text-align:center;padding:24px 0;">No lifetime answers recorded yet.</div>';
+    } else {
+      html+=statsBlockHTML(_lifetimeAtts,{hasType:false});
+    }
+  }
+  document.getElementById('playerStatsContent').innerHTML=html;
 }
 function closePlayerStats(){ document.getElementById('playerStatsModal').classList.remove('show'); }
 
