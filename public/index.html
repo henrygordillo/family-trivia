@@ -1355,7 +1355,7 @@ async function submitAI(){
   try{
     const resp=await fetch('https://family-trivia-y0om.onrender.com/api/claude',{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:150,
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:150,
         messages:[{role:'user',content:
           'You are a trivia judge. Accept English, Spanish, or Spanglish.\n'+
           'Question: '+qd.question+'\nCorrect answer: '+qd.answer+'\nPlayer said: "'+ans+'"\n'+
@@ -1700,7 +1700,7 @@ async function fetchQ(category, qIndex){
 
   const resp=await fetch('https://family-trivia-y0om.onrender.com/api/claude',{
     method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,
+    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:300,
       messages:[{role:'user',content:prompt}]})
   });
   const d=await resp.json();
