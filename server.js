@@ -168,7 +168,7 @@ app.get('/api/stats/tiers', async (req, res) => {
 app.get('/api/rulesets', async (req, res) => {
   const { data, error } = await supabase
     .from('difficulty_rulesets')
-    .select('difficulty_ruleset_version, note, created_at')
+    .select('*')
     .order('difficulty_ruleset_version', { ascending: true });
   if (error) return res.status(500).json({ error: error.message });
   res.json(data || []);
