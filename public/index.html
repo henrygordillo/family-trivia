@@ -593,6 +593,15 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   </div>
 </div>
 
+<!-- RULESET DETAILS MODAL (stacks over stats) -->
+<div class="modal-bg" id="rulesetDetailsModal" style="z-index:950;">
+  <div class="modal-box" style="max-width:440px;text-align:left;max-height:85vh;display:flex;flex-direction:column;">
+    <div class="modal-title" style="margin-bottom:10px;">Ruleset Details</div>
+    <div id="rulesetDetailsContent" style="overflow-y:auto;flex:1;margin-bottom:12px;"></div>
+    <button class="mbtn mbtn-cancel" onclick="closeRulesetDetails()" style="align-self:center;padding:6px 24px;font-size:12px;width:auto;">Back</button>
+  </div>
+</div>
+
 <!-- PLAYER STATS MODAL -->
 <div class="modal-bg" id="playerStatsModal">
   <div class="modal-box" style="max-width:420px;text-align:left;max-height:85vh;display:flex;flex-direction:column;">
@@ -2080,10 +2089,9 @@ let _adminTab='session';
 let _rulesetList=null;     // [{full ruleset rows}]
 let _selectedRuleset=null; // currently selected ruleset version
 let _rulesetStats=null;    // stats for the selected ruleset
-let _showRulesetDetails=false;
 
 function openStats(){
-  _adminTab='session'; _rulesetList=null; _selectedRuleset=null; _rulesetStats=null; _showRulesetDetails=false;
+  _adminTab='session'; _rulesetList=null; _selectedRuleset=null; _rulesetStats=null;
   document.getElementById('statsModal').classList.add('show');
   renderAdminTab();
 }
@@ -2118,7 +2126,10 @@ function rulesetPaneHTML(){
   }).join('');
   let html=`<div style="margin-bottom:14px;">
     <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:6px;">Difficulty Ruleset</div>
-    <select onchange="selectRuleset(this.value)" style="width:100%;background:#1c1c28;color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:8px 10px;font-family:Outfit,sans-serif;font-size:13px;">${opts}</select>
+    <div style="display:flex;gap:8px;align-items:stretch;">
+      <select onchange="selectRuleset(this.value)" style="flex:1;background:#1c1c28;color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:8px 10px;font-family:Outfit,sans-serif;font-size:13px;">${opts}</select>
+      <button onclick="openRulesetDetails()" title="View ruleset details" style="flex:0 0 auto;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:rgba(255,255,255,.75);font-family:Outfit,sans-serif;font-size:12px;font-weight:700;padding:0 14px;cursor:pointer;white-space:nowrap;">\u24d8 Details</button>
+    </div>
   </div>`;
 
   if(_rulesetStats===null)
@@ -2130,16 +2141,17 @@ function rulesetPaneHTML(){
   } else {
     html+='<div class="stats-section">By Tier</div>'+tierTableHTML(s.byTier||{});
   }
-
-  const r=_rulesetList.find(x=>x.difficulty_ruleset_version===_selectedRuleset);
-  html+=`<button onclick="toggleRulesetDetails()" style="width:100%;margin-top:14px;padding:9px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:10px;color:rgba(255,255,255,.7);font-family:Outfit,sans-serif;font-size:12px;font-weight:700;cursor:pointer;">${_showRulesetDetails?'\u25be Hide ruleset details':'\u25b8 View ruleset details'}</button>`;
-  if(_showRulesetDetails && r) html+=rulesetDetailsHTML(r);
   return html;
 }
 
-function toggleRulesetDetails(){
-  _showRulesetDetails=!_showRulesetDetails;
-  renderAdminTab();
+function openRulesetDetails(){
+  const r=_rulesetList&&_rulesetList.find(x=>x.difficulty_ruleset_version===_selectedRuleset);
+  if(!r) return;
+  document.getElementById('rulesetDetailsContent').innerHTML=rulesetDetailsHTML(r);
+  document.getElementById('rulesetDetailsModal').classList.add('show');
+}
+function closeRulesetDetails(){
+  document.getElementById('rulesetDetailsModal').classList.remove('show');
 }
 
 function rulesetDetailsHTML(r){
