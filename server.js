@@ -81,10 +81,14 @@ app.put('/api/players/:id', async (req, res) => {
 
 // ── Attempts ──────────────────────────────────────────────────────────────────
 app.post('/api/attempts', async (req, res) => {
-  const { player_id, category, tier, correct, pts } = req.body;
+  const { player_id, category, tier, correct, pts, is_steal, mode, difficulty_ruleset_version } = req.body;
+  const row = { player_id, category, tier, correct, pts };
+  if (is_steal !== undefined) row.is_steal = is_steal;
+  if (mode !== undefined) row.mode = mode;
+  if (difficulty_ruleset_version !== undefined) row.difficulty_ruleset_version = difficulty_ruleset_version;
   const { data, error } = await supabase
     .from('attempts')
-    .insert({ player_id, category, tier, correct, pts })
+    .insert(row)
     .select()
     .single();
   if (error) return res.status(500).json({ error: error.message });
@@ -139,19 +143,35 @@ app.get('/api/questions/recent/:category', async (req, res) => {
 
 // ── Stats: all-time by-tier aggregate (server-side) ────────────────────────────
 app.get('/api/stats/tiers', async (req, res) => {
-  const { data, error } = await supabase
-    .from('attempts')
-    .select('tier, correct');
+  let q = supabase.from('attempts').select('tier, correct, is_steal, mode');
+  const rs = req.query.ruleset;
+  if (rs !== undefined && rs !== '') q = q.eq('difficulty_ruleset_version', Number(rs));
+  const { data, error } = await q;
   if (error) return res.status(500).json({ error: error.message });
   const byTier = {};
   let total = 0, totalOK = 0;
+  const byMode = {};
+  const steals = { att: 0, ok: 0 };
   (data || []).forEach(r => {
     const t = r.tier;
     if (!byTier[t]) byTier[t] = { att: 0, ok: 0 };
     byTier[t].att++; total++;
     if (r.correct) { byTier[t].ok++; totalOK++; }
+    const m = r.mode || 'normal';
+    byMode[m] = (byMode[m] || 0) + 1;
+    if (r.is_steal) { steals.att++; if (r.correct) steals.ok++; }
   });
-  res.json({ byTier, total, totalOK });
+  res.json({ byTier, total, totalOK, byMode, steals });
+});
+
+// ── Difficulty rulesets: list versions for the stats dropdown ──────────────────
+app.get('/api/rulesets', async (req, res) => {
+  const { data, error } = await supabase
+    .from('difficulty_rulesets')
+    .select('difficulty_ruleset_version, note, created_at')
+    .order('difficulty_ruleset_version', { ascending: true });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
 });
 
 // ── Health check ──────────────────────────────────────────────────────────────
