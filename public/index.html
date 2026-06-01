@@ -1632,7 +1632,7 @@ function resolveAnswer(correct){
     // Persist correct attempt
     const _pName=G.players[G.answererIdx];
     if(G.playerProfiles&&G.playerProfiles[_pName]){
-      dbRecordAttempt(G.playerProfiles[_pName].id,G.categories[G.curCat],G.curPts,true,pts);
+      dbRecordAttempt(G.playerProfiles[_pName].id,G.categories[G.curCat],G.curPts,true,pts,G.stealMode);
     }
     G.lastResult={player:G.players[G.answererIdx], pts:pts, steal:G.stealMode, correct:true};
     markUsed();
@@ -1645,7 +1645,7 @@ function resolveAnswer(correct){
     // Persist wrong attempt
     const _pNameW=G.players[G.answererIdx];
     if(G.playerProfiles&&G.playerProfiles[_pNameW]){
-      dbRecordAttempt(G.playerProfiles[_pNameW].id,G.categories[G.curCat],G.curPts,false,0);
+      dbRecordAttempt(G.playerProfiles[_pNameW].id,G.categories[G.curCat],G.curPts,false,0,G.stealMode);
     }
     G.wrongPlayers.push(G.answererIdx);
     const stealIdx=findStealIdx();
@@ -2031,16 +2031,6 @@ function tierTableHTML(byTier){
   return html;
 }
 
-// All-time calibration view (from server aggregate)
-function lifetimeStatsHTML(agg){
-  if(!agg||(agg.total||0)===0){
-    return '<div style="color:rgba(255,255,255,.4);text-align:center;padding:24px 0;">No all-time answers recorded yet.</div>';
-  }
-  let html='<div class="stats-section">By Tier (All Games)</div>'+tierTableHTML(agg.byTier||{});
-  html+='<div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:14px;line-height:1.5;">Based on '+agg.total+' recorded answers across all games. Steal and per-player breakdowns aren\u2019t tracked historically yet \u2014 coming with the next data update.</div>';
-  return html;
-}
-
 function buildStatsHTML(){
   const TARGET_RATES={100:75,200:66,300:50,400:33,500:20};
   const tiers=[100,200,300,400,500];
@@ -2086,37 +2076,92 @@ function buildStatsHTML(){
   return html;
 }
 
-let _adminLife=null; // cached all-time aggregate
+let _adminTab='session';
+let _rulesetList=null;     // [{difficulty_ruleset_version, note}]
+let _selectedRuleset=null; // currently selected ruleset version
+let _rulesetStats=null;    // stats for the selected ruleset
 
 function openStats(){
-  _adminLife=null;
+  _adminTab='session'; _rulesetList=null; _selectedRuleset=null; _rulesetStats=null;
   document.getElementById('statsModal').classList.add('show');
-  showAdminTab('session');
+  renderAdminTab();
 }
 
 function showAdminTab(which){
+  _adminTab=which;
+  renderAdminTab();
+  if(which==='ruleset') ensureRulesetData();
+}
+
+function renderAdminTab(){
+  const which=_adminTab;
   const tab=(active)=>`flex:1;padding:8px;border:none;border-radius:8px;font-family:Outfit,sans-serif;font-size:12px;font-weight:700;cursor:pointer;background:${active?'var(--gold)':'rgba(255,255,255,.08)'};color:${active?'#000':'rgba(255,255,255,.6)'};`;
   let html=`<div style="display:flex;gap:8px;margin-bottom:16px;">
-    <button id="adTabSession" class="${which==='session'?'active':''}" onclick="showAdminTab('session')" style="${tab(which==='session')}">This Game</button>
-    <button id="adTabLifetime" class="${which==='lifetime'?'active':''}" onclick="showAdminTab('lifetime')" style="${tab(which==='lifetime')}">All Games</button>
+    <button onclick="showAdminTab('session')" style="${tab(which==='session')}">This Game</button>
+    <button onclick="showAdminTab('ruleset')" style="${tab(which==='ruleset')}">By Ruleset</button>
   </div>`;
-  if(which==='session'){
-    html+=buildStatsHTML();
-    document.getElementById('statsContent').innerHTML=html;
-  } else {
-    if(_adminLife===null){
-      html+='<div style="color:rgba(255,255,255,.4);text-align:center;padding:24px 0;">Loading all-time stats\u2026</div>';
-      document.getElementById('statsContent').innerHTML=html;
-      dbGetTierStats().then(agg=>{
-        _adminLife=agg||{byTier:{},total:0,totalOK:0};
-        const lt=document.getElementById('adTabLifetime');
-        if(lt&&lt.classList.contains('active')) showAdminTab('lifetime');
-      });
-      return;
-    }
-    html+=lifetimeStatsHTML(_adminLife);
-    document.getElementById('statsContent').innerHTML=html;
+  html += (which==='session') ? buildStatsHTML() : rulesetPaneHTML();
+  document.getElementById('statsContent').innerHTML=html;
+}
+
+function rulesetPaneHTML(){
+  if(_rulesetList===null)
+    return '<div style="color:rgba(255,255,255,.4);text-align:center;padding:24px 0;">Loading rulesets\u2026</div>';
+  if(_rulesetList.length===0)
+    return '<div style="color:rgba(255,255,255,.4);text-align:center;padding:24px 0;">No difficulty rulesets defined yet.</div>';
+
+  const opts=_rulesetList.map(r=>{
+    const v=r.difficulty_ruleset_version;
+    const label='Ruleset '+v+(r.note?' \u2014 '+r.note:'');
+    return `<option value="${v}"${v===_selectedRuleset?' selected':''}>${label}</option>`;
+  }).join('');
+  let html=`<div style="margin-bottom:14px;">
+    <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:6px;">Difficulty Ruleset</div>
+    <select onchange="selectRuleset(this.value)" style="width:100%;background:#1c1c28;color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:8px 10px;font-family:Outfit,sans-serif;font-size:13px;">${opts}</select>
+  </div>`;
+
+  if(_rulesetStats===null)
+    return html+'<div style="color:rgba(255,255,255,.4);text-align:center;padding:24px 0;">Loading stats\u2026</div>';
+
+  const s=_rulesetStats;
+  if((s.total||0)===0)
+    return html+'<div style="color:rgba(255,255,255,.4);text-align:center;padding:24px 0;">No answers recorded under this ruleset yet.</div>';
+
+  const modeStr=Object.keys(s.byMode||{}).map(m=>m+': '+s.byMode[m]).join('  \u00b7  ')||'\u2014';
+  const stealStr=(s.steals&&s.steals.att>0)?(s.steals.ok+'/'+s.steals.att):'0';
+  html+=`<div style="display:flex;gap:10px;margin-bottom:12px;">
+    <div style="flex:1;background:rgba(255,255,255,.06);border-radius:10px;padding:10px;text-align:center;">
+      <div style="font-size:20px;font-weight:700;color:var(--gold-hi);">${s.total}</div>
+      <div style="font-size:9px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px;">Answers</div>
+    </div>
+    <div style="flex:1;background:rgba(255,255,255,.06);border-radius:10px;padding:10px;text-align:center;">
+      <div style="font-size:20px;font-weight:700;color:var(--purple-hi);">${stealStr}</div>
+      <div style="font-size:9px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px;">Steals OK/Att</div>
+    </div>
+  </div>`;
+  html+=`<div style="font-size:10px;color:rgba(255,255,255,.35);margin-bottom:14px;">By mode:  ${modeStr}</div>`;
+  html+='<div class="stats-section">By Tier</div>'+tierTableHTML(s.byTier||{});
+  return html;
+}
+
+async function ensureRulesetData(){
+  if(_rulesetList===null){
+    _rulesetList=await dbGetRulesets();
+    if(_rulesetList.length && _selectedRuleset===null)
+      _selectedRuleset=_rulesetList[_rulesetList.length-1].difficulty_ruleset_version; // highest = current
+    if(_adminTab==='ruleset') renderAdminTab();
   }
+  if(_selectedRuleset!=null && _rulesetStats===null){
+    _rulesetStats=await dbGetRulesetStats(_selectedRuleset);
+    if(_adminTab==='ruleset') renderAdminTab();
+  }
+}
+
+function selectRuleset(v){
+  _selectedRuleset=Number(v);
+  _rulesetStats=null;
+  renderAdminTab();
+  ensureRulesetData();
 }
 function closeStats(){ document.getElementById('statsModal').classList.remove('show'); }
 function closeRestart(){ document.getElementById('restartModal').classList.remove('show'); }
@@ -2166,12 +2211,15 @@ async function dbCreatePlayer(first_name, last_name, nickname, email){
   }catch(e){ return null; }
 }
 
-async function dbRecordAttempt(player_id, category, tier, correct, pts){
+const RULESET_VERSION=1; // Phase 1: app still uses hardcoded values, which == difficulty ruleset version 1
+
+async function dbRecordAttempt(player_id, category, tier, correct, pts, is_steal){
   try{
     await fetch(BACKEND+'/api/attempts',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({player_id,category,tier,correct,pts})
+      body:JSON.stringify({player_id,category,tier,correct,pts,
+        is_steal:!!is_steal, mode:'normal', difficulty_ruleset_version:RULESET_VERSION})
     });
   }catch(e){ console.warn('Failed to record attempt',e); }
 }
@@ -2183,11 +2231,19 @@ async function dbGetAttempts(player_id){
   }catch(e){ return []; }
 }
 
-async function dbGetTierStats(){
+async function dbGetRulesets(){
   try{
-    const r=await fetch(BACKEND+'/api/stats/tiers');
+    const r=await fetch(BACKEND+'/api/rulesets');
+    const d=await r.json();
+    return Array.isArray(d)?d:[];
+  }catch(e){ return []; }
+}
+
+async function dbGetRulesetStats(ruleset){
+  try{
+    const r=await fetch(BACKEND+'/api/stats/tiers?ruleset='+encodeURIComponent(ruleset));
     return await r.json();
-  }catch(e){ return {byTier:{},total:0,totalOK:0}; }
+  }catch(e){ return {byTier:{},total:0,totalOK:0,byMode:{},steals:{att:0,ok:0}}; }
 }
 
 async function dbCheckQuestion(fingerprint){
