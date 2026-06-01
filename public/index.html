@@ -440,6 +440,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <button class="new-game-btn" id="statsBtn" style="flex:1;background:rgba(31,173,160,.2);border-color:rgba(31,173,160,.5);color:#3dd5c8;padding:8px;">📊 Stats</button>
     <button class="new-game-btn" id="newGameBtn" style="flex:1;padding:8px;">⟳ New Game</button>
     <button class="new-game-btn" id="endGameBtnBoard" style="flex:1;padding:8px;background:rgba(192,57,43,.2);border-color:rgba(192,57,43,.5);color:#ff8a80;">✕ End</button>
+    <button class="new-game-btn" id="dedupBtn" style="flex:0 0 auto;padding:8px 12px;background:rgba(124,58,237,.2);border-color:rgba(124,58,237,.5);color:#a78bfa;display:none;">🐛</button>
   </div>
 </div>
 
@@ -602,6 +603,15 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   </div>
 </div>
 
+<!-- DEDUP DEBUG LOG MODAL -->
+<div class="modal-bg" id="dedupLogModal" style="z-index:950;">
+  <div class="modal-box" style="max-width:440px;text-align:left;max-height:85vh;display:flex;flex-direction:column;">
+    <div class="modal-title" style="margin-bottom:10px;">🐛 Dedup Log</div>
+    <div id="dedupLogContent" style="overflow-y:auto;flex:1;margin-bottom:12px;"></div>
+    <button class="mbtn mbtn-cancel" onclick="closeDedupLog()" style="align-self:center;padding:6px 24px;font-size:12px;width:auto;">Close</button>
+  </div>
+</div>
+
 <!-- PLAYER STATS MODAL -->
 <div class="modal-bg" id="playerStatsModal">
   <div class="modal-box" style="max-width:420px;text-align:left;max-height:85vh;display:flex;flex-direction:column;">
@@ -688,6 +698,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════════
 const BACKEND='https://family-trivia-y0om.onrender.com';
+const DEBUG_DEDUP=true;  // shows the 🐛 Dedup Log button + collision toasts; set false for real play
+let _dedupLog=[];        // per-session dedup activity (one entry per question generated)
 
 const EXPLAIN_CATS=['Math Puzzles','Logic','Brain Teasers','Famous Inventions'];
 
@@ -1919,6 +1931,16 @@ async function fetchQ(category, qIndex){
   const categoryNote=categoryOverrides[category]||'';
 
   const needsExplain=EXPLAIN_CATS.includes(category);
+
+  // Cross-game dedup: pull this category's recent questions (last 50 ≈ last 10 games)
+  const recent=await dbGetRecentQuestions(category);
+  const recentFps=new Set(recent.map(r=>r.fingerprint));
+  const recentAnsSet=new Set(recent.map(r=>normAnswer(r.answer)).filter(Boolean));
+  const recentAnswersList=[...new Set(recent.map(r=>r.answer).filter(Boolean))];
+  const avoidNote=recentAnswersList.length
+    ? `\\n\\nRECENTLY USED ANSWERS — do NOT use any of these as the answer:\\n`+recentAnswersList.join(', ')
+    : '';
+
   const prompt=
     `You are a trivia question writer for a family game night. Generate ONE question for the category "${category}".\n\n`+
     `REFERENCE PLAYER: An engaged person who enjoys trivia and general knowledge. Reads and follows current events reasonably. Has reasonable knowledge across history, science, culture, sports, geography and world capitals. Not a specialist but genuinely curious and above average.\n\n`+
@@ -1933,21 +1955,47 @@ async function fetchQ(category, qIndex){
     `5. Do not embed the answer in the question text.\n`+
     `6. Vary style: who, what, where, when, which, how many.`+
     alreadyAsked+
+    avoidNote+
     `\n\n${needsExplain?'Also include a brief step-by-step explanation of how to get the answer (2-3 lines max).\n\n':''}`+
     `Respond ONLY with valid JSON, no markdown: {"question":"...","answer":"..."${needsExplain?',"explanation":"..."':''}}`;
 
-  const resp=await fetch('https://family-trivia-y0om.onrender.com/api/claude',{
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:300,
-      messages:[{role:'user',content:prompt}]})
-  });
-  const d=await resp.json();
-  const raw=d.content?.find(b=>b.type==='text')?.text||'';
-  const qObj=JSON.parse(raw.replace(/```json|```/g,'').trim());
-  // Record question to avoid future repeats
-  const fp=makeFingerprint(qObj.question||'');
-  dbRecordQuestion(category, qIndex*100+100, fp);
-  return qObj;
+  // Generate with cross-game dedup: up to 3 tries to avoid a recent repeat
+  const _log={ cat:category, pts:qIndex*100+100, time:new Date().toLocaleTimeString(),
+    windowN:recent.length, avoidN:recentAnswersList.length, tries:[], outcome:'', fallbackSeen:'' };
+  let best=null, bestSeen=null;
+  for(let attempt=0; attempt<3; attempt++){
+    const resp=await fetch('https://family-trivia-y0om.onrender.com/api/claude',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:300,
+        messages:[{role:'user',content:prompt}]})
+    });
+    const d=await resp.json();
+    const raw=d.content?.find(b=>b.type==='text')?.text||'';
+    const qObj=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    const fp=makeFingerprint(qObj.question||'');
+    const na=normAnswer(qObj.answer||'');
+    const fpHit=recentFps.has(fp);
+    const ansHit=na && recentAnsSet.has(na);
+    if(!fpHit && !ansHit){
+      _log.tries.push({n:attempt+1, result:'fresh'});
+      _log.outcome='fresh';
+      if(DEBUG_DEDUP) _dedupLog.push(_log);
+      dbRecordQuestion(category, qIndex*100+100, fp, qObj.answer||'');
+      return qObj;
+    }
+    const kind=ansHit?'answer':'fingerprint';
+    _log.tries.push({n:attempt+1, result:'collision', kind, matched:ansHit?(qObj.answer||''):''});
+    if(DEBUG_DEDUP) toast('🔁 Regenerated — '+(ansHit?('answer "'+(qObj.answer||'')+'" seen recently'):'similar wording seen recently'));
+    const matches=recent.filter(r=> r.fingerprint===fp || (na && normAnswer(r.answer)===na));
+    const lastSeen=matches.map(r=>r.asked_at||'').sort().slice(-1)[0]||'';
+    if(best===null || lastSeen<bestSeen){ best=qObj; bestSeen=lastSeen; }
+  }
+  // All 3 collided — use the one whose match was seen longest ago
+  const bfp=makeFingerprint(best.question||'');
+  _log.outcome='fallback'; _log.fallbackSeen=bestSeen;
+  if(DEBUG_DEDUP) _dedupLog.push(_log);
+  dbRecordQuestion(category, qIndex*100+100, bfp, best.answer||'');
+  return best;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -2127,8 +2175,8 @@ function rulesetPaneHTML(){
   let html=`<div style="margin-bottom:14px;">
     <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:6px;">Difficulty Ruleset</div>
     <div style="display:flex;gap:8px;align-items:stretch;">
-      <select onchange="selectRuleset(this.value)" style="flex:1;background:#1c1c28;color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:8px 10px;font-family:Outfit,sans-serif;font-size:13px;">${opts}</select>
-      <button onclick="openRulesetDetails()" title="View ruleset details" style="flex:0 0 auto;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:rgba(255,255,255,.75);font-family:Outfit,sans-serif;font-size:12px;font-weight:700;padding:0 14px;cursor:pointer;white-space:nowrap;">\u24d8 Details</button>
+      <select onchange="selectRuleset(this.value)" style="flex:1;min-width:0;background:#1c1c28;color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:8px 10px;font-family:Outfit,sans-serif;font-size:13px;text-overflow:ellipsis;">${opts}</select>
+      <button onclick="openRulesetDetails()" title="View ruleset details" style="flex:0 0 auto;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:rgba(255,255,255,.8);font-size:16px;font-weight:700;padding:0 12px;cursor:pointer;">\u24d8</button>
     </div>
   </div>`;
 
@@ -2205,6 +2253,31 @@ function selectRuleset(v){
   ensureRulesetData();
 }
 function closeStats(){ document.getElementById('statsModal').classList.remove('show'); }
+
+function openDedupLog(){
+  const el=document.getElementById('dedupLogContent');
+  if(_dedupLog.length===0){
+    el.innerHTML='<div style="color:rgba(255,255,255,.4);text-align:center;padding:24px 0;">No questions generated yet this session.</div>';
+  } else {
+    el.innerHTML=_dedupLog.slice().reverse().map(L=>{
+      const tries=L.tries.map(t=>{
+        if(t.result==='fresh') return `<div style="color:#3dd5c8;">try ${t.n} \u2192 fresh \u2713 used</div>`;
+        const detail=t.kind==='answer'?(' \u2014 answer "'+t.matched+'"'):' \u2014 similar wording';
+        return `<div style="color:#ff8a80;">try ${t.n} \u2192 collision (${t.kind})${detail}</div>`;
+      }).join('');
+      const outcome=L.outcome==='fallback'
+        ? `<div style="color:var(--gold-hi);">\u2192 used oldest-seen repeat (last seen ${L.fallbackSeen||'?'})</div>`
+        : '';
+      return `<div style="border-bottom:1px solid rgba(255,255,255,.08);padding:8px 0;font-size:12px;line-height:1.5;">
+        <div style="font-weight:700;color:#fff;">${L.cat} \u00b7 ${L.pts}pt \u00b7 ${L.time}</div>
+        <div style="color:rgba(255,255,255,.45);font-size:11px;margin:2px 0 4px;">window: ${L.windowN} recent \u00b7 avoided ${L.avoidN} answers</div>
+        ${tries}${outcome}
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('dedupLogModal').classList.add('show');
+}
+function closeDedupLog(){ document.getElementById('dedupLogModal').classList.remove('show'); }
 function closeRestart(){ document.getElementById('restartModal').classList.remove('show'); }
 function doRestart(){
   closeRestart();
@@ -2299,14 +2372,26 @@ async function dbCheckQuestion(fingerprint){
   }catch(e){ return false; }
 }
 
-async function dbRecordQuestion(category, tier, fingerprint){
+async function dbRecordQuestion(category, tier, fingerprint, answer){
   try{
     await fetch(BACKEND+'/api/questions',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({category,tier,fingerprint})
+      body:JSON.stringify({category,tier,fingerprint,answer})
     });
   }catch(e){ console.warn('Failed to record question',e); }
+}
+
+async function dbGetRecentQuestions(category){
+  try{
+    const r=await fetch(BACKEND+'/api/questions/recent/'+encodeURIComponent(category));
+    const d=await r.json();
+    return Array.isArray(d)?d:[];
+  }catch(e){ return []; }
+}
+
+function normAnswer(a){
+  return (a||'').toLowerCase().replace(/[^a-z0-9\s]/g,'').replace(/\s+/g,' ').trim();
 }
 
 function makeFingerprint(question){
@@ -2424,6 +2509,8 @@ function init(){
   // Board
   document.getElementById('newGameBtn').addEventListener('click',openRestart);
   document.getElementById('statsBtn').addEventListener('click',openStats);
+  const dbgBtn=document.getElementById('dedupBtn');
+  if(dbgBtn){ dbgBtn.style.display=DEBUG_DEDUP?'':'none'; dbgBtn.addEventListener('click',openDedupLog); }
   document.getElementById('statsCloseBtn').addEventListener('click',closeStats);
   // Regen confirmation
   const regenBtn=document.getElementById('regenBtn');
