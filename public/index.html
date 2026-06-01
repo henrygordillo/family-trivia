@@ -2077,12 +2077,13 @@ function buildStatsHTML(){
 }
 
 let _adminTab='session';
-let _rulesetList=null;     // [{difficulty_ruleset_version, note}]
+let _rulesetList=null;     // [{full ruleset rows}]
 let _selectedRuleset=null; // currently selected ruleset version
 let _rulesetStats=null;    // stats for the selected ruleset
+let _showRulesetDetails=false;
 
 function openStats(){
-  _adminTab='session'; _rulesetList=null; _selectedRuleset=null; _rulesetStats=null;
+  _adminTab='session'; _rulesetList=null; _selectedRuleset=null; _rulesetStats=null; _showRulesetDetails=false;
   document.getElementById('statsModal').classList.add('show');
   renderAdminTab();
 }
@@ -2124,23 +2125,51 @@ function rulesetPaneHTML(){
     return html+'<div style="color:rgba(255,255,255,.4);text-align:center;padding:24px 0;">Loading stats\u2026</div>';
 
   const s=_rulesetStats;
-  if((s.total||0)===0)
-    return html+'<div style="color:rgba(255,255,255,.4);text-align:center;padding:24px 0;">No answers recorded under this ruleset yet.</div>';
+  if((s.total||0)===0){
+    html+='<div style="color:rgba(255,255,255,.4);text-align:center;padding:18px 0;">No answers recorded under this ruleset yet.</div>';
+  } else {
+    html+='<div class="stats-section">By Tier</div>'+tierTableHTML(s.byTier||{});
+  }
 
-  const modeStr=Object.keys(s.byMode||{}).map(m=>m+': '+s.byMode[m]).join('  \u00b7  ')||'\u2014';
-  const stealStr=(s.steals&&s.steals.att>0)?(s.steals.ok+'/'+s.steals.att):'0';
-  html+=`<div style="display:flex;gap:10px;margin-bottom:12px;">
-    <div style="flex:1;background:rgba(255,255,255,.06);border-radius:10px;padding:10px;text-align:center;">
-      <div style="font-size:20px;font-weight:700;color:var(--gold-hi);">${s.total}</div>
-      <div style="font-size:9px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px;">Answers</div>
-    </div>
-    <div style="flex:1;background:rgba(255,255,255,.06);border-radius:10px;padding:10px;text-align:center;">
-      <div style="font-size:20px;font-weight:700;color:var(--purple-hi);">${stealStr}</div>
-      <div style="font-size:9px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px;">Steals OK/Att</div>
-    </div>
-  </div>`;
-  html+=`<div style="font-size:10px;color:rgba(255,255,255,.35);margin-bottom:14px;">By mode:  ${modeStr}</div>`;
-  html+='<div class="stats-section">By Tier</div>'+tierTableHTML(s.byTier||{});
+  const r=_rulesetList.find(x=>x.difficulty_ruleset_version===_selectedRuleset);
+  html+=`<button onclick="toggleRulesetDetails()" style="width:100%;margin-top:14px;padding:9px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:10px;color:rgba(255,255,255,.7);font-family:Outfit,sans-serif;font-size:12px;font-weight:700;cursor:pointer;">${_showRulesetDetails?'\u25be Hide ruleset details':'\u25b8 View ruleset details'}</button>`;
+  if(_showRulesetDetails && r) html+=rulesetDetailsHTML(r);
+  return html;
+}
+
+function toggleRulesetDetails(){
+  _showRulesetDetails=!_showRulesetDetails;
+  renderAdminTab();
+}
+
+function rulesetDetailsHTML(r){
+  const lbl=t=>`<div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.35);margin:14px 0 6px;">${t}</div>`;
+  const prose=t=>`<div style="font-size:12px;color:rgba(255,255,255,.75);line-height:1.5;background:rgba(255,255,255,.04);border-radius:8px;padding:10px;">${t?t:'<span style="color:rgba(255,255,255,.3);">(none)</span>'}</div>`;
+  let html=`<div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.1);padding-top:12px;">`;
+  const created=r.created_at?new Date(r.created_at).toLocaleString():'';
+  html+=`<div style="font-size:11px;color:rgba(255,255,255,.45);margin-bottom:4px;">Ruleset ${r.difficulty_ruleset_version} \u00b7 Model: ${r.model||'\u2014'}${created?' \u00b7 '+created:''}</div>`;
+  if(r.note) html+=`<div style="font-size:12px;color:rgba(255,255,255,.6);font-style:italic;margin-bottom:6px;">${r.note}</div>`;
+
+  html+=lbl('Tier Targets');
+  if(Array.isArray(r.tiers)&&r.tiers.length){
+    html+='<table class="stats-table"><tr><th>Tier</th><th>Target</th><th style="text-align:left;">Style anchor</th></tr>';
+    r.tiers.forEach(t=>{ html+=`<tr><td>${t.name}</td><td>${t.pct}%</td><td style="text-align:left;font-size:11px;">${t.anchor||''}</td></tr>`; });
+    html+='</table>';
+  } else { html+=prose(null); }
+
+  html+=lbl('Reference Player')+prose(r.reference_player);
+  html+=lbl('Audience Note')+prose(r.audience_note);
+  html+=lbl('AI Judge Leniency')+prose(r.judge_prompt);
+
+  html+=lbl('Category Overrides');
+  const ov=r.category_overrides;
+  if(ov && typeof ov==='object' && Object.keys(ov).length){
+    Object.keys(ov).forEach(k=>{ html+=`<div style="font-size:11px;font-weight:700;color:var(--gold-hi);margin:8px 0 4px;">${k}</div>`+prose(ov[k]); });
+  } else { html+=prose(null); }
+
+  html+=lbl('Easy Nudge')+prose(r.easy_nudge);
+  html+=lbl('Hard Nudge')+prose(r.hard_nudge);
+  html+='</div>';
   return html;
 }
 
