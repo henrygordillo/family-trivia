@@ -120,10 +120,12 @@ app.post('/api/questions/check', async (req, res) => {
 });
 
 app.post('/api/questions', async (req, res) => {
-  const { category, tier, fingerprint } = req.body;
+  const { category, tier, fingerprint, answer } = req.body;
+  const row = { category, tier, fingerprint };
+  if (answer !== undefined) row.answer = answer;
   const { data, error } = await supabase
     .from('questions')
-    .insert({ category, tier, fingerprint })
+    .insert(row)
     .select()
     .single();
   if (error) return res.status(500).json({ error: error.message });
@@ -133,10 +135,10 @@ app.post('/api/questions', async (req, res) => {
 app.get('/api/questions/recent/:category', async (req, res) => {
   const { data, error } = await supabase
     .from('questions')
-    .select('fingerprint')
+    .select('fingerprint, answer, asked_at')
     .eq('category', req.params.category)
     .order('asked_at', { ascending: false })
-    .limit(20);
+    .limit(50);
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
