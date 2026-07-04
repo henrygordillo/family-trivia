@@ -619,7 +619,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 </div>
 
 <!-- EDIT PLAYER MODAL -->
-<div class="modal-bg" id="editPlayerModal">
+<div class="modal-bg" id="editPlayerModal" style="z-index:960;">
   <div class="modal-box" style="max-width:380px;text-align:left;">
     <div style="font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:16px;">Edit Player</div>
     <input type="hidden" id="editPlayerId">
@@ -631,6 +631,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div style="border-top:1px solid rgba(255,255,255,.1);padding-top:14px;margin-bottom:14px;">
       <button onclick="toggleEmailChange()" id="emailChangeToggle" style="background:none;border:none;color:rgba(255,255,255,.5);font-family:Outfit,sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;padding:0;margin-bottom:10px;">▶ Change Email</button>
       <div id="emailChangeSection" style="display:none;">
+        <input id="editCurrentEmail" placeholder="Current email" readonly style="width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:10px 12px;color:rgba(255,255,255,.55);font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
         <input id="editNewEmail" placeholder="New email address" type="text" style="width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:10px 12px;color:#fff;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:0;box-sizing:border-box;">
       </div>
     </div>
@@ -2363,7 +2364,6 @@ function toggleEmailChange(){
   sec.style.display=open?'none':'block';
   btn.textContent=(open?'▶':'▼')+' Change Email';
   if(open){
-    document.getElementById('editCurrentEmail').value='';
     document.getElementById('editNewEmail').value='';
   }
 }
@@ -2375,6 +2375,7 @@ function openEditPlayer(playerId){
   document.getElementById('editFirstName').value=p.first_name;
   document.getElementById('editLastName').value=p.last_name;
   document.getElementById('editNickname').value=p.nickname;
+  document.getElementById('editCurrentEmail').value=p.email||'';
   document.getElementById('editPlayerError').style.display='none';
   document.getElementById('editPlayerModal').classList.add('show');
 }
