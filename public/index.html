@@ -699,6 +699,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 const BACKEND='https://family-trivia-y0om.onrender.com';
 const DEBUG_DEDUP=true;  // shows the 🐛 Dedup Log button + collision toasts; set false for real play
 let _dedupLog=[];        // per-session dedup activity (one entry per question generated)
+let _inGame=false;       // true while a game is on the board/question screen (guards accidental back-exit)
 
 const EXPLAIN_CATS=['Math Puzzles','Logic','Brain Teasers','Famous Inventions'];
 
@@ -752,6 +753,7 @@ const CIRC=2*Math.PI*30;
 function show(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+  _inGame=(id==='board'||id==='qscreen');
   var bb=document.getElementById('backBtn');
   if(bb) bb.style.display=(id==='qscreen'?'':'none');
 }
@@ -1231,6 +1233,8 @@ function startGame(){
     toast('Select at least 1 player!');
     return;
   }
+  // Trap the phone/browser back gesture so an accidental back doesn't kill the game
+  try{ history.pushState({g:1},''); }catch(e){}
   const names=selectedPlayers.map(p=>p.nickname);
 
   // Build playerProfiles map: nickname -> player object (with id for DB)
@@ -2009,6 +2013,7 @@ function buildEnd(){
 // NEW GAME / RESTART
 // ═══════════════════════════════════════════════════════════════════
 function endGame(){
+  _inGame=false;
   window.speechSynthesis?.cancel();
   if(G.recording) stopMic();
   window.close();
@@ -2515,6 +2520,23 @@ function init(){
   document.getElementById('againBtn').addEventListener('click',doRestart);
   document.getElementById('endGameBtnSetup').addEventListener('click',endGame);
   document.getElementById('endGameBtnBoard').addEventListener('click',endGame);
+
+  // Guard accidental exit: intercept the back gesture during a game
+  window.addEventListener('popstate',()=>{
+    if(_inGame){
+      if(confirm('Exit the current game? Your progress will be lost.')){
+        _inGame=false;
+        show('setup');
+      } else {
+        // Stay in the game — re-arm the trap
+        try{ history.pushState({g:1},''); }catch(e){}
+      }
+    }
+  });
+  // Backstop for tab refresh/close while a game is on
+  window.addEventListener('beforeunload',(e)=>{
+    if(_inGame){ e.preventDefault(); e.returnValue=''; }
+  });
 
 
 
