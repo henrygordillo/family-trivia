@@ -415,17 +415,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       </div>
       <div class="judge-card on" data-jm="human">
         <div class="jc-top"><div class="jc-icon">👤</div><div class="jc-name">Human Judge</div></div>
-        <div class="jc-desc">One person sees the answer privately and rules. Everyone else answers verbally.</div>
-      </div>
-      <div id="hjPanel">
-        <span class="slabel">Who starts as Judge?</span>
-        <div id="judgeChips"></div>
-        <span class="slabel">Rotate Judge</span>
-        <div class="chips" id="rotChips">
-          <button class="chip" data-g="hjrot" data-v="10">Every 10 Qs</button>
-          <button class="chip" data-g="hjrot" data-v="20">Every 20 Qs</button>
-          <button class="chip on" data-g="hjrot" data-v="0">Manual</button>
-        </div>
+        <div class="jc-desc">You hold the phone, reveal the answer, and rule. Everyone selected answers.</div>
       </div>
     </div>
     <div class="sep"></div>
@@ -1013,25 +1003,10 @@ function renderTables(answererIdx){
   const t2=document.getElementById('qptable');  if(t2) t2.innerHTML=html;
 
   // Judge indicator
-  if(G.judgeMode==='human'){
-    const judgePos=G.turnOrder.indexOf(G.hjJudgeIdx)+1;
-    const judgeName=G.players[G.hjJudgeIdx];
-    const cjBtn=G.hjRotate===0
-      ?'<button class="cj-inline" id="cjInline">Change</button>':'';
-    const judgeHTML=`<div class="judge-line">Judge: <span class="judge-line-name">${judgeName}</span> <span class="judge-line-turn">(turn ${judgePos})</span>${cjBtn}</div>`;
-    document.querySelectorAll('.judge-indicator').forEach(el=>el.innerHTML=judgeHTML);
-    const qji=document.getElementById('qJudgeIndicator');
-    if(qji) qji.innerHTML=judgeHTML;
-  } else {
-    document.querySelectorAll('.judge-indicator').forEach(el=>el.innerHTML='');
-    const qji=document.getElementById('qJudgeIndicator');
-    if(qji) qji.innerHTML='';
-  }
-
-  // Bind inline change judge buttons
-  document.querySelectorAll('.cj-inline').forEach(btn=>{
-    btn.addEventListener('click',e=>{e.stopPropagation();openCJ();});
-  });
+  // No named judge — nothing to show on the board
+  document.querySelectorAll('.judge-indicator').forEach(el=>el.innerHTML='');
+  const qji=document.getElementById('qJudgeIndicator');
+  if(qji) qji.innerHTML='';
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1135,17 +1110,13 @@ function togglePlayerSelect(playerId){
 function updateStartBtn(){
   const btn=document.getElementById('startBtn');
   if(!btn) return;
-  const human=document.querySelector('.judge-card.on')?.dataset.jm==='human';
   const n=selectedPlayers.length;
-  const effective=n-(human?1:0); // players who actually answer questions
-  const ok=effective>=1;
+  const ok=n>=1;
   btn.disabled=!ok;
   btn.style.opacity=ok?'1':'0.4';
   btn.style.cursor=ok?'pointer':'not-allowed';
   if(ok){
     btn.textContent=`Let's Play \u2192 (${n} player${n!==1?'s':''})`;
-  } else if(human){
-    btn.textContent=`Add a player besides the judge (${n} selected)`;
   } else {
     btn.textContent='Select at least 1 player';
   }
@@ -1230,7 +1201,6 @@ function pickJudge(mode){
   document.querySelectorAll('.judge-card').forEach(c=>c.classList.remove('on'));
   document.querySelector(`[data-jm="${mode}"]`).classList.add('on');
   G.judgeMode=mode;
-  document.getElementById('hjPanel').style.display=mode==='human'?'block':'none';
   updateStartBtn();
 }
 
@@ -1256,10 +1226,8 @@ function initShuffleToggle(){
 // START GAME
 // ═══════════════════════════════════════════════════════════════════
 function startGame(){
-  const isHuman=document.querySelector('.judge-card.on')?.dataset.jm==='human';
-  const effective=selectedPlayers.length-(isHuman?1:0);
-  if(effective<1){
-    toast(isHuman?'Need a player besides the judge!':'Select at least 1 player!');
+  if(selectedPlayers.length<1){
+    toast('Select at least 1 player!');
     return;
   }
   const names=selectedPlayers.map(p=>p.nickname);
@@ -1273,7 +1241,7 @@ function startGame(){
   G.playerProfiles=G.playerProfiles||{}; // preserve entry order for New Game
   G.scores=names.map(()=>0);
   G.judgeMode=document.querySelector('.judge-card.on').dataset.jm;
-  G.hjRotate=getChip('hjrot');
+  G.hjRotate=0;
   G.numCats=getChip('cats');
   G.numQ=5; // fixed at 5 questions per category
   G.hjQCount=0;
@@ -1287,35 +1255,25 @@ function startGame(){
   G.numActivePlayers=0; // set at game start
   G.roundNumber=0; // completed rounds
 
-  // Starting judge
-  const selJ=document.querySelector('#judgeChips .jchip.on');
-  G.hjJudgeIdx=G.judgeMode==='human'?(selJ?+selJ.dataset.idx:names.length-1):0;
+  // No named judge — the person holding the phone judges (or the AI does). Everyone answers.
+  G.hjJudgeIdx=-1;
 
   // Build turn order — all player indices in entry order, then shuffle if on
-  // Build players in entry order first
-  // If shuffle on, reorder G.players and G.scores so table reflects shuffled order
   if(shuffleOn){
-    const judgeName=G.players[G.hjJudgeIdx];
     const paired=G.players.map((p,i)=>({p,s:G.scores[i]}));
     const shuffled=shuffle(paired);
     G.players=shuffled.map(x=>x.p);
     G.scores=shuffled.map(x=>x.s);
-    G.hjJudgeIdx=G.players.indexOf(judgeName);
     toast('🔀 Turn order shuffled!');
   }
   // turnOrder is always 0..N-1 (indices into G.players which is now in play order)
   const order=[...Array(G.players.length).keys()];
   G.turnOrder=order;
 
-  // First turnPos: first non-judge in turnOrder
+  // First turn = first player (no judge to skip)
   G.turnPos=0;
-  if(G.judgeMode==='human'){
-    while(G.turnOrder[G.turnPos]===G.hjJudgeIdx){
-      G.turnPos=(G.turnPos+1)%G.turnOrder.length;
-    }
-  }
   G.nextPickerIdx=G.turnOrder[G.turnPos];
-  G.numActivePlayers=G.judgeMode==='human'?G.players.length-1:G.players.length;
+  G.numActivePlayers=G.players.length;
 
   // Categories — fresh shuffle, avoid recent
   const available=CAT_POOL.filter(c=>!usedCatHistory.includes(c));
@@ -1426,11 +1384,7 @@ async function pickQ(ci,qi){
 
   // Update next button text
   const nb=document.getElementById('nextBtn');
-  if(G.judgeMode==='human'){
-    nb.textContent=`Ready to Answer — ${G.players[G.hjJudgeIdx]} (Judge) reveals →`;
-  } else {
-    nb.textContent='Ready to Answer →';
-  }
+  nb.textContent='Ready to Answer →';
 
   showPhase('phQuestion');
   setStep(0);
@@ -1472,8 +1426,7 @@ function setInfoText(phase){
   const txt=document.getElementById('infoTxt');
   const btn=document.getElementById('infoBtn');
   const isHuman=G.judgeMode==='human';
-  const judge=G.players[G.hjJudgeIdx];
-  const jRef=`<span class="judge-ref">${judge} (Judge)</span>`;
+  const jRef=`<span class="judge-ref">the judge</span>`;
   const answerer=G.answererIdx!=null?G.players[G.answererIdx]:'';
   const isSteal=G.stealMode;
 
@@ -1507,9 +1460,8 @@ function goToAnswer(){
     // Stay on phQuestion, show HJ panel
     document.getElementById('nextBtn').style.display='none';
     document.getElementById('revealBtnFoot').style.display='flex';
-    const judge=G.players[G.hjJudgeIdx];
     const answerer=G.players[G.answererIdx];
-    document.getElementById('infoTxt').innerHTML=`<strong>${judge} (Judge)</strong> — listen to <em>${answerer}</em>'s answer, then tap Reveal.`;
+    document.getElementById('infoTxt').innerHTML=`Listen to <em>${answerer}</em>'s answer, then tap Reveal to judge.`;
     document.getElementById('infoRow').classList.add('show');
     document.getElementById('verdictLbl').textContent=`Did ${answerer} get it right?`;
     document.getElementById('hjPanel2').classList.add('show');
@@ -1716,7 +1668,7 @@ function showSteal(stealIdx){
   const wrongName=G.players[G.answererIdx];
   const stealName=G.players[stealIdx];
   const judgeNote=G.judgeMode==='human'
-    ?` <span class="judge-ref">${G.players[G.hjJudgeIdx]} (Judge)</span> will judge.`:'';
+    ?` <span class="judge-ref">The judge will rule.</span>`:'';
   document.getElementById('stealSub').innerHTML=
     `<strong>${wrongName}</strong> was wrong. <strong>${stealName}</strong> — `+
     (G.judgeMode==='human'?'say your answer out loud':'type or speak below')+
@@ -1740,9 +1692,8 @@ function doSteal(idx){
     G.answererIdx=idx;
     document.getElementById('nextBtn').style.display='none';
     document.getElementById('revealBtnFoot').style.display='flex';
-    const judge=G.players[G.hjJudgeIdx];
     const stealer=G.players[idx];
-    document.getElementById('infoTxt').innerHTML=`⚡ <strong>${judge} (Judge)</strong> — listen to <em>${stealer}</em>'s steal answer, then tap Reveal.`;
+    document.getElementById('infoTxt').innerHTML=`⚡ Listen to <em>${stealer}</em>'s steal answer, then tap Reveal to judge.`;
     document.getElementById('infoRow').classList.add('show');
     document.getElementById('verdictLbl').textContent=`Did ${stealer} get it right?`;
     // Reset reveal panel
@@ -2298,8 +2249,6 @@ function doRestart(){
     while(pDefs.length<4) pDefs.push({n:'',ph:`Player ${pDefs.length+1}`});
   }
   renderPlayers();
-  document.getElementById('hjPanel').style.display=
-    document.querySelector('.judge-card.on')?.dataset.jm==='human'?'block':'none';
   show('setup');
 }
 
@@ -2512,7 +2461,6 @@ function init(){
   initShuffleToggle();
   initTimerToggle();
   renderPlayers();
-  document.getElementById('hjPanel').style.display='block';
 
   // Board
   document.getElementById('newGameBtn').addEventListener('click',openRestart);
