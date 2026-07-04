@@ -2523,14 +2523,18 @@ function init(){
 
   // Guard accidental exit: intercept the back gesture during a game
   window.addEventListener('popstate',()=>{
-    if(_inGame){
-      if(confirm('Exit the current game? Your progress will be lost.')){
-        _inGame=false;
-        show('setup');
-      } else {
-        // Stay in the game — re-arm the trap
-        try{ history.pushState({g:1},''); }catch(e){}
-      }
+    if(!_inGame) return;
+    const onQuestion=document.getElementById('qscreen').classList.contains('active');
+    if(onQuestion){
+      // Back from a question → return to the tiles, keep the game running
+      backToBoard();
+      try{ history.pushState({g:1},''); }catch(e){}
+    } else if(confirm('Exit the current game? Your progress will be lost.')){
+      _inGame=false;
+      show('setup');
+    } else {
+      // Stay on the board — re-arm the trap
+      try{ history.pushState({g:1},''); }catch(e){}
     }
   });
   // Backstop for tab refresh/close while a game is on
