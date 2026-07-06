@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Family Trivia — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --night:#08090f; --panel:#12131c; --panel2:#1a1b26; --line:rgba(255,255,255,.1);
+  --gold:#d4a843; --gold-hi:#e8c874; --teal-hi:#3dd5c8; --ink:#f0ece4; --muted:rgba(255,255,255,.45);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--night);color:var(--ink);font-family:'Outfit',sans-serif;min-height:100vh;padding:24px 16px 60px;}
+.wrap{max-width:720px;margin:0 auto;}
+h1{font-family:'Playfair Display',serif;font-weight:900;font-size:34px;color:var(--gold);line-height:1;}
+.sub{color:var(--muted);font-size:13px;letter-spacing:1px;text-transform:uppercase;margin:6px 0 24px;}
+.lbl{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+.row{display:flex;gap:8px;align-items:stretch;margin-bottom:20px;}
+select{flex:1;min-width:0;background:var(--panel2);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:10px 12px;font-family:'Outfit',sans-serif;font-size:14px;}
+button.pill{flex:0 0 auto;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:rgba(255,255,255,.8);font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;padding:0 16px;cursor:pointer;}
+button.pill:hover{background:rgba(255,255,255,.14);}
+.section{font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.3);margin:22px 0 8px;}
+table{border-collapse:collapse;width:100%;font-size:13px;}
+th,td{padding:8px 10px;text-align:right;border-bottom:1px solid rgba(255,255,255,.06);}
+th{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+th:first-child,td:first-child{text-align:left;}
+.hit-ok{color:var(--teal-hi);} .hit-good{color:var(--gold-hi);} .hit-low{color:#e05c6e;}
+tr.total td{border-top:2px solid rgba(255,255,255,.2);font-weight:700;color:#fff;}
+.muted{color:var(--muted);text-align:center;padding:24px 0;}
+.details{margin-top:8px;border-top:1px solid var(--line);padding-top:14px;display:none;}
+.details.show{display:block;}
+.dl{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.35);margin:14px 0 6px;}
+.prose{font-size:13px;color:rgba(255,255,255,.75);line-height:1.55;background:rgba(255,255,255,.04);border-radius:8px;padding:12px;}
+.meta{font-size:12px;color:var(--muted);margin-bottom:4px;}
+.note{font-size:13px;color:rgba(255,255,255,.6);font-style:italic;margin-bottom:6px;}
+.footer{margin-top:40px;font-size:11px;color:rgba(255,255,255,.25);text-align:center;}
+a{color:var(--muted);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Family Trivia</h1>
+  <div class="sub">Admin · Ruleset Calibration</div>
+
+  <div class="lbl">Difficulty Ruleset</div>
+  <div class="row">
+    <select id="rsSelect"></select>
+    <button class="pill" id="detailsBtn">ⓘ Details</button>
+  </div>
+
+  <div id="statsArea"><div class="muted">Loading…</div></div>
+
+  <div class="details" id="detailsPane"></div>
+
+  <div class="footer">View-only. Data reads live from the game database.</div>
+</div>
+
+<script>
+const TARGET_RATES={100:75,200:66,300:50,400:33,500:20};
+let RULESETS=[]; let SELECTED=null;
+
+async function api(path){
+  const r=await fetch(path);
+  return await r.json();
+}
+
+function tierTable(byTier){
+  const tiers=[100,200,300,400,500];
+  let h='<table><tr><th>Tier</th><th>Att</th><th>OK</th><th>Actual</th><th>Target</th></tr>';
+  let tA=0,tO=0,wT=0;
+  tiers.forEach(t=>{
+    const att=(byTier[t]&&byTier[t].att)||0, ok=(byTier[t]&&byTier[t].ok)||0;
+    tA+=att; tO+=ok; if(att>0) wT+=TARGET_RATES[t]*att;
+    const actual=att>0?Math.round(ok/att*100):0, target=TARGET_RATES[t];
+    const diff=att>0?actual-target:0;
+    const cls=att===0?'':Math.abs(diff)<=10?'hit-ok':diff>0?'hit-good':'hit-low';
+    h+=`<tr><td>${t}</td><td>${att}</td><td>${ok}</td><td class="${cls}">${att>0?actual+'%':'0%'}</td><td>${target}%</td></tr>`;
+  });
+  if(tA>0){
+    const aT=Math.round(tO/tA*100), gT=Math.round(wT/tA), d=aT-gT;
+    const cls=Math.abs(d)<=10?'hit-ok':d>0?'hit-good':'hit-low';
+    h+=`<tr class="total"><td>Total</td><td>${tA}</td><td>${tO}</td><td class="${cls}">${aT}%</td><td>${gT}%</td></tr>`;
+  } else {
+    h+=`<tr class="total"><td>Total</td><td>0</td><td>0</td><td>0%</td><td>—</td></tr>`;
+  }
+  h+='</table>';
+  return h;
+}
+
+async function loadStats(){
+  const area=document.getElementById('statsArea');
+  area.innerHTML='<div class="muted">Loading…</div>';
+  if(SELECTED==null){ area.innerHTML='<div class="muted">No ruleset selected.</div>'; return; }
+  let s;
+  try{ s=await api('/api/stats/tiers?ruleset='+encodeURIComponent(SELECTED)); }
+  catch(e){ area.innerHTML='<div class="muted">Couldn’t reach the server. Reload in a moment.</div>'; return; }
+  if(!s || (s.total||0)===0){ area.innerHTML='<div class="muted">No answers recorded under this ruleset yet.</div>'; return; }
+  const modeStr=Object.keys(s.byMode||{}).map(m=>m+': '+s.byMode[m]).join('  ·  ')||'—';
+  const stealStr=(s.steals&&s.steals.att>0)?(s.steals.ok+'/'+s.steals.att):'0';
+  area.innerHTML=
+    '<div class="section">By Tier</div>'+tierTable(s.byTier||{})+
+    `<div class="meta" style="margin-top:12px;">${s.total} answers · steals ${stealStr} · by mode ${modeStr}</div>`;
+}
+
+function renderDetails(){
+  const pane=document.getElementById('detailsPane');
+  const r=RULESETS.find(x=>x.difficulty_ruleset_version===SELECTED);
+  if(!r){ pane.innerHTML=''; return; }
+  const prose=t=>`<div class="prose">${t?t:'<span style="color:rgba(255,255,255,.3);">(none)</span>'}</div>`;
+  const created=r.created_at?new Date(r.created_at).toLocaleString():'';
+  let h=`<div class="meta">Ruleset ${r.difficulty_ruleset_version} · Model: ${r.model||'—'}${created?' · '+created:''}</div>`;
+  if(r.note) h+=`<div class="note">${r.note}</div>`;
+  h+='<div class="dl">Tier Targets</div>';
+  if(Array.isArray(r.tiers)&&r.tiers.length){
+    h+='<table><tr><th>Tier</th><th>Target</th><th style="text-align:left;">Style anchor</th></tr>';
+    r.tiers.forEach(t=>{ h+=`<tr><td>${t.name}</td><td>${t.pct}%</td><td style="text-align:left;font-size:12px;">${t.anchor||''}</td></tr>`; });
+    h+='</table>';
+  } else h+=prose(null);
+  h+='<div class="dl">Reference Player</div>'+prose(r.reference_player);
+  h+='<div class="dl">Audience Note</div>'+prose(r.audience_note);
+  h+='<div class="dl">AI Judge Leniency</div>'+prose(r.judge_prompt);
+  h+='<div class="dl">Category Overrides</div>';
+  const ov=r.category_overrides;
+  if(ov && typeof ov==='object' && Object.keys(ov).length){
+    Object.keys(ov).forEach(k=>{ h+=`<div style="font-size:12px;font-weight:700;color:var(--gold-hi);margin:10px 0 4px;">${k}</div>`+prose(ov[k]); });
+  } else h+=prose(null);
+  h+='<div class="dl">Easy Nudge</div>'+prose(r.easy_nudge);
+  h+='<div class="dl">Hard Nudge</div>'+prose(r.hard_nudge);
+  pane.innerHTML=h;
+}
+
+document.getElementById('rsSelect').addEventListener('change',e=>{
+  SELECTED=Number(e.target.value);
+  loadStats();
+  if(document.getElementById('detailsPane').classList.contains('show')) renderDetails();
+});
+document.getElementById('detailsBtn').addEventListener('click',()=>{
+  const pane=document.getElementById('detailsPane');
+  const open=pane.classList.toggle('show');
+  if(open) renderDetails();
+});
+
+(async function init(){
+  try{
+    RULESETS=await api('/api/rulesets');
+  }catch(e){ document.getElementById('statsArea').innerHTML='<div class="muted">Couldn’t reach the server. Reload in a moment.</div>'; return; }
+  if(!Array.isArray(RULESETS)||RULESETS.length===0){
+    document.getElementById('statsArea').innerHTML='<div class="muted">No rulesets defined yet.</div>'; return;
+  }
+  const sel=document.getElementById('rsSelect');
+  sel.innerHTML=RULESETS.map(r=>`<option value="${r.difficulty_ruleset_version}">Ruleset ${r.difficulty_ruleset_version}${r.note?' — '+r.note:''}</option>`).join('');
+  SELECTED=RULESETS[RULESETS.length-1].difficulty_ruleset_version; // newest
+  sel.value=SELECTED;
+  loadStats();
+})();
+</script>
+</body>
+</html>
