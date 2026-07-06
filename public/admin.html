@@ -36,6 +36,14 @@ tr.total td{border-top:2px solid rgba(255,255,255,.2);font-weight:700;color:#fff
 .note{font-size:13px;color:rgba(255,255,255,.6);font-style:italic;margin-bottom:6px;}
 .footer{margin-top:40px;font-size:11px;color:rgba(255,255,255,.25);text-align:center;}
 a{color:var(--muted);}
+.warn{background:rgba(212,168,67,.12);border:1px solid rgba(212,168,67,.4);color:var(--gold-hi);border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:14px;}
+.lowflag{font-size:9px;color:var(--muted);border:1px solid rgba(255,255,255,.2);border-radius:4px;padding:1px 4px;margin-left:6px;text-transform:uppercase;letter-spacing:.5px;}
+table.grid th{text-align:center;}
+table.grid th:first-child,table.grid td:first-child{text-align:left;}
+table.grid td.cell{text-align:center;font-size:12px;font-weight:700;min-width:52px;}
+table.grid td.cell .cn{display:block;font-size:9px;font-weight:400;color:var(--muted);}
+table.grid td.empty{text-align:center;color:rgba(255,255,255,.15);}
+table.grid td.dim{text-align:center;color:rgba(255,255,255,.4);font-weight:400;}
 </style>
 </head>
 <body>
@@ -58,6 +66,8 @@ a{color:var(--muted);}
 
 <script>
 const TARGET_RATES={100:75,200:66,300:50,400:33,500:20};
+const LOW=20;    // per-tier/category: fewer answers than this = low confidence
+const NOISY=50;  // overall: fewer answers than this = whole ruleset is noisy
 let RULESETS=[]; let SELECTED=null;
 
 async function api(path){
@@ -88,6 +98,63 @@ function tierTable(byTier){
   return h;
 }
 
+function catExpected(ct){
+  let w=0,n=0;
+  Object.keys(ct||{}).forEach(t=>{ const a=ct[t].att; w+=(TARGET_RATES[t]||0)*a; n+=a; });
+  return n>0?Math.round(w/n):0;
+}
+
+function catTable(byCat, byCatTier){
+  const cats=Object.keys(byCat).sort();
+  if(!cats.length) return '<div class="muted">No category data.</div>';
+  let h='<table><tr><th>Category</th><th>Att</th><th>OK</th><th>Actual</th><th>Expected</th></tr>';
+  cats.forEach(cat=>{
+    const att=byCat[cat].att, ok=byCat[cat].ok;
+    const actual=att>0?Math.round(ok/att*100):0;
+    const exp=catExpected(byCatTier[cat]);
+    const diff=actual-exp;
+    const cls=att<LOW?'':Math.abs(diff)<=10?'hit-ok':diff>0?'hit-good':'hit-low';
+    const low=att<LOW?' <span class="lowflag">low n</span>':'';
+    h+=`<tr><td>${cat}${low}</td><td>${att}</td><td>${ok}</td><td class="${cls}">${actual}%</td><td>${exp}%</td></tr>`;
+  });
+  h+='</table><div class="meta" style="margin-top:6px;">Expected = the tier targets blended by how often each tier was asked in that category.</div>';
+  return h;
+}
+
+function catTierGrid(byCatTier){
+  const cats=Object.keys(byCatTier).sort();
+  const tiers=[100,200,300,400,500];
+  if(!cats.length) return '<div class="muted">No data.</div>';
+  let h='<div style="overflow-x:auto;"><table class="grid"><tr><th>Category</th>';
+  tiers.forEach(t=>h+=`<th>${t}</th>`);
+  h+='</tr>';
+  cats.forEach(cat=>{
+    h+=`<tr><td>${cat}</td>`;
+    tiers.forEach(t=>{
+      const c=byCatTier[cat][t];
+      if(!c||c.att===0){ h+='<td class="empty">·</td>'; return; }
+      const pct=Math.round(c.ok/c.att*100), target=TARGET_RATES[t], diff=pct-target;
+      const cls=c.att<LOW?'cell dim':(Math.abs(diff)<=10?'cell hit-ok':diff>0?'cell hit-good':'cell hit-low');
+      h+=`<td class="${cls}" title="${c.ok}/${c.att} vs ${target}% target">${pct}%<span class="cn">n=${c.att}</span></td>`;
+    });
+    h+='</tr>';
+  });
+  h+='</table></div><div class="meta" style="margin-top:6px;">Cell = actual hit rate vs that tier’s target. Dim = too few answers (n&lt;'+LOW+') to trust.</div>';
+  return h;
+}
+
+function trendChart(trend){
+  if(!trend||trend.length<2) return '<div class="muted">Not enough data yet for a trend.</div>';
+  const W=680,H=130,pad=26,n=trend.length;
+  const x=i=>pad+(W-2*pad)*(n===1?0:i/(n-1));
+  const y=p=>H-pad-(H-2*pad)*(p/100);
+  const pts=trend.map((b,i)=>`${x(i).toFixed(1)},${y(b.pct).toFixed(1)}`).join(' ');
+  const dots=trend.map((b,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(b.pct).toFixed(1)}" r="3" fill="var(--gold)"/>`).join('');
+  const grid=[0,50,100].map(p=>`<line x1="${pad}" y1="${y(p).toFixed(1)}" x2="${W-pad}" y2="${y(p).toFixed(1)}" stroke="rgba(255,255,255,.08)"/><text x="2" y="${(y(p)+3).toFixed(1)}" fill="rgba(255,255,255,.3)" font-size="9">${p}</text>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;">${grid}<polyline points="${pts}" fill="none" stroke="var(--gold)" stroke-width="2"/>${dots}</svg>
+    <div class="meta">Hit rate across ${n} time buckets (oldest → newest). Steady upward drift can mean questions getting easier or being memorized.</div>`;
+}
+
 async function loadStats(){
   const area=document.getElementById('statsArea');
   area.innerHTML='<div class="muted">Loading…</div>';
@@ -98,9 +165,14 @@ async function loadStats(){
   if(!s || (s.total||0)===0){ area.innerHTML='<div class="muted">No answers recorded under this ruleset yet.</div>'; return; }
   const modeStr=Object.keys(s.byMode||{}).map(m=>m+': '+s.byMode[m]).join('  ·  ')||'—';
   const stealStr=(s.steals&&s.steals.att>0)?(s.steals.ok+'/'+s.steals.att):'0';
+  const noisy = s.total<NOISY ? `<div class="warn">⚠ Only ${s.total} answers under this ruleset — numbers are noisy. Accumulate more before tuning.</div>` : '';
   area.innerHTML=
+    noisy+
+    `<div class="meta">${s.total} answers · steals ${stealStr} · by mode ${modeStr}</div>`+
     '<div class="section">By Tier</div>'+tierTable(s.byTier||{})+
-    `<div class="meta" style="margin-top:12px;">${s.total} answers · steals ${stealStr} · by mode ${modeStr}</div>`;
+    '<div class="section">By Category</div>'+catTable(s.byCat||{}, s.byCatTier||{})+
+    '<div class="section">Category × Tier</div>'+catTierGrid(s.byCatTier||{})+
+    '<div class="section">Hit Rate Over Time</div>'+trendChart(s.trend||[]);
 }
 
 function renderDetails(){

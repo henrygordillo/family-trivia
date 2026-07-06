@@ -145,25 +145,43 @@ app.get('/api/questions/recent/:category', async (req, res) => {
 
 // ── Stats: all-time by-tier aggregate (server-side) ────────────────────────────
 app.get('/api/stats/tiers', async (req, res) => {
-  let q = supabase.from('attempts').select('tier, correct, is_steal, mode');
+  let q = supabase.from('attempts')
+    .select('tier, correct, is_steal, mode, category, attempted_at')
+    .order('attempted_at', { ascending: true });
   const rs = req.query.ruleset;
   if (rs !== undefined && rs !== '') q = q.eq('difficulty_ruleset_version', Number(rs));
   const { data, error } = await q;
   if (error) return res.status(500).json({ error: error.message });
-  const byTier = {};
-  let total = 0, totalOK = 0;
-  const byMode = {};
+  const rows = data || [];
+  const byTier = {}, byCat = {}, byCatTier = {}, byMode = {};
   const steals = { att: 0, ok: 0 };
-  (data || []).forEach(r => {
-    const t = r.tier;
+  let total = 0, totalOK = 0;
+  rows.forEach(r => {
+    const t = r.tier, cat = r.category || '(uncategorized)';
     if (!byTier[t]) byTier[t] = { att: 0, ok: 0 };
     byTier[t].att++; total++;
     if (r.correct) { byTier[t].ok++; totalOK++; }
+    if (!byCat[cat]) byCat[cat] = { att: 0, ok: 0 };
+    byCat[cat].att++; if (r.correct) byCat[cat].ok++;
+    if (!byCatTier[cat]) byCatTier[cat] = {};
+    if (!byCatTier[cat][t]) byCatTier[cat][t] = { att: 0, ok: 0 };
+    byCatTier[cat][t].att++; if (r.correct) byCatTier[cat][t].ok++;
     const m = r.mode || 'normal';
     byMode[m] = (byMode[m] || 0) + 1;
     if (r.is_steal) { steals.att++; if (r.correct) steals.ok++; }
   });
-  res.json({ byTier, total, totalOK, byMode, steals });
+  // Trend: split time-ordered answers into up to 10 sequential buckets (drift over time)
+  const trend = [];
+  if (rows.length) {
+    const B = Math.min(10, rows.length);
+    const size = Math.ceil(rows.length / B);
+    for (let i = 0; i < rows.length; i += size) {
+      const chunk = rows.slice(i, i + size);
+      const ok = chunk.filter(r => r.correct).length;
+      trend.push({ n: chunk.length, ok, pct: Math.round(ok / chunk.length * 100) });
+    }
+  }
+  res.json({ byTier, byCat, byCatTier, byMode, steals, total, totalOK, trend });
 });
 
 // ── Difficulty rulesets: list versions for the stats dropdown ──────────────────
