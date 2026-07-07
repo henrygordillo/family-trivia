@@ -41,7 +41,8 @@ a{color:var(--muted);}
 table.grid th{text-align:center;}
 table.grid th:first-child,table.grid td:first-child{text-align:left;}
 table.grid td.cell{text-align:center;font-size:12px;font-weight:700;min-width:52px;}
-table.grid td.cell .cn{display:block;font-size:9px;font-weight:400;color:var(--muted);}
+table.grid td.cell .cn{display:block;font-size:9px;font-weight:400;color:var(--muted);margin-top:1px;}
+table.grid .lowflag{margin-left:0;}
 table.grid td.empty{text-align:center;color:rgba(255,255,255,.15);}
 table.grid td.dim{text-align:center;color:rgba(255,255,255,.4);font-weight:400;}
 </style>
@@ -66,7 +67,7 @@ table.grid td.dim{text-align:center;color:rgba(255,255,255,.4);font-weight:400;}
 
 <script>
 const TARGET_RATES={100:75,200:66,300:50,400:33,500:20};
-const LOW=20;    // per-tier/category: fewer answers than this = low confidence
+const LOW=25;    // fewer answers than this = statistically insufficient (flagged everywhere)
 const NOISY=50;  // overall: fewer answers than this = whole ruleset is noisy
 let RULESETS=[]; let SELECTED=null;
 
@@ -85,7 +86,8 @@ function tierTable(byTier){
     const actual=att>0?Math.round(ok/att*100):0, target=TARGET_RATES[t];
     const diff=att>0?actual-target:0;
     const cls=att===0?'':Math.abs(diff)<=10?'hit-ok':diff>0?'hit-good':'hit-low';
-    h+=`<tr><td>${t}</td><td>${att}</td><td>${ok}</td><td class="${cls}">${att>0?actual+'%':'0%'}</td><td>${target}%</td></tr>`;
+    const low=(att>0&&att<LOW)?' <span class="lowflag">low n</span>':'';
+    h+=`<tr><td>${t}</td><td>${att}</td><td>${ok}</td><td class="${cls}">${att>0?actual+'%':'0%'}${low}</td><td>${target}%</td></tr>`;
   });
   if(tA>0){
     const aT=Math.round(tO/tA*100), gT=Math.round(wT/tA), d=aT-gT;
@@ -113,9 +115,9 @@ function catTable(byCat, byCatTier){
     const actual=att>0?Math.round(ok/att*100):0;
     const exp=catExpected(byCatTier[cat]);
     const diff=actual-exp;
-    const cls=att<LOW?'':Math.abs(diff)<=10?'hit-ok':diff>0?'hit-good':'hit-low';
+    const cls=Math.abs(diff)<=10?'hit-ok':diff>0?'hit-good':'hit-low';
     const low=att<LOW?' <span class="lowflag">low n</span>':'';
-    h+=`<tr><td>${cat}${low}</td><td>${att}</td><td>${ok}</td><td class="${cls}">${actual}%</td><td>${exp}%</td></tr>`;
+    h+=`<tr><td>${cat}</td><td>${att}</td><td>${ok}</td><td class="${cls}">${actual}%${low}</td><td>${exp}%</td></tr>`;
   });
   h+='</table><div class="meta" style="margin-top:6px;">Expected = the tier targets blended by how often each tier was asked in that category.</div>';
   return h;
@@ -134,12 +136,13 @@ function catTierGrid(byCatTier){
       const c=byCatTier[cat][t];
       if(!c||c.att===0){ h+='<td class="empty">·</td>'; return; }
       const pct=Math.round(c.ok/c.att*100), target=TARGET_RATES[t], diff=pct-target;
-      const cls=c.att<LOW?'cell dim':(Math.abs(diff)<=10?'cell hit-ok':diff>0?'cell hit-good':'cell hit-low');
-      h+=`<td class="${cls}" title="${c.ok}/${c.att} vs ${target}% target">${pct}%<span class="cn">n=${c.att}</span></td>`;
+      const cls='cell '+(Math.abs(diff)<=10?'hit-ok':diff>0?'hit-good':'hit-low');
+      const sub=c.att<LOW?'<span class="lowflag">low n</span>':`n=${c.att}`;
+      h+=`<td class="${cls}" title="${c.ok}/${c.att} vs ${target}% target">${pct}%<div class="cn">${sub}</div></td>`;
     });
     h+='</tr>';
   });
-  h+='</table></div><div class="meta" style="margin-top:6px;">Cell = actual hit rate vs that tier’s target. Dim = too few answers (n&lt;'+LOW+') to trust.</div>';
+  h+='</table></div><div class="meta" style="margin-top:6px;">Cell = actual hit rate vs that tier’s target. “low n” = fewer than '+LOW+' answers — not enough to trust yet.</div>';
   return h;
 }
 
