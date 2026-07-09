@@ -27,6 +27,8 @@ th{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;co
 th:first-child,td:first-child{text-align:left;}
 .hit-ok{color:var(--teal-hi);} .hit-good{color:var(--gold-hi);} .hit-low{color:#e05c6e;}
 tr.total td{border-top:2px solid rgba(255,255,255,.2);font-weight:700;color:#fff;}
+tr.totalrow td{border-top:2px solid rgba(255,255,255,.25);font-weight:700;}
+tr.totalrow td:first-child{color:#fff;}
 .muted{color:var(--muted);text-align:center;padding:24px 0;}
 .details{margin-top:8px;border-top:1px solid var(--line);padding-top:14px;display:none;}
 .details.show{display:block;}
@@ -76,73 +78,51 @@ async function api(path){
   return await r.json();
 }
 
-function tierTable(byTier){
-  const tiers=[100,200,300,400,500];
-  let h='<table><tr><th>Tier</th><th>Att</th><th>OK</th><th>Actual</th><th>Target</th></tr>';
-  let tA=0,tO=0,wT=0;
-  tiers.forEach(t=>{
-    const att=(byTier[t]&&byTier[t].att)||0, ok=(byTier[t]&&byTier[t].ok)||0;
-    tA+=att; tO+=ok; if(att>0) wT+=TARGET_RATES[t]*att;
-    const actual=att>0?Math.round(ok/att*100):0, target=TARGET_RATES[t];
-    const diff=att>0?actual-target:0;
-    const cls=att===0?'':Math.abs(diff)<=10?'hit-ok':diff>0?'hit-good':'hit-low';
-    const low=(att>0&&att<LOW)?' <span class="lowflag">low n</span>':'';
-    h+=`<tr><td>${t}</td><td>${att}</td><td>${ok}</td><td class="${cls}">${att>0?actual+'%':'0%'}${low}</td><td>${target}%</td></tr>`;
-  });
-  if(tA>0){
-    const aT=Math.round(tO/tA*100), gT=Math.round(wT/tA), d=aT-gT;
-    const cls=Math.abs(d)<=10?'hit-ok':d>0?'hit-good':'hit-low';
-    h+=`<tr class="total"><td>Total</td><td>${tA}</td><td>${tO}</td><td class="${cls}">${aT}%</td><td>${gT}%</td></tr>`;
-  } else {
-    h+=`<tr class="total"><td>Total</td><td>0</td><td>0</td><td>0%</td><td>—</td></tr>`;
-  }
-  h+='</table>';
-  return h;
-}
-
 function catExpected(ct){
   let w=0,n=0;
   Object.keys(ct||{}).forEach(t=>{ const a=ct[t].att; w+=(TARGET_RATES[t]||0)*a; n+=a; });
   return n>0?Math.round(w/n):0;
 }
 
-function catTable(byCat, byCatTier){
-  const cats=Object.keys(byCat).sort();
-  if(!cats.length) return '<div class="muted">No category data.</div>';
-  let h='<table><tr><th>Category</th><th>Att</th><th>OK</th><th>Actual</th><th>Expected</th></tr>';
-  cats.forEach(cat=>{
-    const att=byCat[cat].att, ok=byCat[cat].ok;
-    const actual=att>0?Math.round(ok/att*100):0;
-    const exp=catExpected(byCatTier[cat]);
-    const diff=actual-exp;
-    const cls=Math.abs(diff)<=10?'hit-ok':diff>0?'hit-good':'hit-low';
-    const low=att<LOW?' <span class="lowflag">low n</span>':'';
-    h+=`<tr><td>${cat}</td><td>${att}</td><td>${ok}</td><td class="${cls}">${actual}%${low}</td><td>${exp}%</td></tr>`;
-  });
-  h+='</table><div class="meta" style="margin-top:6px;">Expected = the tier targets blended by how often each tier was asked in that category.</div>';
-  return h;
+function cellHTML(obj, target){
+  if(!obj||obj.att===0) return '<td class="empty">·</td>';
+  const pct=Math.round(obj.ok/obj.att*100), diff=pct-target;
+  const cls='cell '+(Math.abs(diff)<=10?'hit-ok':diff>0?'hit-good':'hit-low');
+  const sub=obj.att<LOW?'<span class="lowflag">low n</span>':`n=${obj.att}`;
+  return `<td class="${cls}" title="${obj.ok}/${obj.att} · target ${target}%">${pct}%<div class="cn">${sub}</div></td>`;
 }
-
-function catTierGrid(byCatTier){
-  const cats=Object.keys(byCatTier).sort();
+function overallCell(obj, exp){
+  if(!obj||obj.att===0) return '<td class="empty">·</td>';
+  const pct=Math.round(obj.ok/obj.att*100), diff=pct-exp;
+  const cls='cell '+(Math.abs(diff)<=10?'hit-ok':diff>0?'hit-good':'hit-low');
+  const tail=obj.att<LOW?'<span class="lowflag">low n</span>':`n=${obj.att}`;
+  return `<td class="${cls}" title="${obj.ok}/${obj.att} · expected ${exp}%">${pct}%<div class="cn">exp ${exp}% · ${tail}</div></td>`;
+}
+function matrixTable(s){
   const tiers=[100,200,300,400,500];
+  const byCatTier=s.byCatTier||{}, byCat=s.byCat||{}, byTier=s.byTier||{};
+  const cats=Object.keys(byCatTier).sort();
   if(!cats.length) return '<div class="muted">No data.</div>';
   let h='<div style="overflow-x:auto;"><table class="grid"><tr><th>Category</th>';
   tiers.forEach(t=>h+=`<th>${t}</th>`);
-  h+='</tr>';
+  h+='<th>Overall</th></tr>';
   cats.forEach(cat=>{
     h+=`<tr><td>${cat}</td>`;
-    tiers.forEach(t=>{
-      const c=byCatTier[cat][t];
-      if(!c||c.att===0){ h+='<td class="empty">·</td>'; return; }
-      const pct=Math.round(c.ok/c.att*100), target=TARGET_RATES[t], diff=pct-target;
-      const cls='cell '+(Math.abs(diff)<=10?'hit-ok':diff>0?'hit-good':'hit-low');
-      const sub=c.att<LOW?'<span class="lowflag">low n</span>':`n=${c.att}`;
-      h+=`<td class="${cls}" title="${c.ok}/${c.att} vs ${target}% target">${pct}%<div class="cn">${sub}</div></td>`;
-    });
+    tiers.forEach(t=>{ h+=cellHTML((byCatTier[cat]||{})[t], TARGET_RATES[t]); });
+    h+=overallCell(byCat[cat], catExpected(byCatTier[cat]));
     h+='</tr>';
   });
-  h+='</table></div><div class="meta" style="margin-top:6px;">Cell = actual hit rate vs that tier’s target. “low n” = fewer than '+LOW+' answers — not enough to trust yet.</div>';
+  // Totals row: per-tier column totals + grand total
+  h+='<tr class="totalrow"><td>Total</td>';
+  let gW=0,gN=0;
+  tiers.forEach(t=>{
+    h+=cellHTML(byTier[t], TARGET_RATES[t]);
+    const a=(byTier[t]&&byTier[t].att)||0; gW+=TARGET_RATES[t]*a; gN+=a;
+  });
+  const gExp=gN>0?Math.round(gW/gN):0;
+  h+=overallCell({att:s.total,ok:s.totalOK}, gExp);
+  h+='</tr></table></div>';
+  h+='<div class="meta" style="margin-top:6px;">Rows = categories, columns = point tiers. Tier cells compare actual vs that tier’s target; the Overall column and Totals row compare actual vs the blended expected. “low n” = fewer than '+LOW+' answers to trust.</div>';
   return h;
 }
 
@@ -172,9 +152,7 @@ async function loadStats(){
   area.innerHTML=
     noisy+
     `<div class="meta">${s.total} answers · steals ${stealStr} · by mode ${modeStr}</div>`+
-    '<div class="section">By Tier</div>'+tierTable(s.byTier||{})+
-    '<div class="section">By Category</div>'+catTable(s.byCat||{}, s.byCatTier||{})+
-    '<div class="section">Category × Tier</div>'+catTierGrid(s.byCatTier||{})+
+    '<div class="section">Calibration — Category × Tier</div>'+matrixTable(s)+
     '<div class="section">Hit Rate Over Time</div>'+trendChart(s.trend||[]);
 }
 
