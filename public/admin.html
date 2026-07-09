@@ -94,7 +94,7 @@ function tierTable(byTier){
     const actual=att>0?Math.round(ok/att*100):0, target=TARGET_RATES[t];
     const diff=att>0?actual-target:0;
     const cls=att===0?'':Math.abs(diff)<=10?'hit-ok':diff>0?'hit-good':'hit-low';
-    const low=(att>0&&att<LOW)?' <span class="lowflag">low n</span>':'';
+    const low=(att>0&&att<LOW)?` <span class="lowflag">low n (${att})</span>`:'';
     h+=`<tr><td>${t}</td><td>${att}</td><td>${ok}</td><td class="${cls}">${att>0?actual+'%':'0%'}${low}</td><td>${target}%</td></tr>`;
   });
   if(tA>0){
@@ -111,15 +111,19 @@ function cellHTML(obj, target){
   if(!obj||obj.att===0) return '<td class="empty">·</td>';
   const pct=Math.round(obj.ok/obj.att*100), diff=pct-target;
   const cls='cell '+(Math.abs(diff)<=10?'hit-ok':diff>0?'hit-good':'hit-low');
-  const sub=obj.att<LOW?'<span class="lowflag">low n</span>':`n=${obj.att}`;
+  const sub=obj.att<LOW?`<span class="lowflag">low n (${obj.att})</span>`:`n=${obj.att}`;
   return `<td class="${cls}" title="${obj.ok}/${obj.att} · target ${target}%">${pct}%<div class="cn">${sub}</div></td>`;
 }
 function overallCell(obj, exp){
   if(!obj||obj.att===0) return '<td class="empty">·</td>';
   const pct=Math.round(obj.ok/obj.att*100), diff=pct-exp;
   const cls='cell '+(Math.abs(diff)<=10?'hit-ok':diff>0?'hit-good':'hit-low');
-  const tail=obj.att<LOW?'<span class="lowflag">low n</span>':`n=${obj.att}`;
-  return `<td class="${cls}" title="${obj.ok}/${obj.att} · expected ${exp}%">${pct}%<div class="cn">exp ${exp}% · ${tail}</div></td>`;
+  const tail=obj.att<LOW?`<span class="lowflag">low n (${obj.att})</span>`:`n=${obj.att}`;
+  return `<td class="${cls}" title="${obj.ok}/${obj.att} · expected ${exp}%">${pct}%<div class="cn">${tail}</div></td>`;
+}
+function expectedCell(obj, exp){
+  if(!obj||obj.att===0) return '<td class="empty">·</td>';
+  return `<td class="cell" style="color:var(--muted);font-weight:400;">${exp}%</td>`;
 }
 function matrixTable(s){
   const tiers=[100,200,300,400,500];
@@ -128,11 +132,13 @@ function matrixTable(s){
   if(!cats.length) return '<div class="muted">No data.</div>';
   let h='<div style="overflow-x:auto;"><table class="grid"><tr><th>Category</th>';
   tiers.forEach(t=>h+=`<th>${t}</th>`);
-  h+='<th>Overall</th></tr>';
+  h+='<th>Overall</th><th>Expected</th></tr>';
   cats.forEach(cat=>{
     h+=`<tr><td>${cat}</td>`;
     tiers.forEach(t=>{ h+=cellHTML((byCatTier[cat]||{})[t], TARGET_RATES[t]); });
-    h+=overallCell(byCat[cat], catExpected(byCatTier[cat]));
+    const exp=catExpected(byCatTier[cat]);
+    h+=overallCell(byCat[cat], exp);
+    h+=expectedCell(byCat[cat], exp);
     h+='</tr>';
   });
   // Totals row: per-tier column totals + grand total
@@ -143,9 +149,11 @@ function matrixTable(s){
     const a=(byTier[t]&&byTier[t].att)||0; gW+=TARGET_RATES[t]*a; gN+=a;
   });
   const gExp=gN>0?Math.round(gW/gN):0;
-  h+=overallCell({att:s.total,ok:s.totalOK}, gExp);
+  const gTot={att:s.total,ok:s.totalOK};
+  h+=overallCell(gTot, gExp);
+  h+=expectedCell(gTot, gExp);
   h+='</tr></table></div>';
-  h+='<div class="meta" style="margin-top:6px;">Rows = categories, columns = point tiers. Tier cells compare actual vs that tier’s target; the Overall column and Totals row compare actual vs the blended expected. “low n” = fewer than '+LOW+' answers to trust.</div>';
+  h+='<div class="meta" style="margin-top:6px;">Rows = categories, columns = point tiers. Tier cells compare actual vs that tier’s target; Overall compares actual vs the Expected column (targets blended by how often each tier was asked). “low n (#)” = fewer than '+LOW+' answers, with the count shown.</div>';
   return h;
 }
 
