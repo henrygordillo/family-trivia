@@ -1619,10 +1619,11 @@ function afterAiVerdict(){ resolveAnswer(document.getElementById('aiVerdict').da
 // ═══════════════════════════════════════════════════════════════════
 function resolveAnswer(correct){
   clearTimer();
-  // Update the answerer's streak (+ hot / - cold, mutually exclusive)
+  // Update the answerer's streak (+ hot / - cold, mutually exclusive).
+  // Steals don't count — a streak reflects how you do on your OWN picks.
   if(!G.streak) G.streak=G.players.map(()=>0);
   const _si=G.answererIdx;
-  if(_si!=null){
+  if(_si!=null && !G.stealMode){
     if(correct) G.streak[_si]=G.streak[_si]>=0?G.streak[_si]+1:1;
     else        G.streak[_si]=G.streak[_si]<=0?G.streak[_si]-1:-1;
   }
