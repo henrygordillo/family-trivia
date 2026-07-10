@@ -875,6 +875,11 @@ function buildPTable(answererIdx){
     return pos+1; // 1-based
   });
 
+  // Leader = highest score (only if someone's actually ahead of 0, and not a tie for the top)
+  const maxScore=Math.max(...G.scores);
+  const topCount=G.scores.filter(s=>s===maxScore).length;
+  const leaderIdx=(maxScore>0&&topCount===1)?G.scores.indexOf(maxScore):-1;
+
   let activeNum=1;
   const rows=G.players.map((_,i)=>{
     const isAnswering=answering&&i===answererIdx;
@@ -891,13 +896,23 @@ function buildPTable(answererIdx){
 
     const num=activeNum++;
 
+    // Leader marker, streak badge, and picked-this-round check
+    const crown=(i===leaderIdx)?'👑 ':'';
+    const st=(G.streak&&G.streak[i])||0;
+    let streakBadge='';
+    if(st>=2) streakBadge=` <span style="font-size:10px;color:#ff8a4c;font-weight:700;">🔥${st}</span>`;
+    else if(st<=-2) streakBadge=` <span style="font-size:10px;color:#7fc7ff;font-weight:700;">🧊${-st}</span>`;
+    const picked=(G.pickedThisRound&&G.pickedThisRound.includes(i))
+      ? ' <span style="font-size:9px;color:rgba(255,255,255,.35);" title="Picked this round">✓</span>'
+      : '';
+
     // Hit rate for this player — overall (turn questions + steals combined)
     const pAttempts=(G.attempts||[]).filter(a=>a.player===G.players[i]);
     const pOK=pAttempts.filter(a=>a.correct).length;
     const hitStr=pAttempts.length>0?Math.round(pOK/pAttempts.length*100)+'%':'—';
     return `<tr class="${cls}" onclick="openPlayerStats(${i})" style="cursor:pointer;">
       <td class="pt-num">${num}</td>
-      <td class="pt-name">${G.players[i]}</td>
+      <td class="pt-name" style="white-space:nowrap;">${crown}${G.players[i]}${streakBadge}${picked}</td>
       <td class="pt-hit">${hitStr}</td>
       <td class="pt-score">${G.scores[i]}</td>
       <td class="pt-role">${role}</td>
@@ -1275,6 +1290,8 @@ async function startGame(){
   G.turnPos=0;
   G.nextPickerIdx=G.turnOrder[G.turnPos];
   G.numActivePlayers=G.players.length;
+  G.streak=G.players.map(()=>0);       // per-player run: + hot (correct), - cold (wrong)
+  G.pickedThisRound=[];                 // player indices who've picked in the current round
 
   // Categories — avoid ones used in the last 4 games (read from the database)
   const recentCats=await dbGetRecentGameCategories();
@@ -1346,6 +1363,9 @@ async function pickQ(ci,qi){
   G.curCat=ci; G.curQ=qi; G.curPts=PTS[qi];
   G.wrongPlayers=[]; G.stealMode=false;
   G.transcript=''; G.answererIdx=getEffectivePicker();
+  // Record this player's pick for the current round (for the picks-this-round indicator)
+  if(!G.pickedThisRound) G.pickedThisRound=[];
+  if(G.answererIdx!=null && !G.pickedThisRound.includes(G.answererIdx)) G.pickedThisRound.push(G.answererIdx);
 
   // Badges
   document.getElementById('qBadges').innerHTML=
@@ -1599,6 +1619,13 @@ function afterAiVerdict(){ resolveAnswer(document.getElementById('aiVerdict').da
 // ═══════════════════════════════════════════════════════════════════
 function resolveAnswer(correct){
   clearTimer();
+  // Update the answerer's streak (+ hot / - cold, mutually exclusive)
+  if(!G.streak) G.streak=G.players.map(()=>0);
+  const _si=G.answererIdx;
+  if(_si!=null){
+    if(correct) G.streak[_si]=G.streak[_si]>=0?G.streak[_si]+1:1;
+    else        G.streak[_si]=G.streak[_si]<=0?G.streak[_si]-1:-1;
+  }
   // Track this answer attempt
   const earnedPts=correct?(G.stealMode?Math.round(G.curPts/2):G.curPts):0;
   G.attempts.push({
@@ -1755,7 +1782,7 @@ function showFinalReveal(){
   // roundQuestionCount already incremented in advanceTurnPos
   const isRoundEnd=G.numActivePlayers>0&&G.roundQuestionCount>0&&
     G.roundQuestionCount%G.numActivePlayers===0;
-  if(isRoundEnd) G.roundNumber++;
+  if(isRoundEnd){ G.roundNumber++; G.pickedThisRound=[]; }
   if(sc&&scRows){
     const isJudge=(i)=>G.judgeMode==='human'&&i===G.hjJudgeIdx;
     const sorted=[...G.players.map((p,i)=>({name:p,score:G.scores[i],idx:i,judge:isJudge(i)}))]
