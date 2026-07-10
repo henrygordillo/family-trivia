@@ -120,6 +120,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .pt-cur .pt-role{color:var(--gold-hi);}
 /* Steal — purple role only */
 .pt-steal .pt-role{color:var(--purple-hi);}
+.pt-ondeck .pt-role{color:rgba(255,255,255,.45);}
 /* Judge — all purple, italic */
 .pt-judge .pt-num{color:var(--purple-hi);font-style:italic;font-size:10px;letter-spacing:.5px;}
 .pt-judge .pt-name{color:var(--purple-hi);font-style:italic;font-weight:600;}
@@ -857,9 +858,15 @@ function buildPTable(answererIdx){
   const isHuman=G.judgeMode==='human';
   const picker=currentPickerIdx();
 
-  // Find steal candidate
-  let stealIdx=-1;
-  if(answererIdx!=null) stealIdx=findStealIdx();
+  // Steal candidate (while answering) or on-deck player (during pick/reading)
+  const answering=answererIdx!=null;
+  let stealIdx=-1, onDeckIdx=-1;
+  if(answering){
+    stealIdx=findStealIdx();
+  } else {
+    const pp=G.turnOrder.indexOf(picker);
+    if(pp>=0){ onDeckIdx=G.turnOrder[(pp+1)%G.turnOrder.length]; if(onDeckIdx===picker) onDeckIdx=-1; }
+  }
 
   // Build rows in fixed display order (G.players index 0..N-1)
   // Count natural turn position for ALL players including judge
@@ -873,24 +880,17 @@ function buildPTable(answererIdx){
 
   let activeNum=1;
   const rows=G.players.map((_,i)=>{
-    const isJudge=isHuman&&i===G.hjJudgeIdx;
-    const isAnswering=answererIdx!=null&&i===answererIdx;
-    const isPick=answererIdx==null&&i===picker&&!isJudge;
-    const isSteal=i===stealIdx;
+    const isAnswering=answering&&i===answererIdx;
+    const isPick=!answering&&i===picker;
+    const isSteal=answering&&i===stealIdx;
+    const isOnDeck=!answering&&i===onDeckIdx;
 
     let cls='';
     let role='';
-    if(isJudge){
-      cls='pt-judge';
-      const cjBtn=G.hjRotate===0
-        ?`<button class="cj-inline" id="cjInline">Change</button>`:'';
-      role='Judge'+cjBtn;
-    } else if(isAnswering){ cls='pt-cur'; role='Answering'; }
-    else if(isPick){ cls='pt-cur'; role='Picks'; }
-    else if(isSteal){ cls='pt-steal'; role='Steals if wrong'; }
-
-    // Skip judge — shown separately below table
-    if(isJudge) return '';
+    if(isAnswering){ cls='pt-cur'; role='Answering'; }
+    else if(isPick){ cls='pt-cur'; role=(G.phase==='reading'?'Reading':'Picking'); }
+    else if(isSteal){ cls='pt-steal'; role='Ready to steal!'; }
+    else if(isOnDeck){ cls='pt-ondeck'; role='On deck'; }
 
     const num=activeNum++;
 
@@ -913,7 +913,7 @@ function buildPTable(answererIdx){
     `<th style="${hSt}text-align:left;">Player</th>`+
     `<th style="${hSt}text-align:right;padding-right:8px;">Hit</th>`+
     `<th style="${hSt}text-align:right;padding-right:4px;">Score</th>`+
-    `<th style="${hSt}text-align:right;">Role</th>`+
+    `<th style="${hSt}text-align:right;">Status</th>`+
   `</tr>`;
   return head+rows;
 }
@@ -1322,6 +1322,7 @@ function buildBoard(){
 }
 
 function refreshBoard(){
+  G.phase='pick';
   // Player table
   renderTables(null);
   // Progress
@@ -1393,6 +1394,7 @@ async function pickQ(ci,qi){
   showPhase('phQuestion');
   setStep(0);
   setInfoText(0);
+  G.phase='reading';
   renderTables(null);
 }
 
