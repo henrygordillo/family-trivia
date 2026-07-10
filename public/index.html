@@ -339,8 +339,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 /* Timer */
 .timer-wrap{display:flex;align-items:center;justify-content:center;gap:8px;position:relative;margin:2px 0;}
 .timer-wrap svg{transform:rotate(-90deg);}
-.timer-track{fill:none;stroke:rgba(255,255,255,.08);stroke-width:5;}
-.timer-bar{fill:none;stroke:var(--gold);stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset 1s linear,stroke .5s;}
+.timer-track{fill:none;stroke:rgba(255,255,255,.2);stroke-width:6;}
+.timer-bar{fill:none;stroke:var(--gold);stroke-width:6;stroke-linecap:round;transition:stroke-dashoffset 1s linear,stroke .5s;}
 .timer-bar.urgent{stroke:var(--red);}
 .timer-label{position:absolute;font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:var(--gold);}
 .timer-label.urgent{color:var(--red);}
@@ -450,22 +450,19 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div class="judge-indicator" id="qJudgeIndicator"></div>
   </div>
   <table class="ptable" id="qptable"></table>
-  <div class="stepper">
-    <div class="step active" id="step0"><div class="step-n">1</div><span>Read Question</span></div>
-    <div class="step-div"></div>
-    <div class="step" id="step1"><div class="step-n">2</div><span>Answer</span></div>
-    <div class="step-div"></div>
-    <div class="step" id="step2"><div class="step-n">3</div><span>Result</span></div>
-    <div style="flex:1;"></div>
-    <div id="timerWrap" style="display:none;align-items:center;gap:6px;">
-      <svg width="28" height="28" viewBox="0 0 72 72" style="transform:rotate(-90deg);">
+  <div class="stepper" style="min-height:56px;">
+    <div id="timerWrap" style="display:none;align-items:center;gap:12px;">
+      <svg width="48" height="48" viewBox="0 0 72 72" style="transform:rotate(-90deg);">
         <circle class="timer-track" cx="36" cy="36" r="30"/>
         <circle class="timer-bar" id="timerBar" cx="36" cy="36" r="30"/>
       </svg>
-      <div class="timer-label" id="timerLabel" style="font-size:13px;position:static;">30</div>
-      <div class="timer-sub" id="timerSub" style="font-size:9px;letter-spacing:1px;"></div>
+      <div style="display:flex;flex-direction:column;line-height:1;">
+        <div class="timer-label" id="timerLabel" style="font-size:32px;position:static;">30</div>
+        <div class="timer-sub" id="timerSub" style="font-size:9px;letter-spacing:2px;margin-top:3px;"></div>
+      </div>
     </div>
-    <button class="info-btn" id="infoBtn" style="margin-left:8px;">i</button>
+    <div style="flex:1;"></div>
+    <button class="info-btn" id="infoBtn">i</button>
   </div>
 
   <div class="info-row" id="infoRow">
@@ -1474,7 +1471,7 @@ function goToAnswer(){
     setStep(1);
     setInfoText(1);
     renderTables(G.answererIdx);
-    startTimer(G.stealMode?15:30, G.stealMode?'Steal — 15 seconds':'Main answer — 30 seconds');
+    startTimer(G.stealMode?15:30, G.stealMode?'Steal':'Answer');
   } else {
     setupAiAnswer(G.answererIdx, false);
   }
@@ -1524,7 +1521,7 @@ function setupAiAnswer(playerIdx, isSteal){
   setStep(1);
   setInfoText(1);
   renderTables(playerIdx);
-  startTimer(isSteal?15:30, isSteal?'Steal — 15 seconds':'Main answer — 30 seconds');
+  startTimer(isSteal?15:30, isSteal?'Steal':'Answer');
   setTimeout(()=>document.getElementById('aiInput').focus(),100);
 }
 
@@ -1712,7 +1709,7 @@ function doSteal(idx){
     setStep(1);
     setInfoText(1);
     renderTables(idx);
-    startTimer(15,'Steal — 15 seconds');
+    startTimer(15,'Steal');
   } else {
     setupAiAnswer(idx, true);
   }
