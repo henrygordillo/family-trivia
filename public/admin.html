@@ -149,9 +149,9 @@ function matrixTable(s){
     const a=(byTier[t]&&byTier[t].att)||0; gW+=TARGET_RATES[t]*a; gN+=a;
   });
   const gExp=gN>0?Math.round(gW/gN):0;
-  const gTot={att:s.total,ok:s.totalOK};
-  h+=overallCell(gTot, gExp);
-  h+=expectedCell(gTot, gExp);
+  // Grand Overall/Expected blend floats with what players picked, so it's not a
+  // reliable calibration signal — leave those two corner cells blank.
+  h+='<td class="empty"></td><td class="empty"></td>';
   h+='</tr></table></div>';
   h+='<div class="meta" style="margin-top:6px;">Rows = categories, columns = point tiers. Tier cells compare actual vs that tier’s target; Overall compares actual vs the Expected column (targets blended by how often each tier was asked). “low n (#)” = fewer than '+LOW+' answers, with the count shown.</div>';
   return h;

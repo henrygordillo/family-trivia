@@ -195,6 +195,28 @@ app.get('/api/rulesets', async (req, res) => {
 });
 
 // ── Health check ──────────────────────────────────────────────────────────────
+// ── Games (records each game; used for category dedup + game-level history) ─────
+app.post('/api/games', async (req, res) => {
+  const { categories, difficulty_ruleset_version, num_players } = req.body;
+  const row = { categories };
+  if (difficulty_ruleset_version !== undefined) row.difficulty_ruleset_version = difficulty_ruleset_version;
+  if (num_players !== undefined) row.num_players = num_players;
+  const { data, error } = await supabase.from('games').insert(row).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.get('/api/games/recent', async (req, res) => {
+  const limit = Math.min(20, Math.max(1, Number(req.query.limit) || 4));
+  const { data, error } = await supabase
+    .from('games')
+    .select('categories, created_at')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 // ── Fallback to game ──────────────────────────────────────────────────────────

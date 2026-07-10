@@ -742,7 +742,6 @@ let G = {
 // Setup UI state
 let pDefs=[{n:'Mama',ph:'Player 1'},{n:'Papa',ph:'Player 2'},{n:'Alec',ph:'Player 3'},{n:'Gabo',ph:'Player 4'}];
 let shuffleOn=true;
-let usedCatHistory=[];
 let timerOn=true;
 let timerInterval=null;
 const CIRC=2*Math.PI*30;
@@ -1228,7 +1227,7 @@ function initShuffleToggle(){
 // ═══════════════════════════════════════════════════════════════════
 // START GAME
 // ═══════════════════════════════════════════════════════════════════
-function startGame(){
+async function startGame(){
   if(selectedPlayers.length<1){
     toast('Select at least 1 player!');
     return;
@@ -1280,12 +1279,12 @@ function startGame(){
   G.nextPickerIdx=G.turnOrder[G.turnPos];
   G.numActivePlayers=G.players.length;
 
-  // Categories — fresh shuffle, avoid recent
-  const available=CAT_POOL.filter(c=>!usedCatHistory.includes(c));
+  // Categories — avoid ones used in the last 4 games (read from the database)
+  const recentCats=await dbGetRecentGameCategories();
+  const available=CAT_POOL.filter(c=>!recentCats.includes(c));
   const pool=available.length>=G.numCats?available:CAT_POOL;
-  if(available.length<G.numCats) usedCatHistory=[];
   G.categories=shuffle([...pool]).slice(0,G.numCats);
-  usedCatHistory=[...usedCatHistory,...G.categories].slice(-G.numCats*2);
+  dbRecordGame(G.categories, RULESET_VERSION, G.players.length);
 
   buildBoard();
   show('board');
@@ -2289,6 +2288,23 @@ async function dbCreatePlayer(first_name, last_name, nickname, email){
 }
 
 const RULESET_VERSION=1; // Phase 1: app still uses hardcoded values, which == difficulty ruleset version 1
+
+async function dbRecordGame(categories, ruleset, numPlayers){
+  try{
+    await fetch(BACKEND+'/api/games',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({categories, difficulty_ruleset_version:ruleset, num_players:numPlayers})
+    });
+  }catch(e){ console.warn('Failed to record game',e); }
+}
+async function dbGetRecentGameCategories(){
+  try{
+    const r=await fetch(BACKEND+'/api/games/recent?limit=4');
+    const d=await r.json();
+    if(!Array.isArray(d)) return [];
+    return [...new Set(d.flatMap(g=>Array.isArray(g.categories)?g.categories:[]))];
+  }catch(e){ return []; }
+}
 
 async function dbRecordAttempt(player_id, category, tier, correct, pts, is_steal){
   try{
