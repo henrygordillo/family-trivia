@@ -903,7 +903,7 @@ function buildPTable(answererIdx){
     if(st>=2) streakBadge=` <span style="font-size:10px;color:#ff8a4c;font-weight:700;">🔥${st}</span>`;
     else if(st<=-2) streakBadge=` <span style="font-size:10px;color:#7fc7ff;font-weight:700;">🧊${-st}</span>`;
     const pickedDone=(G.pickedThisRound&&G.pickedThisRound.includes(i));
-    const pickedCell=`<td class="pt-picked" style="text-align:right;font-size:10px;font-weight:700;white-space:nowrap;color:${pickedDone?'rgba(255,255,255,.3)':'var(--gold-hi)'};">${pickedDone?'Yes':'Not Yet'}</td>`;
+    const pickedCell=`<td class="pt-picked" style="text-align:right;font-size:13px;font-weight:700;white-space:nowrap;color:${pickedDone?'rgba(255,255,255,.3)':'var(--gold-hi)'};">${pickedDone?'✓':'○'}</td>`;
 
     // Hit rate for this player — overall (turn questions + steals combined)
     const pAttempts=(G.attempts||[]).filter(a=>a.player===G.players[i]);
@@ -1853,6 +1853,12 @@ function backToBoard(){
   clearTimer();
   const sc=document.getElementById('scoreCallout');
   if(sc) sc.style.display='none';
+  // Abandoned without a result — the pick didn't happen, so un-mark it
+  // (skip during a steal: the original picker already took their turn)
+  if(!G.stealMode){
+    const p=currentPickerIdx();
+    if(p!=null && G.pickedThisRound) G.pickedThisRound=G.pickedThisRound.filter(x=>x!==p);
+  }
   show('board'); refreshBoard();
 }
 
