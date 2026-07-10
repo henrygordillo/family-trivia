@@ -902,9 +902,8 @@ function buildPTable(answererIdx){
     let streakBadge='';
     if(st>=2) streakBadge=` <span style="font-size:10px;color:#ff8a4c;font-weight:700;">🔥${st}</span>`;
     else if(st<=-2) streakBadge=` <span style="font-size:10px;color:#7fc7ff;font-weight:700;">🧊${-st}</span>`;
-    const picked=(G.pickedThisRound&&G.pickedThisRound.includes(i))
-      ? ' <span style="font-size:9px;color:rgba(255,255,255,.35);" title="Picked this round">✓</span>'
-      : '';
+    const pickedDone=(G.pickedThisRound&&G.pickedThisRound.includes(i));
+    const pickedCell=`<td class="pt-picked" style="text-align:right;font-size:10px;font-weight:700;white-space:nowrap;color:${pickedDone?'rgba(255,255,255,.3)':'var(--gold-hi)'};">${pickedDone?'Yes':'Not Yet'}</td>`;
 
     // Hit rate for this player — overall (turn questions + steals combined)
     const pAttempts=(G.attempts||[]).filter(a=>a.player===G.players[i]);
@@ -912,12 +911,13 @@ function buildPTable(answererIdx){
     const hitStr=pAttempts.length>0?Math.round(pOK/pAttempts.length*100)+'%':'—';
     return `<tr class="${cls}" onclick="openPlayerStats(${i})" style="cursor:pointer;">
       <td class="pt-num">${num}</td>
-      <td class="pt-name" style="white-space:nowrap;">${crown}${G.players[i]}${streakBadge}${picked}</td>
+      <td class="pt-name" style="white-space:nowrap;">${crown}${G.players[i]}${streakBadge}</td>
       <td class="pt-hit">${hitStr}</td>
       <td class="pt-score">${G.scores[i]}</td>
+      ${pickedCell}
       <td class="pt-role">${role}</td>
-    </tr><tr class="pt-div"><td colspan="5"></td></tr>`;
-  }).filter(r=>r).join('').replace(/<tr class="pt-div"><td colspan="5"><\/td><\/tr>$/, '');
+    </tr><tr class="pt-div"><td colspan="6"></td></tr>`;
+  }).filter(r=>r).join('').replace(/<tr class="pt-div"><td colspan="6"><\/td><\/tr>$/, '');
 
   const hSt='font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.3);padding:2px 6px 6px;border-bottom:1px solid rgba(255,255,255,.1);';
   const head=`<tr>`+
@@ -925,6 +925,7 @@ function buildPTable(answererIdx){
     `<th style="${hSt}text-align:left;">Player</th>`+
     `<th style="${hSt}text-align:right;padding-right:8px;">Hit</th>`+
     `<th style="${hSt}text-align:right;padding-right:4px;">Score</th>`+
+    `<th style="${hSt}text-align:right;">Picked?</th>`+
     `<th style="${hSt}text-align:right;">Status</th>`+
   `</tr>`;
   return head+rows;
