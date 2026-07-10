@@ -1108,6 +1108,7 @@ function renderSelectedSummary(){
   if(!el) return;
   if(selectedPlayers.length===0){
     el.innerHTML='<div style="font-size:13px;color:var(--muted);text-align:center;padding:6px 0;">No players selected yet — tap \u201CSelect Players\u201D.</div>';
+    updateSetupHelper();
     return;
   }
   el.innerHTML=selectedPlayers.map((p,i)=>`
@@ -1115,6 +1116,7 @@ function renderSelectedSummary(){
       <span style="font-size:14px;font-weight:700;color:var(--ink);"><span style="color:var(--muted);font-weight:600;margin-right:6px;">${i+1}.</span>${p.nickname}</span>
       <button onclick="togglePlayerSelect('${p.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--muted);padding:0 4px;line-height:1;">\u2715</button>
     </div>`).join('');
+  updateSetupHelper();
 }
 
 function togglePlayerSelect(playerId){
@@ -1242,10 +1244,15 @@ function updateSetupHelper(){
   if(!desc) return;
   const catsBtn=document.querySelector('#catsChips .chip.on');
   const n=catsBtn?Number(catsBtn.dataset.v):5;
+  const tiles=n*5;
   const judgeTxt=(G.judgeMode==='ai')
     ? 'The app checks your answer — in English, Spanish, or Spanglish.'
     : 'Whoever holds the phone reveals the answer and rules.';
-  desc.innerHTML=`${n} categories · ${n*5} tiles<br>${judgeTxt}`;
+  const players=selectedPlayers.length;
+  const picksSeg=players>=1
+    ? ` · <span style="color:var(--gold-lo);font-weight:700;">${Math.floor(tiles/players)} picks per player</span>`
+    : '';
+  desc.innerHTML=`${n} categories · ${tiles} tiles${picksSeg}<br>${judgeTxt}`;
 }
 function saveSettings(){
   try{ localStorage.setItem('ftn_settings', JSON.stringify({shuffle:shuffleOn,timer:timerOn,judge:G.judgeMode})); }catch(e){}
