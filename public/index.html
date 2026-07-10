@@ -384,8 +384,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div class="sep"></div>
     <div class="sec">
       <div style="display:flex;gap:16px;align-items:stretch;">
-        <div style="flex:0 0 auto;">
-          <span class="slabel"># of Cats</span>
+        <div style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;">
+          <span class="slabel" style="text-align:center;"># of Cats</span>
           <div class="chips" id="catsChips" style="gap:6px;">
             <button class="chip" data-g="cats" data-v="4" style="padding:8px 12px;">4</button>
             <button class="chip on" data-g="cats" data-v="5" style="padding:8px 12px;">5</button>
@@ -396,8 +396,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <div style="flex:1;min-width:0;">
           <span class="slabel" style="text-align:center;">Judge Mode</span>
           <div style="display:flex;background:var(--card3);border-radius:100px;padding:3px;gap:3px;">
-            <button class="jseg" data-jm="ai" style="flex:1;text-align:center;padding:9px 4px;border:none;border-radius:100px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);">🤖 AI</button>
-            <button class="jseg" data-jm="human" style="flex:1;text-align:center;padding:9px 4px;border:none;border-radius:100px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);">👤 Human</button>
+            <button class="jseg" data-jm="ai" style="flex:1;text-align:center;padding:9px 4px;border:none;border-radius:100px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);white-space:nowrap;">🤖 AI</button>
+            <button class="jseg" data-jm="human" style="flex:1;text-align:center;padding:9px 4px;border:none;border-radius:100px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);white-space:nowrap;">👤 Human</button>
           </div>
         </div>
       </div>
