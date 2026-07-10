@@ -142,6 +142,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   cursor:pointer;user-select:none;transition:all .15s;}
 .q-tile:active{background:rgba(212,168,67,.15);transform:scale(.97);}
 .q-tile.used{opacity:.15;pointer-events:none;color:rgba(255,255,255,.3);font-size:13px;}
+.q-tile.blocked{background:rgba(124,58,237,.12);border:1px dashed rgba(167,139,250,.5);color:#b9a4f5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;}
+.q-tile.blocked .blk-star{font-size:16px;line-height:1;}
+.q-tile.blocked .blk-sub{font-size:7px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;line-height:1.15;text-align:center;color:rgba(185,164,245,.75);}
 
 /* ── Question screen ── */
 #qscreen{padding:14px;gap:10px;}
@@ -903,7 +906,7 @@ function buildPTable(answererIdx){
     if(st>=2) streakBadge=` <span style="font-size:10px;color:#ff8a4c;font-weight:700;">🔥${st}</span>`;
     else if(st<=-2) streakBadge=` <span style="font-size:10px;color:#7fc7ff;font-weight:700;">🧊${-st}</span>`;
     const pickedDone=(G.pickedThisRound&&G.pickedThisRound.includes(i));
-    const pickedCell=`<td class="pt-picked" style="text-align:right;font-size:13px;font-weight:700;white-space:nowrap;color:${pickedDone?'rgba(255,255,255,.3)':'var(--gold-hi)'};">${pickedDone?'✓':'○'}</td>`;
+    const pickedCell=`<td class="pt-picked" style="text-align:right;font-size:13px;font-weight:700;white-space:nowrap;color:${pickedDone?'rgba(255,255,255,.3)':'var(--gold-hi)'};">${pickedDone?'✓':'–'}</td>`;
 
     // Hit rate for this player — overall (turn questions + steals combined)
     const pAttempts=(G.attempts||[]).filter(a=>a.player===G.players[i]);
@@ -1301,6 +1304,18 @@ async function startGame(){
   G.categories=shuffle([...pool]).slice(0,G.numCats);
   dbRecordGame(G.categories, RULESET_VERSION, G.players.length);
 
+  // Block the leftover tiles so remaining tiles divide evenly by player count
+  // (spread across distinct categories and tiers so it looks intentional).
+  G.blocked={};
+  const blockCount=(G.numCats*G.numQ)%G.numActivePlayers;
+  if(blockCount>0){
+    const cats=shuffle([...Array(G.numCats).keys()]);
+    const tiers=shuffle([...Array(G.numQ).keys()]);
+    for(let k=0;k<blockCount;k++){
+      G.blocked[`${cats[k%cats.length]}-${tiers[k%tiers.length]}`]=true;
+    }
+  }
+
   buildBoard();
   show('board');
 }
@@ -1326,10 +1341,16 @@ function buildBoard(){
     for(let ci=0;ci<G.numCats;ci++){
       const key=`${ci}-${qi}`;
       const t=document.createElement('div');
-      t.className='q-tile';
       t.id=`tile-${key}`;
-      t.textContent=PTS[qi];
-      t.onclick=function(){pickQ(ci,qi);};
+      if(G.blocked && G.blocked[key]){
+        t.className='q-tile blocked';
+        t.innerHTML='<span class="blk-star">★</span><span class="blk-sub">All-Play<br>coming soon</span>';
+        t.onclick=function(){ toast('★ Feature coming soon — this tile is empty'); };
+      } else {
+        t.className='q-tile';
+        t.textContent=PTS[qi];
+        t.onclick=function(){pickQ(ci,qi);};
+      }
       grid.appendChild(t);
     }
   }
@@ -1342,7 +1363,7 @@ function refreshBoard(){
   renderTables(null);
   // Progress
   const done=Object.keys(G.used).length;
-  const total=G.numCats*G.numQ;
+  const total=G.numCats*G.numQ-Object.keys(G.blocked||{}).length;
   const pf=document.getElementById('progressFill');
   if(pf) pf.style.width=`${total>0?(done/total)*100:0}%`;
   // Used tiles
@@ -1359,6 +1380,7 @@ function refreshBoard(){
 // ═══════════════════════════════════════════════════════════════════
 async function pickQ(ci,qi){
   const key=`${ci}-${qi}`;
+  if(G.blocked && G.blocked[key]) return;
   if(G.used[key]) return;
 
   G.curCat=ci; G.curQ=qi; G.curPts=PTS[qi];
@@ -1839,7 +1861,7 @@ function endQuestion(){
   window.speechSynthesis?.cancel();
   const sc=document.getElementById('scoreCallout');
   if(sc) sc.style.display='none';
-  const total=G.numCats*G.numQ;
+  const total=G.numCats*G.numQ-Object.keys(G.blocked||{}).length;
   if(Object.keys(G.used).length>=total){
     show('end'); buildEnd();
   } else {
