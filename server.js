@@ -138,7 +138,7 @@ app.get('/api/questions/recent/:category', async (req, res) => {
     .select('fingerprint, answer, asked_at')
     .eq('category', req.params.category)
     .order('asked_at', { ascending: false })
-    .limit(50);
+    .limit(30);
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });

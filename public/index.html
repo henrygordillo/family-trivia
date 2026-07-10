@@ -1443,7 +1443,8 @@ async function pickQ(ci,qi){
   try{
     G.qData[key]=await fetchQ(G.categories[ci],qi);
   }catch(e){
-    toast('Could not load — try another.');
+    delete G.qData[key];
+    toast('Could not generate — tap the tile to retry, or pick another.');
     show('board'); return;
   }
 
@@ -1988,7 +1989,7 @@ async function fetchQ(category, qIndex){
 
   const needsExplain=EXPLAIN_CATS.includes(category);
 
-  // Cross-game dedup: pull this category's recent questions (last 50 ≈ last 10 games)
+  // Cross-game dedup: pull this category's recent questions (last 30 ≈ last 6 games)
   const recent=await dbGetRecentQuestions(category);
   const recentFps=new Set(recent.map(r=>r.fingerprint));
   const recentAnsSet=new Set(recent.map(r=>normAnswer(r.answer)).filter(Boolean));
@@ -2015,19 +2016,43 @@ async function fetchQ(category, qIndex){
     `\n\n${needsExplain?'Also include a brief step-by-step explanation of how to get the answer (2-3 lines max).\n\n':''}`+
     `Respond ONLY with valid JSON, no markdown: {"question":"...","answer":"..."${needsExplain?',"explanation":"..."':''}}`;
 
-  // Generate with cross-game dedup: up to 3 tries to avoid a recent repeat
+  // Generate with retries. Separates two failure kinds:
+  //   • generation failure (bad/empty/truncated JSON, API error) → retry, doesn't count against dedup
+  //   • dedup collision (valid question, but a recent repeat) → try again for a fresher one
   const _log={ cat:category, pts:qIndex*100+100, time:new Date().toLocaleTimeString(),
     windowN:recent.length, avoidN:recentAnswersList.length, tries:[], outcome:'', fallbackSeen:'' };
+
+  const extractJSON=(raw)=>{
+    if(!raw) return null;
+    let s=raw.replace(/```json|```/g,'').trim();
+    const m=s.match(/\{[\s\S]*\}/);   // tolerate prose around the JSON
+    if(m) s=m[0];
+    try{ const o=JSON.parse(s); return (o&&o.question&&o.answer)?o:null; }catch(e){ return null; }
+  };
+  const generateOnce=async()=>{
+    try{
+      const resp=await fetch(BACKEND+'/api/claude',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:700,
+          messages:[{role:'user',content:prompt}]})
+      });
+      if(!resp.ok) return null;
+      const d=await resp.json();
+      const raw=d.content?.find(b=>b.type==='text')?.text||'';
+      return extractJSON(raw);
+    }catch(e){ return null; }
+  };
+
   let best=null, bestSeen=null;
-  for(let attempt=0; attempt<3; attempt++){
-    const resp=await fetch('https://family-trivia-y0om.onrender.com/api/claude',{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:300,
-        messages:[{role:'user',content:prompt}]})
-    });
-    const d=await resp.json();
-    const raw=d.content?.find(b=>b.type==='text')?.text||'';
-    const qObj=JSON.parse(raw.replace(/```json|```/g,'').trim());
+  const MAX_TRIES=6;
+  for(let attempt=0; attempt<MAX_TRIES; attempt++){
+    const qObj=await generateOnce();
+    if(!qObj){
+      // Generation failed — brief backoff, then retry (doesn't consume the dedup budget)
+      _log.tries.push({n:attempt+1, result:'gen-fail'});
+      await new Promise(r=>setTimeout(r,500));
+      continue;
+    }
     const fp=makeFingerprint(qObj.question||'');
     const na=normAnswer(qObj.answer||'');
     const fpHit=recentFps.has(fp);
@@ -2046,12 +2071,19 @@ async function fetchQ(category, qIndex){
     const lastSeen=matches.map(r=>r.asked_at||'').sort().slice(-1)[0]||'';
     if(best===null || lastSeen<bestSeen){ best=qObj; bestSeen=lastSeen; }
   }
-  // All 3 collided — use the one whose match was seen longest ago
-  const bfp=makeFingerprint(best.question||'');
-  _log.outcome='fallback'; _log.fallbackSeen=bestSeen;
+
+  // Exhausted tries. If we got a valid (but colliding) question, use the most-forgotten one.
+  if(best){
+    const bfp=makeFingerprint(best.question||'');
+    _log.outcome='fallback'; _log.fallbackSeen=bestSeen;
+    if(DEBUG_DEDUP) _dedupLog.push(_log);
+    dbRecordQuestion(category, qIndex*100+100, bfp, best.answer||'');
+    return best;
+  }
+  // Every attempt failed to generate a valid question — signal the caller to let the user retry.
+  _log.outcome='all-failed';
   if(DEBUG_DEDUP) _dedupLog.push(_log);
-  dbRecordQuestion(category, qIndex*100+100, bfp, best.answer||'');
-  return best;
+  throw new Error('Question generation failed after retries');
 }
 
 // ═══════════════════════════════════════════════════════════════════
