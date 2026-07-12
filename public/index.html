@@ -723,8 +723,8 @@ const BACKEND='https://family-trivia-y0om.onrender.com';
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.3';
-const APP_BUILT_AT='2026-07-12T17:12:31Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.4';
+const APP_BUILT_AT='2026-07-12T17:27:35Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -800,8 +800,9 @@ let G = {
 let pDefs=[{n:'Mama',ph:'Player 1'},{n:'Papa',ph:'Player 2'},{n:'Alec',ph:'Player 3'},{n:'Gabo',ph:'Player 4'}];
 let shuffleOn=true;
 let timerOn=true;
-let statsOn=false;          // Lifetime stats on the roster — off by default
+let statsOn=true;           // Lifetime stats on the roster — on by default
 let lifetimeStats=null;     // { player_id: {attempts, correct, pct} }
+const LT_MIN_PICKS=10;      // below this, a hit rate isn't trustworthy — stay neutral grey
 let timerInterval=null;
 const CIRC=2*Math.PI*30;
 
@@ -2782,12 +2783,44 @@ async function loadLifetimeStats(){
     lifetimeStats=r.ok?await r.json():{};
   }catch(e){ lifetimeStats={}; }
 }
-// "68% · 143 picks" — or nothing if stats are off / player has no history
+// Performance color — but stay neutral until there's enough data to judge
+function lifetimeColor(pct, attempts){
+  if(attempts<LT_MIN_PICKS) return 'var(--muted)';
+  if(pct>=60) return 'var(--green)';
+  if(pct>=40) return 'var(--gold-lo)';
+  return 'var(--red)';
+}
+// Returns the tappable chip HTML: "Lifetime 36% · 36 picks"
 function lifetimeLabel(playerId){
   if(!statsOn || !lifetimeStats) return '';
   const s=lifetimeStats[playerId];
   if(!s || !s.attempts) return '';
-  return `${s.pct}% · ${s.attempts} pick${s.attempts===1?'':'s'}`;
+  const col=lifetimeColor(s.pct, s.attempts);
+  return `<span onclick="event.stopPropagation();openLifetimeStats('${playerId}')" style="display:inline-block;font-size:11px;font-weight:700;color:${col};cursor:pointer;border-bottom:1px dotted ${col};margin-left:6px;">Lifetime ${s.pct}% · ${s.attempts} pick${s.attempts===1?'':'s'}</span>`;
+}
+
+// Tap the chip → that player's LIFETIME stats, broken down by tier and category
+async function openLifetimeStats(playerId){
+  const p=(roster||[]).find(r=>r.id===playerId);
+  const pName=p?p.nickname:'Player';
+  const content=document.getElementById('playerStatsContent');
+  const modal=document.getElementById('playerStatsModal');
+  if(!content||!modal) return;
+  content.innerHTML=`<div style="font-size:22px;font-weight:900;font-family:'Playfair Display',serif;color:var(--gold-hi);margin-bottom:12px;">${pName}</div><div style="color:rgba(255,255,255,.5);font-size:13px;">Loading lifetime stats…</div>`;
+  modal.classList.add('show');
+  let atts=[];
+  try{
+    const r=await fetch(BACKEND+'/api/attempts/'+playerId);
+    if(r.ok) atts=await r.json();
+  }catch(e){}
+  // DB rows use `category`; statsBlockHTML expects `cat`
+  const mapped=(atts||[]).map(a=>({cat:a.category, tier:a.tier, correct:a.correct, pts:a.pts}));
+  let html=`<div style="font-size:22px;font-weight:900;font-family:'Playfair Display',serif;color:var(--gold-hi);margin-bottom:4px;">${pName}</div>`;
+  html+=`<div style="font-size:11px;color:rgba(255,255,255,.4);letter-spacing:2px;text-transform:uppercase;margin-bottom:16px;">Lifetime · All Games</div>`;
+  html+= mapped.length
+    ? statsBlockHTML(mapped,{hasType:false})
+    : '<div style="color:rgba(255,255,255,.5);font-size:13px;">No games played yet.</div>';
+  content.innerHTML=html;
 }
 
 function initTimerToggle(){
