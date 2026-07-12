@@ -409,6 +409,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button id="openSettingsBtn" aria-label="Settings" style="display:flex;align-items:center;gap:5px;background:transparent;border:none;cursor:pointer;color:var(--gold-lo);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px;"><span style="font-size:16px;">⚙</span> Settings</button>
       <button id="endGameBtnSetup" style="background:transparent;border:none;cursor:pointer;font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;padding:4px;opacity:.8;">End Game Session</button>
     </div>
+    <div id="buildFooter" style="margin-top:10px;text-align:center;font-size:10px;line-height:1.5;color:var(--muted);opacity:.65;"></div>
 
   </div>
 </div>
@@ -709,6 +710,35 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════════
 const BACKEND='https://family-trivia-y0om.onrender.com';
+
+// ── Build stamp ───────────────────────────────────────────────────────────────
+// This page self-reports its own build. The SERVER's build is fetched live from
+// /api/version — never hardcoded here, or it could report a server that isn't deployed.
+const APP_VERSION='3.1';
+const APP_BUILT_AT='2026-07-12T14:04:00Z';   // UTC; displayed in the device's local time
+
+function fmtBuildTime(iso){
+  try{
+    const d=new Date(iso);
+    if(isNaN(d)) return '—';
+    return d.toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+  }catch(e){ return '—'; }
+}
+async function renderBuildFooter(){
+  const el=document.getElementById('buildFooter');
+  if(!el) return;
+  const appLine=`App ${APP_VERSION} · ${fmtBuildTime(APP_BUILT_AT)}`;
+  el.innerHTML=`${appLine}<br>Server …`;
+  let srv='Server — unreachable';
+  try{
+    const r=await fetch(BACKEND+'/api/version');
+    if(r.ok){
+      const d=await r.json();
+      srv=`Server ${d.version} · ${fmtBuildTime(d.builtAt)}`;
+    }
+  }catch(e){}
+  el.innerHTML=`${appLine}<br>${srv}`;
+}
 const DEBUG_DEDUP=true;  // shows the 🐛 Dedup Log button + collision toasts; set false for real play
 let _dedupLog=[];        // per-session dedup activity (one entry per question generated)
 let _inGame=false;       // true while a game is on the board/question screen (guards accidental back-exit)
@@ -2600,6 +2630,7 @@ function init(){
     if(s.judge==='ai'||s.judge==='human') G.judgeMode=s.judge;
   }catch(e){}
   renderSelectedSummary();
+  renderBuildFooter();
   document.getElementById('openPickerBtn').addEventListener('click',openPicker);
   document.getElementById('pickerDoneBtn').addEventListener('click',closePicker);
   document.getElementById('reloadRosterBtn').addEventListener('click',loadRoster);

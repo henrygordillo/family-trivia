@@ -226,7 +226,33 @@ document.getElementById('detailsBtn').addEventListener('click',()=>{
   if(open) renderDetails();
 });
 
+// ── Build stamp ───────────────────────────────────────────────────────────────
+// This page self-reports its own build. The SERVER's build is fetched live.
+const ADMIN_VERSION='3.1';
+const ADMIN_BUILT_AT='2026-07-12T14:04:00Z';   // UTC; shown in the device's local time
+
+function fmtBuildTime(iso){
+  try{
+    const d=new Date(iso);
+    if(isNaN(d)) return '—';
+    return d.toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+  }catch(e){ return '—'; }
+}
+async function renderBuildFooter(){
+  const el=document.getElementById('buildFooter');
+  if(!el) return;
+  const adminLine=`Admin ${ADMIN_VERSION} · ${fmtBuildTime(ADMIN_BUILT_AT)}`;
+  el.innerHTML=`${adminLine}<br>Server …`;
+  let srv='Server — unreachable';
+  try{
+    const d=await api('/api/version');
+    srv=`Server ${d.version} · ${fmtBuildTime(d.builtAt)}`;
+  }catch(e){}
+  el.innerHTML=`${adminLine}<br>${srv}`;
+}
+
 (async function init(){
+  renderBuildFooter();
   try{
     RULESETS=await api('/api/rulesets');
   }catch(e){ document.getElementById('statsArea').innerHTML='<div class="muted">Couldn’t reach the server. Reload in a moment.</div>'; return; }
@@ -240,5 +266,6 @@ document.getElementById('detailsBtn').addEventListener('click',()=>{
   loadStats();
 })();
 </script>
+<div id="buildFooter" style="margin-top:24px;text-align:center;font-size:10px;line-height:1.6;opacity:.6;"></div>
 </body>
 </html>

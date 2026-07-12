@@ -4,9 +4,19 @@ const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
 
+// ── Build stamp ───────────────────────────────────────────────────────────────
+// Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
+const VERSION = '3.1';
+const BUILT_AT = '2026-07-12T14:04:00Z';
+
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Reports what the LIVE backend is actually running (never hardcode this in a page).
+app.get('/api/version', (req, res) => {
+  res.json({ version: VERSION, builtAt: BUILT_AT });
+});
 
 // Serve the game HTML file
 app.use(express.static(path.join(__dirname, 'public')));
