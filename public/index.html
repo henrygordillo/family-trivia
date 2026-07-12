@@ -633,7 +633,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 </div>
 
 <!-- PLAYER STATS MODAL -->
-<div class="modal-bg" id="playerStatsModal">
+<div class="modal-bg" id="playerStatsModal" style="z-index:970;">
   <div class="modal-box" style="max-width:420px;text-align:left;max-height:85vh;display:flex;flex-direction:column;">
     <div id="playerStatsContent" style="overflow-y:auto;flex:1;margin-bottom:12px;"></div>
     <button class="mbtn mbtn-cancel" onclick="closePlayerStats()" style="align-self:center;padding:8px 24px;font-size:12px;width:auto;">Close</button>
@@ -723,8 +723,8 @@ const BACKEND='https://family-trivia-y0om.onrender.com';
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.4';
-const APP_BUILT_AT='2026-07-12T17:27:35Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.5';
+const APP_BUILT_AT='2026-07-12T17:34:44Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -2790,13 +2790,20 @@ function lifetimeColor(pct, attempts){
   if(pct>=40) return 'var(--gold-lo)';
   return 'var(--red)';
 }
-// Returns the tappable chip HTML: "Lifetime 36% · 36 picks"
+// A tappable mini-panel: neutral "LIFETIME" label, performance-colored numbers.
 function lifetimeLabel(playerId){
   if(!statsOn || !lifetimeStats) return '';
   const s=lifetimeStats[playerId];
   if(!s || !s.attempts) return '';
   const col=lifetimeColor(s.pct, s.attempts);
-  return `<span onclick="event.stopPropagation();openLifetimeStats('${playerId}')" style="display:inline-block;font-size:11px;font-weight:700;color:${col};cursor:pointer;border-bottom:1px dotted ${col};margin-left:6px;">Lifetime ${s.pct}% · ${s.attempts} pick${s.attempts===1?'':'s'}</span>`;
+  return `<span onclick="event.stopPropagation();openLifetimeStats('${playerId}')" title="Tap for the by-tier breakdown"
+    style="display:inline-flex;align-items:center;gap:5px;margin-left:8px;padding:2px 8px;
+           background:rgba(0,0,0,.05);border:1px solid rgba(0,0,0,.12);border-radius:100px;
+           cursor:pointer;vertical-align:middle;white-space:nowrap;">
+    <span style="font-size:8px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--gold-lo);">Lifetime</span>
+    <span style="font-size:12px;font-weight:800;color:${col};">${s.pct}%</span>
+    <span style="font-size:10px;font-weight:600;color:var(--muted);">${s.attempts} pick${s.attempts===1?'':'s'}</span>
+  </span>`;
 }
 
 // Tap the chip → that player's LIFETIME stats, broken down by tier and category
@@ -2898,6 +2905,7 @@ window.afterAiVerdict=afterAiVerdict;
 window.toggleMic=toggleMic;
 window.openRestart=openRestart;
 window.doRestart=doRestart;
+window.openLifetimeStats=openLifetimeStats;
 </script>
 </body>
 </html>
