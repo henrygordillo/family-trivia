@@ -438,6 +438,15 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <button class="toggle-btn" id="timerToggle"><span class="toggle-knob" id="timerKnob"></span></button>
       </div>
     </div>
+    <div class="sec">
+      <div class="toggle-row">
+        <div>
+          <span class="slabel" style="margin-bottom:2px;">Lifetime Stats</span>
+          <div style="font-size:12px;color:var(--muted);">Show each player's all-time hit rate on the roster</div>
+        </div>
+        <button class="toggle-btn" id="statsToggle"><span class="toggle-knob" id="statsKnob"></span></button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -714,8 +723,8 @@ const BACKEND='https://family-trivia-y0om.onrender.com';
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.2';
-const APP_BUILT_AT='2026-07-12T16:53:12Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.3';
+const APP_BUILT_AT='2026-07-12T17:12:31Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -791,6 +800,8 @@ let G = {
 let pDefs=[{n:'Mama',ph:'Player 1'},{n:'Papa',ph:'Player 2'},{n:'Alec',ph:'Player 3'},{n:'Gabo',ph:'Player 4'}];
 let shuffleOn=true;
 let timerOn=true;
+let statsOn=false;          // Lifetime stats on the roster — off by default
+let lifetimeStats=null;     // { player_id: {attempts, correct, pct} }
 let timerInterval=null;
 const CIRC=2*Math.PI*30;
 
@@ -1115,9 +1126,10 @@ function renderRoster(){
   }
   list.innerHTML=roster.map(p=>{
     const sel=selectedPlayers.find(s=>s.id===p.id);
+    const lt=lifetimeLabel(p.id);
     return `<div class="roster-player${sel?' selected':''}" onclick="togglePlayerSelect('${p.id}')">
       <div style="flex:1;">
-        <div class="rp-name">${p.nickname}</div>
+        <div class="rp-name">${p.nickname}${lt?` <span style="font-size:11px;font-weight:700;color:var(--gold-lo);">${lt}</span>`:''}</div>
         <div class="rp-full">${p.first_name} ${p.last_name} · ${p.email}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
@@ -1147,11 +1159,13 @@ function renderSelectedSummary(){
     updateSetupHelper();
     return;
   }
-  el.innerHTML=selectedPlayers.map((p,i)=>`
+  el.innerHTML=selectedPlayers.map((p,i)=>{
+    const lt=lifetimeLabel(p.id);
+    return `
     <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(31,173,160,.12);border:1px solid var(--teal);border-radius:8px;padding:5px 10px;">
-      <span style="font-size:14px;font-weight:700;color:var(--ink);"><span style="color:var(--muted);font-weight:600;margin-right:6px;">${i+1}.</span>${p.nickname}</span>
+      <span style="font-size:14px;font-weight:700;color:var(--ink);"><span style="color:var(--muted);font-weight:600;margin-right:6px;">${i+1}.</span>${p.nickname}${lt?` <span style="font-size:11px;font-weight:700;color:var(--gold-lo);margin-left:4px;">${lt}</span>`:''}</span>
       <button onclick="togglePlayerSelect('${p.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--muted);padding:0 4px;line-height:1;">\u2715</button>
-    </div>`).join('');
+    </div>`;}).join('');
   updateSetupHelper();
 }
 
@@ -1291,7 +1305,7 @@ function updateSetupHelper(){
   desc.innerHTML=`${n} categories · ${tiles} tiles${picksSeg}<br>${judgeTxt}`;
 }
 function saveSettings(){
-  try{ localStorage.setItem('ftn_settings', JSON.stringify({shuffle:shuffleOn,timer:timerOn,judge:G.judgeMode})); }catch(e){}
+  try{ localStorage.setItem('ftn_settings', JSON.stringify({shuffle:shuffleOn,timer:timerOn,judge:G.judgeMode,stats:statsOn})); }catch(e){}
 }
 
 function chipClick(btn){
@@ -2634,6 +2648,7 @@ function init(){
     if(typeof s.shuffle==='boolean') shuffleOn=s.shuffle;
     if(typeof s.timer==='boolean') timerOn=s.timer;
     if(s.judge==='ai'||s.judge==='human') G.judgeMode=s.judge;
+    if(typeof s.stats==='boolean') statsOn=s.stats;
   }catch(e){}
   renderSelectedSummary();
   renderBuildFooter();
@@ -2658,6 +2673,8 @@ function init(){
   document.querySelectorAll('.chip[data-g]').forEach(c=>c.addEventListener('click',()=>chipClick(c)));
   initShuffleToggle();
   initTimerToggle();
+  initStatsToggle();
+  if(statsOn) loadLifetimeStats().then(()=>{ renderRoster(); renderSelectedSummary(); });
   renderPlayers();
 
   // Board
@@ -2744,6 +2761,35 @@ function init(){
 init();
 
 // ── Timer ────────────────────────────────────────────────────────────────────
+function initStatsToggle(){
+  const btn=document.getElementById('statsToggle');
+  const knob=document.getElementById('statsKnob');
+  if(!btn||!knob) return;
+  const update=()=>{
+    btn.style.background=statsOn?'var(--gold)':'var(--card3)';
+    knob.style.left=statsOn?'27px':'3px';
+  };
+  update();
+  btn.addEventListener('click',async()=>{
+    statsOn=!statsOn; update(); saveSettings();
+    if(statsOn && !lifetimeStats) await loadLifetimeStats();
+    renderRoster(); renderSelectedSummary();
+  });
+}
+async function loadLifetimeStats(){
+  try{
+    const r=await fetch(BACKEND+'/api/stats/lifetime');
+    lifetimeStats=r.ok?await r.json():{};
+  }catch(e){ lifetimeStats={}; }
+}
+// "68% · 143 picks" — or nothing if stats are off / player has no history
+function lifetimeLabel(playerId){
+  if(!statsOn || !lifetimeStats) return '';
+  const s=lifetimeStats[playerId];
+  if(!s || !s.attempts) return '';
+  return `${s.pct}% · ${s.attempts} pick${s.attempts===1?'':'s'}`;
+}
+
 function initTimerToggle(){
   const btn=document.getElementById('timerToggle');
   const knob=document.getElementById('timerKnob');

@@ -6,8 +6,8 @@ const path = require('path');
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
-const VERSION = '3.1';
-const BUILT_AT = '2026-07-12T14:04:00Z';
+const VERSION = '3.2';
+const BUILT_AT = '2026-07-12T17:12:31Z';
 
 const app = express();
 app.use(cors());
@@ -195,6 +195,31 @@ app.get('/api/stats/tiers', async (req, res) => {
 });
 
 // ── Difficulty rulesets: list versions for the stats dropdown ──────────────────
+// Lifetime stats per player, for the roster: hit rate + attempts ("picks").
+// One call for every player, so the roster doesn't fan out N requests.
+app.get('/api/stats/lifetime', async (req, res) => {
+  const { data, error } = await supabase
+    .from('attempts')
+    .select('player_id, correct');
+  if (error) return res.status(500).json({ error: error.message });
+  const byPlayer = {};
+  (data || []).forEach(a => {
+    if (!a.player_id) return;
+    if (!byPlayer[a.player_id]) byPlayer[a.player_id] = { attempts: 0, correct: 0 };
+    byPlayer[a.player_id].attempts++;
+    if (a.correct) byPlayer[a.player_id].correct++;
+  });
+  const out = {};
+  Object.entries(byPlayer).forEach(([id, s]) => {
+    out[id] = {
+      attempts: s.attempts,
+      correct: s.correct,
+      pct: s.attempts > 0 ? Math.round((s.correct / s.attempts) * 100) : null
+    };
+  });
+  res.json(out);
+});
+
 app.get('/api/rulesets', async (req, res) => {
   const { data, error } = await supabase
     .from('difficulty_rulesets')
