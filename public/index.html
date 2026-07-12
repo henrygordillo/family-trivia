@@ -2010,10 +2010,14 @@ async function fetchQ(category, qIndex){
     `3. Answer must be 1-5 words.\n`+
     `4. Do NOT repeat any fact, topic, person, or answer from the already-asked list.\n`+
     `5. Do not embed the answer in the question text.\n`+
-    `6. Vary style: who, what, where, when, which, how many.`+
+    `6. Vary style: who, what, where, when, which, how many.\\n`+
+    `7. FACTUAL CONFIDENCE — this matters more than being clever: only state facts you are highly confident are true. If you are not certain of a specific detail, choose a different question instead. A well-formed question with a WRONG fact is the worst possible output.\\n`+
+    `8. Take extra care with facts people commonly get wrong: a person's NATIONALITY, birthplace, or country of origin; who founded/invented/created something; exact dates and years; who won or holds a record; team, band, or company affiliations. Verify these against what you actually know before committing. If unsure, pick a safer question.\\n`+
+    `9. Prefer well-established, widely-documented facts over obscure trivia or anything recent enough to have changed.`+
     alreadyAsked+
     avoidNote+
     `\n\n${needsExplain?'Also include a brief step-by-step explanation of how to get the answer (2-3 lines max).\n\n':''}`+
+    `Before answering, silently check: is every fact here actually true, or am I guessing? If any part is a guess — especially a nationality, date, founder, or record — discard it and use a different question.\n\n`+
     `Respond ONLY with valid JSON, no markdown: {"question":"...","answer":"..."${needsExplain?',"explanation":"..."':''}}`;
 
   // Generate with retries. Separates two failure kinds:
