@@ -723,8 +723,8 @@ const BACKEND='https://family-trivia-y0om.onrender.com';
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.5';
-const APP_BUILT_AT='2026-07-12T17:34:44Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.6';
+const APP_BUILT_AT='2026-07-12T17:48:39Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -759,6 +759,65 @@ let _dedupLog=[];        // per-session dedup activity (one entry per question g
 let _inGame=false;       // true while a game is on the board/question screen (guards accidental back-exit)
 
 const EXPLAIN_CATS=['Math Puzzles','Logic','Brain Teasers','Famous Inventions'];
+
+// ═══════════════════════════════════════════════════════════════════
+// DIFFICULTY RULESET — fetched live from the DB at game start.
+// DEFAULT_RULESET is the fallback: used if the fetch fails, and for any
+// field an older ruleset row doesn't have (backwards compatible).
+// ═══════════════════════════════════════════════════════════════════
+const DEFAULT_RULESET={
+  difficulty_ruleset_version:1,
+  model:'claude-sonnet-4-6',
+  reference_player:'An engaged person who enjoys trivia and general knowledge. Reads and follows current events reasonably. Has reasonable knowledge across history, science, culture, sports, geography and world capitals. Not a specialist but genuinely curious and above average.',
+  audience_note:'Players are bilingual English/Spanish with broad global cultural awareness. Frame questions in accessible language for this audience but do not bias topics toward any specific region or culture \u2014 the category determines the topic scope.',
+  judge_prompt:'Accept English, Spanish, or Spanglish. Minor differences, synonyms, and informal phrasing are fine.',
+  tiers:[
+    {name:'Easy',       pct:75, anchor:'Family Feud style \u2014 straightforward, most engaged players know it'},
+    {name:'Medium',     pct:66, anchor:'Jeopardy! regular round style \u2014 solid general knowledge required'},
+    {name:'Medium-Hard',pct:50, anchor:'Jeopardy! Double Jeopardy style \u2014 specific subject knowledge needed'},
+    {name:'Hard',       pct:33, anchor:'Jeopardy! Final Jeopardy style \u2014 enthusiast level knowledge'},
+    {name:'Expert',     pct:20, anchor:'Jeopardy! Tournament of Champions style \u2014 deep knowledge, but not unfairly obscure'},
+  ],
+  category_overrides:{
+    'Math Puzzles':'For Math Puzzles, difficulty is determined by the complexity of calculation or logical reasoning required \u2014 NOT by general knowledge. Easy (75% hit rate): simple arithmetic or pattern most adults can solve mentally in under 10 seconds. Medium (66% hit rate): requires a clear method and 15-20 seconds of focused thinking. Medium-Hard (50% hit rate): multi-step reasoning or less obvious approach needed. Hard (33% hit rate): requires solid math skills or creative insight most people lack. Expert (20% hit rate): challenging enough that only mathematically confident people get it. Always make the puzzle solvable with mental arithmetic \u2014 no calculator should be needed.',
+  },
+  quality_rules:[
+    'Premise must be 100% factually correct. Do not ask "what X is Y" if Y itself IS that X (e.g. never ask "what island is Puerto Rico on" \u2014 Puerto Rico IS an island).',
+    'Answer must be specific and unambiguous. E.g. "Caribbean Sea" not "Caribbean".',
+    'Answer must be 1-5 words.',
+    'Do NOT repeat any fact, topic, person, or answer from the already-asked list.',
+    'Do not embed the answer in the question text.',
+    'Vary style: who, what, where, when, which, how many.',
+    'FACTUAL CONFIDENCE \u2014 this matters more than being clever: only state facts you are highly confident are true. If you are not certain of a specific detail, choose a different question instead. A well-formed question with a WRONG fact is the worst possible output.',
+    "Take extra care with facts people commonly get wrong: a person's NATIONALITY, birthplace, or country of origin; who founded/invented/created something; exact dates and years; who won or holds a record; team, band, or company affiliations. Verify these against what you actually know before committing. If unsure, pick a safer question.",
+    'Prefer well-established, widely-documented facts over obscure trivia or anything recent enough to have changed.',
+  ],
+  self_check:'Before answering, silently check: is every fact here actually true, or am I guessing? If any part is a guess \u2014 especially a nationality, date, founder, or record \u2014 discard it and use a different question.',
+  explain_cats:EXPLAIN_CATS,
+};
+let ACTIVE_RULESET=null;   // populated at game start from /api/rulesets/active
+
+// Read a ruleset field, falling back to the default if the row lacks it
+function rs(field){
+  const v=ACTIVE_RULESET?ACTIVE_RULESET[field]:undefined;
+  if(v===null||v===undefined) return DEFAULT_RULESET[field];
+  if(Array.isArray(v)&&v.length===0) return DEFAULT_RULESET[field];
+  if(typeof v==='string'&&!v.trim()) return DEFAULT_RULESET[field];
+  return v;
+}
+// The version actually used to generate questions — this is what gets stamped on attempts
+function rulesetVersion(){
+  return (ACTIVE_RULESET&&ACTIVE_RULESET.difficulty_ruleset_version)||DEFAULT_RULESET.difficulty_ruleset_version;
+}
+async function loadActiveRuleset(){
+  try{
+    const r=await fetch(BACKEND+'/api/rulesets/active');
+    if(r.ok){
+      const d=await r.json();
+      if(d&&d.difficulty_ruleset_version) ACTIVE_RULESET=d;
+    }
+  }catch(e){ /* keep defaults */ }
+}
 
 const COLORS=['#d4a843','#1fada0','#e05c6e','#7c3aed','#e8722a','#2e9e5e','#3b82f6','#ec4899'];
 const PTS=[100,200,300,400,500]; // Easy→Expert
@@ -1385,12 +1444,15 @@ async function startGame(){
   G.streak=G.players.map(()=>0);       // per-player run: + hot (correct), - cold (wrong)
   G.pickedThisRound=[];                 // player indices who've picked in the current round
 
+  // Load the active difficulty ruleset from the DB (falls back to defaults on failure)
+  await loadActiveRuleset();
+
   // Categories — avoid ones used in the last 4 games (read from the database)
   const recentCats=await dbGetRecentGameCategories();
   const available=CAT_POOL.filter(c=>!recentCats.includes(c));
   const pool=available.length>=G.numCats?available:CAT_POOL;
   G.categories=shuffle([...pool]).slice(0,G.numCats);
-  dbRecordGame(G.categories, RULESET_VERSION, G.players.length);
+  dbRecordGame(G.categories, rulesetVersion(), G.players.length);
 
   // Block the leftover tiles so remaining tiles divide evenly by player count
   // (spread across distinct categories and tiers so it looks intentional).
@@ -1698,13 +1760,13 @@ async function submitAI(){
   document.getElementById('aiInput').closest('.ai-area').style.display='none';
   document.getElementById('aiJudging').classList.add('show');
   try{
-    const resp=await fetch('https://family-trivia-y0om.onrender.com/api/claude',{
+    const resp=await fetch(BACKEND+'/api/claude',{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:150,
+      body:JSON.stringify({model:rs('model'),max_tokens:150,
         messages:[{role:'user',content:
-          'You are a trivia judge. Accept English, Spanish, or Spanglish.\n'+
+          'You are a trivia judge. '+rs('judge_prompt')+'\n'+
           'Question: '+qd.question+'\nCorrect answer: '+qd.answer+'\nPlayer said: "'+ans+'"\n'+
-          'Is this essentially correct? Minor differences, synonyms, informal phrasing are fine.\n'+
+          'Is this essentially correct?\n'+
           'Respond ONLY with JSON: {"correct":true/false,"reason":"one short sentence"}'
         }]})});
     const d=await resp.json();
@@ -2008,37 +2070,20 @@ async function regenQuestion(){
 // AI QUESTION FETCH
 // ═══════════════════════════════════════════════════════════════════
 async function fetchQ(category, qIndex){
-  // Difficulty tier by point value position (0-4)
-  // Percentage targets calibrated for Normal mode reference player
-  const tiers=[
-    {name:'Easy',       pct:75, anchor:'Family Feud style — straightforward, most engaged players know it'},
-    {name:'Medium',     pct:66, anchor:'Jeopardy! regular round style — solid general knowledge required'},
-    {name:'Medium-Hard',pct:50, anchor:'Jeopardy! Double Jeopardy style — specific subject knowledge needed'},
-    {name:'Hard',       pct:33, anchor:'Jeopardy! Final Jeopardy style — enthusiast level knowledge'},
-    {name:'Expert',     pct:20, anchor:'Jeopardy! Tournament of Champions style — deep knowledge, but not unfairly obscure'},
-  ];
-  const tier=tiers[Math.min(qIndex,4)];
+  // All generation parameters come from the ACTIVE ruleset (DB), with built-in fallbacks.
+  const tiers=rs('tiers');
+  const tier=tiers[Math.min(qIndex,tiers.length-1)];
+
   let alreadyAsked='';
   if(G.askedQuestions.length>0){
     const lines=G.askedQuestions.map((q,i)=>`${i+1}. Q: "${q.q}" A: "${q.a}"`).join('\n');
     alreadyAsked='\n\nQUESTIONS ALREADY ASKED — do NOT repeat these facts, topics, or answers:\n'+lines;
   }
-  // Category-specific difficulty instructions
-  // Architecture: add entries here for any category needing special treatment
-  const categoryOverrides={
-    'Math Puzzles':
-      'For Math Puzzles, difficulty is determined by the complexity of calculation or logical '+
-      'reasoning required — NOT by general knowledge. '+
-      'Easy (75% hit rate): simple arithmetic or pattern most adults can solve mentally in under 10 seconds. '+
-      'Medium (66% hit rate): requires a clear method and 15-20 seconds of focused thinking. '+
-      'Medium-Hard (50% hit rate): multi-step reasoning or less obvious approach needed. '+
-      'Hard (33% hit rate): requires solid math skills or creative insight most people lack. '+
-      'Expert (20% hit rate): challenging enough that only mathematically confident people get it. '+
-      'Always make the puzzle solvable with mental arithmetic — no calculator should be needed.',
-  };
-  const categoryNote=categoryOverrides[category]||'';
 
-  const needsExplain=EXPLAIN_CATS.includes(category);
+  const categoryNote=(rs('category_overrides')||{})[category]||'';
+  const needsExplain=(rs('explain_cats')||[]).includes(category);
+  const rulesTxt=(rs('quality_rules')||[]).map((r,i)=>`${i+1}. ${r}`).join('\n');
+  const selfCheck=rs('self_check')||'';
 
   // Cross-game dedup: pull this category's recent questions (last 30 ≈ last 6 games)
   const recent=await dbGetRecentQuestions(category);
@@ -2046,29 +2091,20 @@ async function fetchQ(category, qIndex){
   const recentAnsSet=new Set(recent.map(r=>normAnswer(r.answer)).filter(Boolean));
   const recentAnswersList=[...new Set(recent.map(r=>r.answer).filter(Boolean))];
   const avoidNote=recentAnswersList.length
-    ? `\\n\\nRECENTLY USED ANSWERS — do NOT use any of these as the answer:\\n`+recentAnswersList.join(', ')
+    ? '\n\nRECENTLY USED ANSWERS — do NOT use any of these as the answer:\n'+recentAnswersList.join(', ')
     : '';
 
   const prompt=
     `You are a trivia question writer for a family game night. Generate ONE question for the category "${category}".\n\n`+
-    `REFERENCE PLAYER: An engaged person who enjoys trivia and general knowledge. Reads and follows current events reasonably. Has reasonable knowledge across history, science, culture, sports, geography and world capitals. Not a specialist but genuinely curious and above average.\n\n`+
-    `AUDIENCE NOTE: Players are bilingual English/Spanish with broad global cultural awareness. Frame questions in accessible language for this audience but do not bias topics toward any specific region or culture — the category determines the topic scope.\n\n`+
+    `REFERENCE PLAYER: ${rs('reference_player')}\n\n`+
+    `AUDIENCE NOTE: ${rs('audience_note')}\n\n`+
     `DIFFICULTY: ${tier.name} — ${tier.anchor}. A typical reference player should be able to answer this correctly about ${tier.pct}% of the time. This percentage is your primary calibration target.\n\n`+
-    (categoryNote?`CATEGORY NOTE: ${categoryNote}\n\n`:'')+ 
-    `STRICT QUALITY RULES:\n`+
-    `1. Premise must be 100% factually correct. Do not ask "what X is Y" if Y itself IS that X (e.g. never ask "what island is Puerto Rico on" — Puerto Rico IS an island).\n`+
-    `2. Answer must be specific and unambiguous. E.g. "Caribbean Sea" not "Caribbean".\n`+
-    `3. Answer must be 1-5 words.\n`+
-    `4. Do NOT repeat any fact, topic, person, or answer from the already-asked list.\n`+
-    `5. Do not embed the answer in the question text.\n`+
-    `6. Vary style: who, what, where, when, which, how many.\\n`+
-    `7. FACTUAL CONFIDENCE — this matters more than being clever: only state facts you are highly confident are true. If you are not certain of a specific detail, choose a different question instead. A well-formed question with a WRONG fact is the worst possible output.\\n`+
-    `8. Take extra care with facts people commonly get wrong: a person's NATIONALITY, birthplace, or country of origin; who founded/invented/created something; exact dates and years; who won or holds a record; team, band, or company affiliations. Verify these against what you actually know before committing. If unsure, pick a safer question.\\n`+
-    `9. Prefer well-established, widely-documented facts over obscure trivia or anything recent enough to have changed.`+
+    (categoryNote?`CATEGORY NOTE: ${categoryNote}\n\n`:'')+
+    `STRICT QUALITY RULES:\n${rulesTxt}`+
     alreadyAsked+
     avoidNote+
     `\n\n${needsExplain?'Also include a brief step-by-step explanation of how to get the answer (2-3 lines max).\n\n':''}`+
-    `Before answering, silently check: is every fact here actually true, or am I guessing? If any part is a guess — especially a nationality, date, founder, or record — discard it and use a different question.\n\n`+
+    (selfCheck?`${selfCheck}\n\n`:'')+
     `Respond ONLY with valid JSON, no markdown: {"question":"...","answer":"..."${needsExplain?',"explanation":"..."':''}}`;
 
   // Generate with retries. Separates two failure kinds:
@@ -2088,7 +2124,7 @@ async function fetchQ(category, qIndex){
     try{
       const resp=await fetch(BACKEND+'/api/claude',{
         method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:700,
+        body:JSON.stringify({model:rs('model'),max_tokens:700,
           messages:[{role:'user',content:prompt}]})
       });
       if(!resp.ok) return null;
@@ -2467,7 +2503,7 @@ async function dbCreatePlayer(first_name, last_name, nickname, email){
   }catch(e){ return null; }
 }
 
-const RULESET_VERSION=1; // Phase 1: app still uses hardcoded values, which == difficulty ruleset version 1
+// Version stamped on attempts/games = the ruleset ACTUALLY used (see rulesetVersion()).
 
 async function dbRecordGame(categories, ruleset, numPlayers){
   try{
@@ -2492,7 +2528,7 @@ async function dbRecordAttempt(player_id, category, tier, correct, pts, is_steal
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({player_id,category,tier,correct,pts,
-        is_steal:!!is_steal, mode:'normal', difficulty_ruleset_version:RULESET_VERSION})
+        is_steal:!!is_steal, mode:'normal', difficulty_ruleset_version:rulesetVersion()})
     });
   }catch(e){ console.warn('Failed to record attempt',e); }
 }

@@ -6,8 +6,8 @@ const path = require('path');
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
-const VERSION = '3.2';
-const BUILT_AT = '2026-07-12T17:12:31Z';
+const VERSION = '3.3';
+const BUILT_AT = '2026-07-12T17:48:39Z';
 
 const app = express();
 app.use(cors());
@@ -218,6 +218,18 @@ app.get('/api/stats/lifetime', async (req, res) => {
     };
   });
   res.json(out);
+});
+
+// The ACTIVE ruleset = highest version. Creating a new version is how you publish a change.
+// (Interim: an explicit is_active flag is the eventual design — see notes.)
+app.get('/api/rulesets/active', async (req, res) => {
+  const { data, error } = await supabase
+    .from('difficulty_rulesets')
+    .select('*')
+    .order('difficulty_ruleset_version', { ascending: false })
+    .limit(1);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json((data && data[0]) || null);
 });
 
 app.get('/api/rulesets', async (req, res) => {
