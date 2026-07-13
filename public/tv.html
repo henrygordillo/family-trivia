@@ -35,6 +35,31 @@ body{
 .dot{display:inline-block;width:.9vw;height:.9vw;border-radius:50%;background:var(--teal-hi);margin-right:.6vw;animation:pulse 1.6s ease-in-out infinite;}
 @keyframes pulse{0%,100%{opacity:.25;}50%{opacity:1;}}
 
+/* ── CONNECTED ────────────────────────────────────────────────────────────
+   A recoloured dot is invisible from a sofa. When the judge's device pairs,
+   the whole screen changes character: the code recedes (it's done its job) and
+   a large green confirmation takes over. */
+#join.connected .codebox{opacity:.3;transform:scale(.82);border-color:rgba(255,255,255,.12);}
+#join.connected #qr{filter:grayscale(1);}
+.codebox{transition:opacity .5s, transform .5s, border-color .5s;}
+
+#connected{display:none;margin-top:5vh;align-items:center;gap:1.6vw;
+  background:rgba(26,122,69,.18);border:3px solid #2ecc71;border-radius:1.4vw;
+  padding:2.4vh 3.5vw;animation:landed .55s cubic-bezier(.2,.9,.3,1.3);}
+#join.connected #connected{display:flex;}
+#join.connected .hint{display:none;}
+@keyframes landed{0%{transform:scale(.85);opacity:0;}60%{transform:scale(1.04);}100%{transform:scale(1);opacity:1;}}
+
+.tick{width:4.5vw;height:4.5vw;border-radius:50%;background:#2ecc71;color:#06240f;
+  display:flex;align-items:center;justify-content:center;font-size:2.8vw;font-weight:900;
+  flex:0 0 auto;animation:beat 2.2s ease-in-out infinite;}
+@keyframes beat{0%,100%{box-shadow:0 0 0 0 rgba(46,204,113,.55);}
+                50%{box-shadow:0 0 0 1.6vw rgba(46,204,113,0);}}
+#connected .txt{text-align:left;}
+#connected .big{font-size:2.4vw;font-weight:800;color:#8ef0b4;line-height:1.15;}
+#connected .dev{font-size:1.4vw;color:rgba(255,255,255,.65);margin-top:.4vh;}
+#connected .go{font-size:1.2vw;color:rgba(255,255,255,.45);margin-top:.8vh;letter-spacing:.1vw;text-transform:uppercase;}
+
 /* ── Game screen ─────────────────────────────────────────── */
 #game{display:none;height:95vh;flex-direction:column;}
 .scores{display:flex;gap:1.2vw;margin-bottom:1.6vh;}
@@ -82,8 +107,26 @@ body{
 #qtext{font-family:'Playfair Display',serif;font-size:3.2vw;font-weight:700;line-height:1.3;max-width:82vw;}
 #qwho{margin-top:3vh;font-size:1.7vw;color:rgba(255,255,255,.6);}
 #qwho b{color:var(--gold-hi);}
-#qans{margin-top:2.5vh;font-size:2.4vw;font-weight:800;color:var(--teal-hi);display:none;}
+#qans{margin-top:2.5vh;display:none;}
 #qans .lbl{display:block;font-size:1vw;letter-spacing:.25vw;text-transform:uppercase;color:rgba(255,255,255,.45);font-weight:600;margin-bottom:.6vh;}
+#qanstext{font-size:2.6vw;font-weight:800;color:var(--teal-hi);line-height:1.2;}
+#qexp{margin-top:1.4vh;font-size:1.25vw;line-height:1.5;color:rgba(255,255,255,.6);max-width:62vw;
+  margin-left:auto;margin-right:auto;display:none;font-weight:500;}
+
+/* Countdown — the phone starts it, the TV runs its own so it animates smoothly
+   instead of us pushing 30 updates a question. */
+#timer{position:absolute;top:2.5vh;left:3vw;display:none;align-items:center;gap:1vw;z-index:15;}
+#timerRing{transform:rotate(-90deg);}
+#timerTrack{fill:none;stroke:rgba(255,255,255,.14);stroke-width:6;}
+#timerBar{fill:none;stroke:var(--gold);stroke-width:6;stroke-linecap:round;
+  transition:stroke-dashoffset 1s linear, stroke .4s;}
+#timerBar.urgent{stroke:var(--red);}
+#timerNum{position:absolute;left:0;width:6vw;text-align:center;
+  font-family:'Playfair Display',serif;font-size:2.2vw;font-weight:900;color:var(--gold-hi);
+  line-height:6vw;pointer-events:none;}
+#timerNum.urgent{color:#ff8b7d;animation:tick .5s ease-in-out infinite;}
+@keyframes tick{0%,100%{transform:scale(1);}50%{transform:scale(1.12);}}
+#timerLbl{font-size:1vw;letter-spacing:.2vw;text-transform:uppercase;color:rgba(255,255,255,.45);font-weight:700;}
 
 /* THE RESULT BEAT — a miss has to be impossible to miss. */
 #result{display:none;margin-top:2.5vh;padding:1.6vh 3vw;border-radius:1vw;
@@ -100,8 +143,26 @@ body{
 @keyframes fr{0%{box-shadow:inset 0 0 0 0 rgba(46,204,113,0);}25%{box-shadow:inset 0 0 22vh 0 rgba(46,204,113,.28);}100%{box-shadow:inset 0 0 0 0 rgba(46,204,113,0);}}
 @keyframes fw{0%{box-shadow:inset 0 0 0 0 rgba(192,57,43,0);}25%{box-shadow:inset 0 0 22vh 0 rgba(192,57,43,.32);}100%{box-shadow:inset 0 0 0 0 rgba(192,57,43,0);}}
 
-.offline{position:fixed;bottom:1.5vh;left:0;right:0;text-align:center;font-size:1vw;color:var(--red);display:none;}
-.tag{position:fixed;bottom:1.5vh;right:2vw;font-size:.85vw;color:rgba(255,255,255,.22);}
+/* Question is being written — tell the room what's happening, don't just sit there */
+#gen{display:none;flex:1;min-height:0;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
+#gen .who{font-size:2.6vw;font-weight:700;line-height:1.3;}
+#gen .who b{color:var(--gold-hi);}
+#gen .status{margin-top:3vh;font-size:1.4vw;color:rgba(255,255,255,.45);letter-spacing:.15vw;text-transform:uppercase;}
+.spinner{width:4vw;height:4vw;margin:0 auto 3vh;border:.35vw solid rgba(212,168,67,.2);
+  border-top-color:var(--gold);border-radius:50%;animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* Audio is blocked until someone interacts with the page — and nobody touches a TV.
+   One press of the remote unlocks it for the session. */
+#audioLock{position:fixed;bottom:3vh;left:50%;transform:translateX(-50%);z-index:30;
+  background:rgba(212,168,67,.92);color:#14120e;font-weight:800;font-size:1.1vw;
+  padding:1.2vh 2.5vw;border-radius:2vw;border:none;cursor:pointer;display:none;
+  animation:pulse 2s ease-in-out infinite;}
+
+.offline{position:fixed;bottom:2.5vh;left:0;right:0;text-align:center;font-size:1vw;color:var(--red);display:none;}
+/* Top-right, inside the safe area — the bottom edge of a TV is often cropped. */
+.tag{position:fixed;top:2.5vh;right:3vw;font-size:.8vw;color:rgba(255,255,255,.3);
+  background:rgba(0,0,0,.35);padding:.5vh 1vw;border-radius:.5vw;letter-spacing:.03vw;z-index:20;}
 </style>
 </head>
 <body>
@@ -117,28 +178,56 @@ body{
     <div id="qr"></div>
   </div>
   <div class="hint" id="hint"><span class="dot"></span>On your phone, tap <b>Connect to TV</b> — enter this code, or scan the QR code</div>
+
+  <div id="connected">
+    <div class="tick">✓</div>
+    <div class="txt">
+      <div class="big">Judge device connected</div>
+      <div class="dev" id="devName"></div>
+      <div class="go">Start the game on that device</div>
+    </div>
+  </div>
 </div>
 
-<div id="game">
+<div id="game" style="position:relative;">
+  <div id="timer">
+    <div style="position:relative;">
+      <svg id="timerRing" width="6vw" height="6vw" viewBox="0 0 72 72" style="width:6vw;height:6vw;">
+        <circle id="timerTrack" cx="36" cy="36" r="30"/>
+        <circle id="timerBar" cx="36" cy="36" r="30"/>
+      </svg>
+      <div id="timerNum">30</div>
+    </div>
+    <div id="timerLbl"></div>
+  </div>
   <div class="scores" id="scores"></div>
   <div id="board"></div>
+  <div id="gen">
+    <div class="spinner"></div>
+    <div class="who" id="genWho"></div>
+    <div class="status">Writing the question…</div>
+  </div>
   <div id="qscreen">
     <div id="qcat"></div>
     <div id="qpts"></div>
     <div id="qtext"></div>
     <div id="qwho"></div>
-    <div id="qans"><span class="lbl">Answer</span><span id="qanstext"></span></div>
+    <div id="qans">
+      <span class="lbl">Answer</span>
+      <div id="qanstext"></div>
+      <div id="qexp"></div>
+    </div>
     <div id="result"></div>
   </div>
 </div>
 
+<button id="audioLock">🔊  Press OK to let the TV read questions aloud</button>
 <div class="offline" id="offline">Lost connection to the game — reload this page</div>
 <div class="tag" id="tag"></div>
-<div class="tag" id="tagLeft" style="right:auto;left:2vw;"></div>
 
 <script>
-const TV_VERSION='3.5';
-const TV_BUILT_AT='2026-07-13T23:06:38Z';
+const TV_VERSION='3.9';
+const TV_BUILT_AT='2026-07-13T23:20:57Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -154,20 +243,18 @@ function fmt(iso){
     return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} ${ap}`;
   }catch(e){ return ''; }
 }
-// Show all three builds, so it's obvious when one of them didn't get pushed.
-let SRV_VER = '…';
-function paintTags(app){
-  document.getElementById('tag').textContent =
-    `TV ${TV_VERSION} · ${fmt(TV_BUILT_AT)}`;
-  document.getElementById('tagLeft').textContent =
-    `App ${app||'—'}  ·  Server ${SRV_VER}`;
-}
-paintTags(null);
-fetch(BACKEND+'/api/version').then(r=>r.json()).then(d=>{
-  SRV_VER = d.version + ' · ' + fmt(d.builtAt);
-  paintTags(_appVer);
-}).catch(()=>{ SRV_VER='unreachable'; paintTags(_appVer); });
+// All three builds on one line, so a file that didn't get pushed is obvious.
 let _appVer = null;
+let SRV_VER = '…';
+function paintTags(){
+  document.getElementById('tag').textContent =
+    `TV ${TV_VERSION}  ·  App ${_appVer || '—'}  ·  Server ${SRV_VER}`;
+}
+paintTags();
+fetch(BACKEND+'/api/version').then(r=>r.json()).then(d=>{
+  SRV_VER = d.version;
+  paintTags();
+}).catch(()=>{ SRV_VER='unreachable'; paintTags(); });
 
 // ── Get a room, show the code + QR ────────────────────────────────────────
 async function init(){
@@ -196,23 +283,22 @@ async function init(){
 }
 
 // ── Paired / not paired ───────────────────────────────────────────────────
-let _paired=false;
-function setPaired(on){
-  if(on===_paired) return;
-  _paired=on;
-  const h=document.getElementById('hint');
-  if(on){
-    h.innerHTML='<span class="dot" style="background:#2ecc71;"></span>Connected to your phone \u2014 start the game there';
-  } else {
-    h.innerHTML='<span class="dot"></span>On your phone, tap <b>Connect to TV</b> \u2014 enter this code, or scan the QR code';
-  }
+let _paired=false, _device='';
+function setPaired(on, device){
+  const dev = device || _device;
+  if(on===_paired && dev===_device) return;
+  _paired=on; _device=dev;
+  // The whole join screen changes state — the code fades back, a big green
+  // confirmation comes forward. Readable from the sofa, unlike a coloured dot.
+  document.getElementById('join').classList.toggle('connected', on);
+  document.getElementById('devName').textContent = dev || '';
 }
 
 // ── Subscribe to the room's push stream ───────────────────────────────────
 function listen(){
   ES = new EventSource(BACKEND+'/api/room/'+CODE+'/stream');
   ES.addEventListener('state',   e => render(JSON.parse(e.data)));
-  ES.addEventListener('waiting', () => { setPaired(false); });   // no phone yet
+  ES.addEventListener('waiting', () => { setPaired(false, ''); });   // no phone yet
   ES.addEventListener('closed',  () => { location.reload(); });  // phone left — fresh code
   ES.onerror = () => { document.getElementById('offline').style.display='block'; };
   ES.onopen  = () => { document.getElementById('offline').style.display='none'; };
@@ -220,6 +306,95 @@ function listen(){
 
 // ── Render the snapshot ───────────────────────────────────────────────────
 let _lastResultKey = null;      // so we only flash once per verdict
+
+// ── Countdown ─────────────────────────────────────────────────────────────
+// The phone tells us ONCE that a timer started (id, total, seconds left). We run
+// the tick locally so the ring animates smoothly, instead of the phone pushing
+// 30 network updates per question.
+// ── Speech ────────────────────────────────────────────────────────────────
+// The phone asks; the TV speaks. Browsers refuse to make sound until the page has
+// been interacted with — and nobody ever touches a TV — so we show a one-time
+// "press OK" nudge to unlock audio for the session.
+let _audioReady = false, _lastSpeakSeq = 0, _pendingSpeak = null;
+
+function unlockAudio(){
+  _audioReady = true;
+  document.getElementById('audioLock').style.display='none';
+  try{
+    // A silent utterance is what actually unlocks the speech engine.
+    const u=new SpeechSynthesisUtterance(' ');
+    u.volume=0; window.speechSynthesis.speak(u);
+  }catch(e){}
+  if(_pendingSpeak){ const t=_pendingSpeak; _pendingSpeak=null; sayIt(t); }
+}
+document.getElementById('audioLock').addEventListener('click', unlockAudio);
+// Any remote press works — a TV remote's OK usually lands as a keydown.
+window.addEventListener('keydown', ()=>{ if(!_audioReady) unlockAudio(); });
+
+function sayIt(text){
+  if(!('speechSynthesis' in window)) return;
+  try{
+    window.speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(text);
+    u.rate=0.9; u.pitch=1.05;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+function handleSpeak(sp){
+  if(!sp || !sp.text) return;
+  if(sp.seq === _lastSpeakSeq) return;         // already said this one
+  _lastSpeakSeq = sp.seq;
+  if(!('speechSynthesis' in window)) return;   // TV can't talk — phone will have to
+  if(!_audioReady){
+    _pendingSpeak = sp.text;
+    document.getElementById('audioLock').style.display='block';
+    return;
+  }
+  sayIt(sp.text);
+}
+
+const CIRC = 2 * Math.PI * 30;
+let _timerId=null, _timerInt=null;
+
+function stopTimer(){
+  if(_timerInt){ clearInterval(_timerInt); _timerInt=null; }
+  _timerId=null;
+  document.getElementById('timer').style.display='none';
+}
+
+function runTimer(t){
+  if(!t){ stopTimer(); return; }
+  if(t.id === _timerId) return;          // already running this one
+  if(_timerInt) clearInterval(_timerInt);
+  _timerId = t.id;
+
+  const wrap=document.getElementById('timer');
+  const bar=document.getElementById('timerBar');
+  const num=document.getElementById('timerNum');
+  document.getElementById('timerLbl').textContent = t.label || '';
+  bar.style.strokeDasharray = CIRC;
+  wrap.style.display='flex';
+
+  let remaining = t.remaining;
+  const total = t.total || 30;
+
+  const paint=()=>{
+    num.textContent = remaining<0 ? 0 : remaining;
+    const pct = Math.max(0, remaining/total);
+    bar.style.strokeDashoffset = CIRC * (1-pct);
+    const urgent = pct <= 0.33;
+    bar.classList.toggle('urgent', urgent);
+    num.classList.toggle('urgent', urgent);
+  };
+  paint();
+
+  _timerInt=setInterval(()=>{
+    remaining--;
+    paint();
+    if(remaining<=0){ clearInterval(_timerInt); _timerInt=null; }
+  },1000);
+}
 
 // Mirrors the phone's findStealIdx(): the next player in turn order who hasn't
 // already been wrong on this question.
@@ -240,8 +415,8 @@ function render(S){
   if(!S) return;
 
   // A phone has pushed something — so we're paired, whatever it says.
-  setPaired(true);
-  if(S.appVersion && S.appVersion !== _appVer){ _appVer = S.appVersion; paintTags(_appVer); }
+  setPaired(true, S.device);
+  if(S.appVersion && S.appVersion !== _appVer){ _appVer = S.appVersion; paintTags(); }
 
   // NO GAME RUNNING → go back to the join screen. Without this the TV kept
   // rendering the LAST game's board after the phone backed out to setup.
@@ -255,8 +430,11 @@ function render(S){
   document.getElementById('join').style.display='none';
   document.getElementById('game').style.display='flex';
 
+  handleSpeak(S.speak);
+
   const q = S.currentQuestion;
   const questionOpen = !!(q && q.text);
+  const generating = !!S.generating;
 
   // ── Scores — mirrors the phone's scoreboard exactly:
   //    #, name (+crown, +streak), hit rate, score, picked-this-round, status.
@@ -313,9 +491,19 @@ function render(S){
     </div>`;
   }).join('');
 
-  // ── Board OR question — never both ──
-  document.getElementById('board').style.display   = questionOpen ? 'none' : 'grid';
+  // ── Board / generating / question — exactly one at a time ──
+  document.getElementById('board').style.display   = (!questionOpen && !generating) ? 'grid' : 'none';
+  document.getElementById('gen').style.display     = generating ? 'flex' : 'none';
   document.getElementById('qscreen').style.display = questionOpen ? 'flex' : 'none';
+
+  if(generating){
+    const g=S.generating;
+    document.getElementById('genWho').innerHTML =
+      `<b>${g.player||'Someone'}</b> picked <b>${g.category||'a category'}</b>` +
+      (g.pts ? ` for <b>${g.pts}</b>` : '');
+    stopTimer();
+    return;
+  }
 
   if(!questionOpen){
     const board=document.getElementById('board');
@@ -334,6 +522,7 @@ function render(S){
     board.innerHTML=h;
     _lastResultKey=null;                       // back on the board — arm the next flash
     document.getElementById('result').style.display='none';
+    stopTimer();
     return;
   }
 
@@ -348,14 +537,24 @@ function render(S){
     ? `<b>${who}</b> is answering`
     : '';
 
-  // The answer only ever arrives after the judge reveals it.
+  // The answer — and its explanation — only arrive after the judge reveals.
   const ansEl=document.getElementById('qans');
+  const expEl=document.getElementById('qexp');
   if(S.revealedAnswer){
     document.getElementById('qanstext').textContent=S.revealedAnswer;
+    if(S.revealedExplanation){
+      expEl.textContent=S.revealedExplanation;
+      expEl.style.display='block';
+    } else {
+      expEl.style.display='none';
+    }
     ansEl.style.display='block';
   } else {
     ansEl.style.display='none';
+    expEl.style.display='none';
   }
+
+  runTimer(S.timer);
 
   // ── THE RESULT BEAT ──
   // Without this, a wrong answer just quietly swapped the name at the bottom and

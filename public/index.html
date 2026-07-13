@@ -743,8 +743,8 @@ const BACKEND='https://family-trivia-y0om.onrender.com';
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.15';
-const APP_BUILT_AT='2026-07-13T23:06:38Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.18';
+const APP_BUILT_AT='2026-07-13T23:20:57Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -883,7 +883,8 @@ const STATE_PUBLIC = [
   'attempts',   // {cat,tier,player,type,correct,pts} — no answers; the hit-rate column needs it
 ];
 const STATE_PRIVATE = ['qData','askedQuestions'];              // hold answers
-const STATE_LOCAL   = ['recognition','recording','transcript', // mic
+const STATE_LOCAL   = ['timer','speak',                        // hand-published (see publicState)
+                       'recognition','recording','transcript', // mic
                        'playerProfiles','setupNames',
                        'hjJudgeIdx','hjRotate','hjQCount'];    // legacy judge
 
@@ -893,9 +894,28 @@ const STATE_LOCAL   = ['recognition','recording','transcript', // mic
 // The current question is the delicate case: the TV needs the QUESTION TEXT to
 // display, but must never receive the ANSWER. So we hand-build that slice rather
 // than shipping qData.
+// The best we can honestly know about this device. The browser will not tell us
+// its name (privacy), so we derive a short label rather than inventing one.
+function deviceLabel(){
+  const ua = navigator.userAgent || '';
+  let dev = 'Phone';
+  if(/iPhone/i.test(ua))       dev='iPhone';
+  else if(/iPad/i.test(ua))    dev='iPad';
+  else if(/Android/i.test(ua)) dev='Android phone';
+  else if(/Macintosh/i.test(ua)) dev='Mac';
+  else if(/Windows/i.test(ua))   dev='Windows PC';
+  let br = '';
+  if(/CriOS|Chrome/i.test(ua))       br='Chrome';
+  else if(/FxiOS|Firefox/i.test(ua)) br='Firefox';
+  else if(/Safari/i.test(ua))        br='Safari';
+  else if(/Edg/i.test(ua))           br='Edge';
+  return br ? `${dev} · ${br}` : dev;
+}
+
 function publicState(){
   const out = {};
   STATE_PUBLIC.forEach(k => { out[k] = G[k]; });
+  out.device = deviceLabel();
 
   // Is a game actually on? Without this the TV keeps showing the LAST game's
   // board after you back out to setup — stale tiles, stale players.
@@ -912,8 +932,30 @@ function publicState(){
     ? { text: qd.question, loading: !!qd.loading }
     : (qd && qd.loading ? { text: null, loading: true } : null);
 
-  // Answer is revealed to the room only once the judge has revealed it.
-  out.revealedAnswer = (G.phase === 'reveal' && qd) ? (qd.answer || null) : null;
+  // Answer AND explanation are released to the room only at the reveal — never before.
+  const revealed = (G.phase === 'reveal' && qd);
+  out.revealedAnswer      = revealed ? (qd.answer || null) : null;
+  out.revealedExplanation = revealed ? (qd.explanation || null) : null;
+
+  // While a question generates there's a real pause. Tell the room what's happening
+  // instead of leaving the TV on a dead board.
+  out.generating = (qd && qd.loading)
+    ? { player: G.players[G.answererIdx] || null,
+        category: (G.categories||[])[G.curCat] || null,
+        pts: G.curPts || null }
+    : null;
+
+  // Speech: the phone can't make the TV talk — it can only ASK it to. The TV runs
+  // its own speechSynthesis. `seq` lets it ignore repeats of the same utterance.
+  out.speak = G.speak || null;
+
+  // Timer: we push it ONCE when it starts and let the TV run its own countdown.
+  // Pushing every tick would be 30 network round-trips per question.
+  out.timer = G.timer
+    ? { total: G.timer.total, label: G.timer.label,
+        id: G.timer.id,
+        remaining: Math.max(0, Math.round((G.timer.endsAt - Date.now())/1000)) }
+    : null;
 
   return out;
 }
@@ -971,7 +1013,20 @@ function shuffle(a){
   for(let i=b.length-1;i>0;i--){const j=~~(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}
   return b;
 }
+let _speakSeq=0;
+// If a TV is connected, the room should hear the question from the TV, not from a
+// phone in someone's hand. We can't make the TV speak directly — we ask it to, and
+// it runs its own speechSynthesis. If it can't (unsupported, or audio still locked),
+// it tells us and we fall back to speaking here.
 function speak(text){
+  if(TV_CODE){
+    G.speak = { seq: ++_speakSeq, text: text };
+    pushToTV();
+    return;
+  }
+  speakHere(text);
+}
+function speakHere(text){
   if(!window.speechSynthesis)return;
   window.speechSynthesis.cancel();
   const u=new SpeechSynthesisUtterance(text);
@@ -1839,6 +1894,8 @@ async function pickQ(ci,qi){
 
   // Fetch question
   G.qData[key]={loading:true};
+  G.phase='reading';        // we've left the board — the TV should stop showing it
+  pushToTV();               // "Papa picked Science for 100 — writing the question…" 
   try{
     G.qData[key]=await fetchQ(G.categories[ci],qi);
   }catch(e){
@@ -2228,6 +2285,11 @@ function showFinalReveal(){
   var bb=document.getElementById('backBtn');
   if(bb) bb.style.display='';
   const qd=G.qData[`${G.curCat}-${G.curQ}`];
+
+  // THE REVEAL. Until now the answer has never left this device; from here the
+  // room is meant to see it, so publicState() will release it (and the explanation).
+  G.phase='reveal';
+  clearTimer();
   setStep(2); showPhase('phResult');
   document.getElementById('stealPanel').classList.remove('show');
   // Result statement
@@ -3112,9 +3174,15 @@ function initTimerToggle(){
   btn.addEventListener('click',()=>{timerOn=!timerOn;update();saveSettings();});
 }
 
+let _timerSeq=0;
 function startTimer(seconds, label){
   if(!timerOn) return;
   clearTimer();
+
+  // Publish the timer once. The TV runs its own countdown from this, rather than
+  // us pushing 30 updates a question.
+  G.timer = { id: ++_timerSeq, total: seconds, label: label||'', endsAt: Date.now() + seconds*1000 };
+  pushToTV();
   const wrap=document.getElementById('timerWrap');
   const sub=document.getElementById('timerSub');
   const bar=document.getElementById('timerBar');
@@ -3153,6 +3221,7 @@ function startTimer(seconds, label){
 function clearTimer(){
   clearInterval(timerInterval);
   timerInterval=null;
+  if(G.timer){ G.timer=null; pushToTV(); }
   const wrap=document.getElementById('timerWrap');
   const sub=document.getElementById('timerSub');
   if(wrap) wrap.style.display='none';
