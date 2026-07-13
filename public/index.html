@@ -744,8 +744,8 @@ const BACKEND='https://family-trivia-y0om.onrender.com';
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.12';
-const APP_BUILT_AT='2026-07-13T22:35:14Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.14';
+const APP_BUILT_AT='2026-07-13T22:49:14Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -880,6 +880,7 @@ const STATE_PUBLIC = [
   'streak','pickedThisRound',
   'roundNumber','roundQuestionCount',
   'phase','judgeMode','lastResult',
+  'pendingStealIdx',   // who is being OFFERED the steal (before they take it)
   'attempts',   // {cat,tier,player,type,correct,pts} — no answers; the hit-rate column needs it
 ];
 const STATE_PRIVATE = ['qData','askedQuestions'];              // hold answers
@@ -1771,6 +1772,7 @@ async function pickQ(ci,qi){
   G.curCat=ci; G.curQ=qi; G.curPts=PTS[qi];
   G.wrongPlayers=[]; G.stealMode=false;
   G.lastResult=null;        // clear the previous verdict (the TV renders this)
+  G.pendingStealIdx=null;
   G.transcript=''; G.answererIdx=getEffectivePicker();
   // Record this player's pick for the current round (for the picks-this-round indicator)
   if(!G.pickedThisRound) G.pickedThisRound=[];
@@ -2126,10 +2128,20 @@ function showSteal(stealIdx){
 
   document.getElementById('stealPanel').classList.add('show');
   document.getElementById('finalReveal').classList.remove('show');
+
+  // BEAT 1 — the miss is announced and a steal is OFFERED, but not taken yet.
+  // The TV needs this as its own moment, or the wrong answer and the steal blur
+  // into one and nobody in the room registers that anything happened.
+  G.phase='steal-offer';
+  G.pendingStealIdx=stealIdx;
+  renderTables(G.answererIdx);      // pushes the beat to the TV
 }
 
 function doSteal(idx){
   document.getElementById('stealPanel').classList.remove('show');
+  // BEAT 2 — the steal is now live.
+  G.phase='answering';
+  G.pendingStealIdx=null;
   G.stealMode=true;
   if(G.judgeMode==='human'){
     // Back to question phase with new HJ panel for stealer
@@ -2258,6 +2270,14 @@ function endQuestion(){
     show('board'); refreshBoard();
   }
 }
+
+// The browser back gesture / closing the tab doesn't route through endGame(),
+// so the TV was left connected to a dead room. Close it on the way out.
+window.addEventListener('pagehide', ()=>{
+  if(TV_CODE && navigator.sendBeacon){
+    navigator.sendBeacon(BACKEND+'/api/room/'+TV_CODE+'/close');
+  }
+});
 
 function backToBoard(){
   window.speechSynthesis?.cancel();
@@ -2477,6 +2497,10 @@ function buildEnd(){
 // NEW GAME / RESTART
 // ═══════════════════════════════════════════════════════════════════
 function endGame(){
+  const msg = TV_CODE
+    ? 'End the session? The game will close and the TV will disconnect.'
+    : 'End the session? The game will close.';
+  if(!confirm(msg)) return;
   if(TV_CODE) disconnectTV();      // tear down the room with the game
   _inGame=false;
   window.speechSynthesis?.cancel();
@@ -2923,6 +2947,7 @@ function init(){
       try{ history.pushState({g:1},''); }catch(e){}
     } else if(confirm('Exit the current game? Your progress will be lost.')){
       _inGame=false;
+      if(TV_CODE) disconnectTV();     // don't strand the TV on a dead game
       show('setup');
     } else {
       // Stay on the board — re-arm the trap
