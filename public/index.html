@@ -731,8 +731,8 @@ const BACKEND='https://family-trivia-y0om.onrender.com';
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.8';
-const APP_BUILT_AT='2026-07-13T12:53:08Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.9';
+const APP_BUILT_AT='2026-07-13T20:48:24Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -843,6 +843,60 @@ const CAT_POOL=['Math Puzzles','World Geography','History','Science & Nature','P
 // ═══════════════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// STATE CLASSIFICATION  (Big Screen groundwork — see publicState() below)
+//
+// Every field of G falls into exactly one of three buckets. This matters because
+// a second screen (the TV) will render from a SNAPSHOT of the state, and some of
+// that state must never leave this device.
+//
+//   PUBLIC  — safe for the room to see. Syncs to the TV.
+//   PRIVATE — the ANSWERS. Stays on the judge's phone. NEVER syncs.
+//   LOCAL   — device-only plumbing (mic handles, caches). Meaningless elsewhere.
+//
+// The whole point of Big Screen Mode is that the judge sees something the room
+// does not. If an answer ever reaches the TV, the feature is dead. So the split
+// is enforced by publicState() below — a strict allow-list, not a deny-list.
+// ═══════════════════════════════════════════════════════════════════════════
+const STATE_PUBLIC = [
+  'players','scores','categories','numCats','numQ',
+  'turnOrder','turnPos','nextPickerIdx','numActivePlayers',
+  'used','blocked',
+  'curCat','curQ','curPts',
+  'answererIdx','wrongPlayers','stealMode',
+  'streak','pickedThisRound',
+  'roundNumber','roundQuestionCount',
+  'phase','judgeMode','lastResult',
+  'attempts',   // {cat,tier,player,type,correct,pts} — no answers; the hit-rate column needs it
+];
+const STATE_PRIVATE = ['qData','askedQuestions'];              // hold answers
+const STATE_LOCAL   = ['recognition','recording','transcript', // mic
+                       'playerProfiles','setupNames',
+                       'hjJudgeIdx','hjRotate','hjQCount'];    // legacy judge
+
+// The snapshot a second screen receives. Allow-list only: a field must be named
+// in STATE_PUBLIC to travel. Adding a field to G does NOT expose it by accident.
+//
+// The current question is the delicate case: the TV needs the QUESTION TEXT to
+// display, but must never receive the ANSWER. So we hand-build that slice rather
+// than shipping qData.
+function publicState(){
+  const out = {};
+  STATE_PUBLIC.forEach(k => { out[k] = G[k]; });
+
+  // Current question: text only. The answer and explanation are deliberately dropped.
+  const key = (G.curCat!=null && G.curQ!=null) ? `${G.curCat}-${G.curQ}` : null;
+  const qd  = key ? G.qData[key] : null;
+  out.currentQuestion = qd && qd.question
+    ? { text: qd.question, loading: !!qd.loading }
+    : (qd && qd.loading ? { text: null, loading: true } : null);
+
+  // Answer is revealed to the room only once the judge has revealed it.
+  out.revealedAnswer = (G.phase === 'reveal' && qd) ? (qd.answer || null) : null;
+
+  return out;
+}
+
 let G = {
   // Setup
   players:[],       // names in fixed display order (never changes during game)
@@ -934,7 +988,9 @@ function showPhase(id){
 // TURN ORDER HELPERS
 // ═══════════════════════════════════════════════════════════════════
 // Current picker = nextPickerIdx, skipping if now judge
-function currentPickerIdx(){ return getEffectivePicker(); }
+// PURE: reads only the state handed to it. Defaults to G so every existing
+// caller keeps working; the TV will pass a snapshot that arrived over the wire.
+function currentPickerIdx(S){ return getEffectivePicker(S||G); }
 
 // Advance turnPos to next non-judge, update nextPickerIdx
 function advanceTurnPos(){
@@ -951,30 +1007,31 @@ function advanceTurnPos(){
 }
 
 // Get effective picker: nextPickerIdx, but skip if now judge
-function getEffectivePicker(){
-  if(G.judgeMode!=='human') return G.nextPickerIdx;
+function getEffectivePicker(S){
+  S = S || G;
+  if(S.judgeMode!=='human') return S.nextPickerIdx;
   // If nextPickerIdx is now the judge, find next non-judge in turnOrder
-  if(G.nextPickerIdx===G.hjJudgeIdx){
-    const n=G.turnOrder.length;
-    const pos=G.turnOrder.indexOf(G.nextPickerIdx);
+  if(S.nextPickerIdx===S.hjJudgeIdx){
+    const n=S.turnOrder.length;
+    const pos=S.turnOrder.indexOf(S.nextPickerIdx);
     for(let i=1;i<=n;i++){
-      const np=G.turnOrder[(pos+i)%n];
-      if(np!==G.hjJudgeIdx) return np;
+      const np=S.turnOrder[(pos+i)%n];
+      if(np!==S.hjJudgeIdx) return np;
     }
   }
-  return G.nextPickerIdx;
+  return S.nextPickerIdx;
 }
 
-// Find steal candidate: next non-judge, non-wrong player after answerer in turnOrder
-function findStealIdx(){
-  const n=G.turnOrder.length;
+function findStealIdx(S){
+  S = S || G;
+  const n=S.turnOrder.length;
   // Find position of answerer in turnOrder
-  const answererPos=G.turnOrder.indexOf(G.answererIdx);
+  const answererPos=S.turnOrder.indexOf(S.answererIdx);
   for(let i=1;i<=n;i++){
     const pos=(answererPos+i)%n;
-    const idx=G.turnOrder[pos];
-    if(G.judgeMode==='human'&&idx===G.hjJudgeIdx) continue;
-    if(G.wrongPlayers.includes(idx)) continue;
+    const idx=S.turnOrder[pos];
+    if(S.judgeMode==='human'&&idx===S.hjJudgeIdx) continue;
+    if((S.wrongPlayers||[]).includes(idx)) continue;
     return idx;
   }
   return -1;
@@ -983,37 +1040,80 @@ function findStealIdx(){
 // ═══════════════════════════════════════════════════════════════════
 // PLAYER TABLE — fixed order, highlights move not rows
 // ═══════════════════════════════════════════════════════════════════
-function buildPTable(answererIdx){
-  const isHuman=G.judgeMode==='human';
-  const picker=currentPickerIdx();
+// ═══════════════════════════════════════════════════════════════════════════
+// SYNC — the single choke point (Big Screen groundwork)
+//
+// Every state change on this device ends in a render. So a render is exactly the
+// moment the rest of the room needs to hear about it. commit() is that one place.
+//
+// Today it only notifies local subscribers (so nothing changes). When the TV
+// lands, it will also publish publicState() over Supabase Realtime — and every
+// existing mutation site will already be wired for it.
+//
+// CRITICAL: only the AUTHORITATIVE device broadcasts. A screen rendering a
+// snapshot it received must not re-broadcast it, or two devices echo forever.
+// Hence the `S === G` guard: G is the local truth; anything else came from the wire.
+// ═══════════════════════════════════════════════════════════════════════════
+let _subscribers = [];
+let _commitQueued = false;
+
+function onStateChange(fn){ _subscribers.push(fn); }
+
+function commit(){
+  if(!_subscribers.length) return;
+  if(_commitQueued) return;           // coalesce a burst of renders into one broadcast
+  _commitQueued = true;
+  Promise.resolve().then(()=>{
+    _commitQueued = false;
+    const snap = publicState();
+    _subscribers.forEach(fn => { try{ fn(snap); }catch(e){ console.warn('sync subscriber failed', e); } });
+  });
+}
+
+// The receiving end: a display-only screen renders EVERYTHING from a snapshot.
+// Note it passes the snapshot (not G) into the renderers, so the S===G guard
+// above keeps it silent — it draws, it never broadcasts.
+function applyRemoteState(snap){
+  if(!snap) return;
+  buildBoard(snap, false);      // display-only: no click handlers
+  renderBoard(snap);
+  renderTables(snap.answererIdx, snap);
+}
+
+// PURE: renders a scoreboard from whatever state it's given. The TV will call
+// this with a snapshot received over the wire; the phone calls it with G.
+function buildPTable(answererIdx, S){
+  S = S || G;
+  const isHuman=S.judgeMode==='human';
+  const picker=currentPickerIdx(S);
 
   // Steal candidate (while answering) or on-deck player (during pick/reading)
   const answering=answererIdx!=null;
   let stealIdx=-1, onDeckIdx=-1;
   if(answering){
-    stealIdx=findStealIdx();
+    stealIdx=findStealIdx(S);
   } else {
-    const pp=G.turnOrder.indexOf(picker);
-    if(pp>=0){ onDeckIdx=G.turnOrder[(pp+1)%G.turnOrder.length]; if(onDeckIdx===picker) onDeckIdx=-1; }
+    const pp=S.turnOrder.indexOf(picker);
+    if(pp>=0){ onDeckIdx=S.turnOrder[(pp+1)%S.turnOrder.length]; if(onDeckIdx===picker) onDeckIdx=-1; }
   }
 
-  // Build rows in fixed display order (G.players index 0..N-1)
+  // Build rows in fixed display order (S.players index 0..N-1)
   // Count natural turn position for ALL players including judge
   // so judge's ghosted position (2) is always visible
   let allNum=1;
-  const naturalPos=G.players.map((_,i)=>{
+  const naturalPos=S.players.map((_,i)=>{
     // Natural position in turnOrder
-    const pos=G.turnOrder.indexOf(i);
+    const pos=S.turnOrder.indexOf(i);
     return pos+1; // 1-based
   });
 
   // Leader = highest score (only if someone's actually ahead of 0, and not a tie for the top)
-  const maxScore=Math.max(...G.scores);
-  const topCount=G.scores.filter(s=>s===maxScore).length;
-  const leaderIdx=(maxScore>0&&topCount===1)?G.scores.indexOf(maxScore):-1;
+  const maxScore=Math.max(...S.scores);
+  const topCount=S.scores.filter(s=>s===maxScore).length;
+  const leaderIdx=(maxScore>0&&topCount===1)?S.scores.indexOf(maxScore):-1;
 
   let activeNum=1;
-  const rows=G.players.map((_,i)=>{
+  const rows=S.players.map((_,i)=>{
     const isAnswering=answering&&i===answererIdx;
     const isPick=!answering&&i===picker;
     const isSteal=answering&&i===stealIdx;
@@ -1022,7 +1122,7 @@ function buildPTable(answererIdx){
     let cls='';
     let role='';
     if(isAnswering){ cls='pt-cur'; role='Answering'; }
-    else if(isPick){ cls='pt-cur'; role=(G.phase==='reading'?'Reading':'Picking'); }
+    else if(isPick){ cls='pt-cur'; role=(S.phase==='reading'?'Reading':'Picking'); }
     else if(isSteal){ cls='pt-steal'; role='Ready to steal!'; }
     else if(isOnDeck){ cls='pt-ondeck'; role='On deck'; }
 
@@ -1030,22 +1130,22 @@ function buildPTable(answererIdx){
 
     // Leader marker, streak badge, and picked-this-round check
     const crown=(i===leaderIdx)?'👑 ':'';
-    const st=(G.streak&&G.streak[i])||0;
+    const st=(S.streak&&S.streak[i])||0;
     let streakBadge='';
     if(st>=2) streakBadge=` <span style="font-size:10px;color:#ff8a4c;font-weight:700;">🔥${st}</span>`;
     else if(st<=-2) streakBadge=` <span style="font-size:10px;color:#7fc7ff;font-weight:700;">🧊${-st}</span>`;
-    const pickedDone=(G.pickedThisRound&&G.pickedThisRound.includes(i));
+    const pickedDone=(S.pickedThisRound&&S.pickedThisRound.includes(i));
     const pickedCell=`<td class="pt-picked" style="text-align:right;font-size:13px;font-weight:700;white-space:nowrap;color:${pickedDone?'rgba(255,255,255,.3)':'var(--gold-hi)'};">${pickedDone?'✓':'–'}</td>`;
 
     // Hit rate for this player — overall (turn questions + steals combined)
-    const pAttempts=(G.attempts||[]).filter(a=>a.player===G.players[i]);
+    const pAttempts=(S.attempts||[]).filter(a=>a.player===S.players[i]);
     const pOK=pAttempts.filter(a=>a.correct).length;
     const hitStr=pAttempts.length>0?Math.round(pOK/pAttempts.length*100)+'%':'—';
     return `<tr class="${cls}" onclick="openPlayerStats(${i})" style="cursor:pointer;">
       <td class="pt-num">${num}</td>
-      <td class="pt-name" style="white-space:nowrap;">${crown}${G.players[i]}${streakBadge}</td>
+      <td class="pt-name" style="white-space:nowrap;">${crown}${S.players[i]}${streakBadge}</td>
       <td class="pt-hit">${hitStr}</td>
-      <td class="pt-score">${G.scores[i]}</td>
+      <td class="pt-score">${S.scores[i]}</td>
       ${pickedCell}
       <td class="pt-role">${role}</td>
     </tr><tr class="pt-div"><td colspan="6"></td></tr>`;
@@ -1134,18 +1234,19 @@ function statsBlockHTML(atts, opts){
 let _statsName='', _statsIdx=-1, _statsPid=null, _lifetimeAtts=null;
 
 function openPlayerStats(playerIdx){
-  const pName=G.players[playerIdx];
-  const sessionAtts=(G.attempts||[]).filter(a=>a.player===pName);
+  const pName=S.players[playerIdx];
+  const sessionAtts=(S.attempts||[]).filter(a=>a.player===pName);
   let html=`<div style="font-size:22px;font-weight:900;font-family:'Playfair Display',serif;color:var(--gold-hi);margin-bottom:4px;">${pName}</div>`;
   html+=`<div style="font-size:11px;color:rgba(255,255,255,.4);letter-spacing:2px;text-transform:uppercase;margin-bottom:16px;">This Game</div>`;
-  html+=statsBlockHTML(sessionAtts,{hasType:true,totalPts:G.scores[playerIdx],catList:G.categories});
+  html+=statsBlockHTML(sessionAtts,{hasType:true,totalPts:S.scores[playerIdx],catList:S.categories});
   document.getElementById('playerStatsContent').innerHTML=html;
   document.getElementById('playerStatsModal').classList.add('show');
 }
 function closePlayerStats(){ document.getElementById('playerStatsModal').classList.remove('show'); }
 
-function renderTables(answererIdx){
-  const html=buildPTable(answererIdx);
+function renderTables(answererIdx, S){
+  const st = S || G;
+  const html=buildPTable(answererIdx, st);
   const t1=document.getElementById('ptable');   if(t1) t1.innerHTML=html;
   const t2=document.getElementById('qptable');  if(t2) t2.innerHTML=html;
 
@@ -1154,6 +1255,8 @@ function renderTables(answererIdx){
   document.querySelectorAll('.judge-indicator').forEach(el=>el.innerHTML='');
   const qji=document.getElementById('qJudgeIndicator');
   if(qji) qji.innerHTML='';
+
+  if(st === G) commit();   // only the authoritative device broadcasts
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1493,6 +1596,8 @@ async function startGame(){
     }
   }
 
+  // buildBoard is a pure renderer now, so the caller owns the state change.
+  G.phase='pick';
   buildBoard();
   show('board');
 }
@@ -1500,13 +1605,17 @@ async function startGame(){
 // ═══════════════════════════════════════════════════════════════════
 // BOARD
 // ═══════════════════════════════════════════════════════════════════
-function buildBoard(){
+// PURE: builds the grid from state. `interactive` is false on a display-only
+// screen (the TV), where tiles must render but must not be clickable.
+function buildBoard(S, interactive){
+  S = S || G;
+  if(interactive===undefined) interactive = true;
   const grid=document.getElementById('catGrid');
-  grid.style.gridTemplateColumns=`repeat(${G.numCats},1fr)`;
+  grid.style.gridTemplateColumns=`repeat(${S.numCats},1fr)`;
   grid.innerHTML='';
 
   // Category headers
-  G.categories.forEach(cat=>{
+  S.categories.forEach(cat=>{
     const h=document.createElement('div');
     h.className='cat-head';
     h.textContent=cat.toUpperCase();
@@ -1514,42 +1623,53 @@ function buildBoard(){
   });
 
   // Question tiles
-  for(let qi=0;qi<G.numQ;qi++){
-    for(let ci=0;ci<G.numCats;ci++){
+  for(let qi=0;qi<S.numQ;qi++){
+    for(let ci=0;ci<S.numCats;ci++){
       const key=`${ci}-${qi}`;
       const t=document.createElement('div');
       t.id=`tile-${key}`;
-      if(G.blocked && G.blocked[key]){
+      if(S.blocked && S.blocked[key]){
         t.className='q-tile blocked';
         t.innerHTML='<span class="blk-star">★</span><span class="blk-sub">All-Play<br>coming soon</span>';
-        t.onclick=function(){ toast('★ Feature coming soon — this tile is empty'); };
+        if(interactive) t.onclick=function(){ toast('★ Feature coming soon — this tile is empty'); };
       } else {
         t.className='q-tile';
         t.textContent=PTS[qi];
-        t.onclick=function(){pickQ(ci,qi);};
+        if(interactive) t.onclick=function(){pickQ(ci,qi);};
       }
       grid.appendChild(t);
     }
   }
-  refreshBoard();
+  renderBoard(S);
 }
 
+// refreshBoard = a state CHANGE (we're back on the board) followed by a render.
+// The two jobs are now separate: renderBoard() is pure and can draw any state,
+// including one that arrived from another device.
 function refreshBoard(){
-  G.phase='pick';
+  G.phase='pick';        // mutation
+  renderBoard(G);        // render
+}
+
+// PURE: paints the board from whatever state it's given. No mutations, no reads of G.
+function renderBoard(S){
+  S = S || G;
   // Player table
-  renderTables(null);
-  // Progress
-  const done=Object.keys(G.used).length;
-  const total=G.numCats*G.numQ-Object.keys(G.blocked||{}).length;
+  renderTables(null, S);
+  // Progress — blocked tiles aren't playable, so they don't count toward the total
+  const done=Object.keys(S.used||{}).length;
+  const total=S.numCats*S.numQ-Object.keys(S.blocked||{}).length;
   const pf=document.getElementById('progressFill');
   if(pf) pf.style.width=`${total>0?(done/total)*100:0}%`;
   // Used tiles
-  for(let qi=0;qi<G.numQ;qi++){
-    for(let ci=0;ci<G.numCats;ci++){
+  for(let qi=0;qi<S.numQ;qi++){
+    for(let ci=0;ci<S.numCats;ci++){
       const t=document.getElementById(`tile-${ci}-${qi}`);
-      if(t&&G.used[`${ci}-${qi}`]){ t.classList.add('used'); t.textContent='✓'; }
+      if(t&&(S.used||{})[`${ci}-${qi}`]){ t.classList.add('used'); t.textContent='✓'; }
     }
   }
+
+  if(S === G) commit();    // only the authoritative device broadcasts
 }
 
 // ═══════════════════════════════════════════════════════════════════
