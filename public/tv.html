@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Family Trivia — Big Screen</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --night:#08090f; --card:#f7f2e8; --card2:#ede7d5; --card3:#e2dbc7;
+  --gold:#d4a843; --gold-hi:#f0c855; --gold-lo:#a07828;
+  --teal:#1fada0; --teal-hi:#3dd5c8; --red:#c0392b; --green:#1a7a45;
+  --purple:#7c3aed; --purple-hi:#a78bfa; --ink:#14120e; --muted:#6b6560;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  background:radial-gradient(ellipse at 50% 0%, #1a1636 0%, var(--night) 70%);
+  color:#fff; font-family:'Outfit',system-ui,sans-serif;
+  min-height:100vh; overflow:hidden;
+  /* TVs overscan: keep everything inside a safe margin */
+  padding:2.5vh 3vw;
+}
+
+/* ── Join screen ─────────────────────────────────────────── */
+#join{display:flex;flex-direction:column;align-items:center;justify-content:center;height:95vh;text-align:center;}
+#join h1{font-family:'Playfair Display',serif;font-size:5.5vw;font-weight:900;color:var(--gold-hi);line-height:1;margin-bottom:1vh;}
+#join .sub{font-size:1.5vw;color:rgba(255,255,255,.55);letter-spacing:.25vw;text-transform:uppercase;margin-bottom:6vh;}
+.codebox{background:rgba(255,255,255,.05);border:2px solid rgba(212,168,67,.4);border-radius:2vw;padding:3vh 5vw;display:flex;align-items:center;gap:4vw;}
+.codelabel{font-size:1.3vw;color:rgba(255,255,255,.5);letter-spacing:.2vw;text-transform:uppercase;margin-bottom:1vh;}
+.code{font-family:'Playfair Display',serif;font-size:9vw;font-weight:900;color:var(--gold-hi);letter-spacing:1vw;line-height:1;}
+#qr{background:#fff;padding:1.2vw;border-radius:1vw;}
+#qr img{display:block;width:14vw;height:14vw;}
+#join .hint{margin-top:6vh;font-size:1.5vw;color:rgba(255,255,255,.45);}
+#join .hint b{color:var(--gold);}
+.dot{display:inline-block;width:.9vw;height:.9vw;border-radius:50%;background:var(--teal-hi);margin-right:.6vw;animation:pulse 1.6s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:.25;}50%{opacity:1;}}
+
+/* ── Game screen ─────────────────────────────────────────── */
+#game{display:none;height:95vh;flex-direction:column;}
+.scores{display:flex;gap:1.2vw;margin-bottom:1.6vh;}
+.pcard{flex:1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:1vw;padding:1.2vh 1vw;text-align:center;transition:all .25s;}
+.pcard.active{background:rgba(212,168,67,.16);border-color:var(--gold);transform:translateY(-.4vh);}
+.pcard.steal{background:rgba(124,58,237,.16);border-color:var(--purple-hi);}
+.pname{font-size:1.5vw;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pscore{font-family:'Playfair Display',serif;font-size:2.8vw;font-weight:900;color:var(--gold-hi);line-height:1.1;}
+.pstat{font-size:.95vw;color:rgba(255,255,255,.5);letter-spacing:.1vw;text-transform:uppercase;height:1.4vw;}
+.pcard.active .pstat{color:var(--gold);}
+.pcard.steal .pstat{color:var(--purple-hi);}
+
+/* Board */
+#board{flex:1;display:grid;gap:.7vw;min-height:0;}
+.cat{background:rgba(255,255,255,.05);border:1px solid rgba(212,168,67,.35);border-radius:.7vw;
+  display:flex;align-items:center;justify-content:center;text-align:center;padding:.5vh .4vw;
+  font-family:'Playfair Display',serif;font-weight:700;color:var(--gold-hi);
+  font-size:1.4vw;line-height:1.15;text-transform:uppercase;}
+.tile{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:.7vw;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Playfair Display',serif;font-weight:900;font-size:2.6vw;color:var(--gold);}
+.tile.used{opacity:.13;}
+.tile.blocked{background:rgba(124,58,237,.12);border:1px dashed rgba(167,139,250,.5);
+  flex-direction:column;gap:.3vh;color:#b9a4f5;}
+.tile.blocked .star{font-size:2vw;line-height:1;}
+.tile.blocked .sc{font-size:.75vw;font-weight:700;letter-spacing:.05vw;text-transform:uppercase;opacity:.75;}
+
+/* Question overlay */
+#qscreen{display:none;position:fixed;inset:0;background:radial-gradient(ellipse at 50% 30%, #241d4a 0%, #08090f 75%);
+  flex-direction:column;align-items:center;justify-content:center;padding:6vh 8vw;text-align:center;z-index:10;}
+#qcat{font-size:1.5vw;letter-spacing:.35vw;text-transform:uppercase;color:var(--gold);margin-bottom:1vh;}
+#qpts{font-family:'Playfair Display',serif;font-size:4.5vw;font-weight:900;color:var(--gold-hi);line-height:1;margin-bottom:4vh;}
+#qtext{font-family:'Playfair Display',serif;font-size:3.6vw;font-weight:700;line-height:1.3;max-width:80vw;}
+#qwho{margin-top:5vh;font-size:1.8vw;color:rgba(255,255,255,.6);}
+#qwho b{color:var(--gold-hi);}
+#qans{margin-top:4vh;font-size:2.6vw;font-weight:800;color:var(--teal-hi);display:none;}
+#qans .lbl{display:block;font-size:1.1vw;letter-spacing:.25vw;text-transform:uppercase;color:rgba(255,255,255,.45);font-weight:600;margin-bottom:.8vh;}
+
+.offline{position:fixed;bottom:1.5vh;left:0;right:0;text-align:center;font-size:1vw;color:var(--red);display:none;}
+.tag{position:fixed;bottom:1.5vh;right:2vw;font-size:.85vw;color:rgba(255,255,255,.22);}
+</style>
+</head>
+<body>
+
+<div id="join">
+  <h1>Family Trivia</h1>
+  <div class="sub">Big Screen</div>
+  <div class="codebox">
+    <div>
+      <div class="codelabel">Join code</div>
+      <div class="code" id="code">····</div>
+    </div>
+    <div id="qr"></div>
+  </div>
+  <div class="hint"><span class="dot"></span>On your phone, tap <b>Connect to TV</b> and enter this code</div>
+</div>
+
+<div id="game">
+  <div class="scores" id="scores"></div>
+  <div id="board"></div>
+</div>
+
+<div id="qscreen">
+  <div id="qcat"></div>
+  <div id="qpts"></div>
+  <div id="qtext"></div>
+  <div id="qwho"></div>
+  <div id="qans"><span class="lbl">Answer</span><span id="qanstext"></span></div>
+</div>
+
+<div class="offline" id="offline">Lost connection to the game — reload this page</div>
+<div class="tag" id="tag"></div>
+
+<script>
+const TV_VERSION='3.1';
+const TV_BUILT_AT='2026-07-13T22:19:11Z';
+const BACKEND='';   // same origin
+
+const PTS=[100,200,300,400,500];
+let CODE=null, ES=null;
+
+function fmt(iso){
+  try{
+    const d=new Date(iso); if(isNaN(d)) return '';
+    const p={};
+    new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',day:'2-digit',
+      hour:'2-digit',minute:'2-digit',hour12:true}).formatToParts(d).forEach(x=>p[x.type]=x.value);
+    const ap=(p.dayPeriod||'').replace(/\./g,'').toUpperCase();
+    return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} ${ap}`;
+  }catch(e){ return ''; }
+}
+document.getElementById('tag').textContent = `TV ${TV_VERSION} · ${fmt(TV_BUILT_AT)}`;
+
+// ── Get a room, show the code + QR ────────────────────────────────────────
+async function init(){
+  try{
+    const r = await fetch(BACKEND+'/api/room/new', {method:'POST'});
+    const d = await r.json();
+    CODE = d.code;
+  }catch(e){
+    document.getElementById('code').textContent='···';
+    document.getElementById('offline').style.display='block';
+    document.getElementById('offline').textContent='Could not reach the server — reload this page';
+    return;
+  }
+  document.getElementById('code').textContent = CODE;
+
+  // QR points the phone straight at the app with the code prefilled.
+  const joinUrl = location.origin + '/?tv=' + CODE;
+  const qr = document.getElementById('qr');
+  const img = document.createElement('img');
+  img.alt = 'Scan to connect';
+  img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=0&data=' + encodeURIComponent(joinUrl);
+  img.onerror = () => { qr.style.display='none'; };   // no internet for the QR service? code still works
+  qr.appendChild(img);
+
+  listen();
+}
+
+// ── Subscribe to the room's push stream ───────────────────────────────────
+function listen(){
+  ES = new EventSource(BACKEND+'/api/room/'+CODE+'/stream');
+  ES.addEventListener('state',   e => render(JSON.parse(e.data)));
+  ES.addEventListener('waiting', () => {});      // no game yet — keep showing the code
+  ES.addEventListener('closed',  () => { location.reload(); });
+  ES.onerror = () => { document.getElementById('offline').style.display='block'; };
+  ES.onopen  = () => { document.getElementById('offline').style.display='none'; };
+}
+
+// ── Render the snapshot ───────────────────────────────────────────────────
+function render(S){
+  if(!S || !S.players || !S.players.length) return;
+  document.getElementById('join').style.display='none';
+  document.getElementById('game').style.display='flex';
+
+  // Scores
+  const answering = S.answererIdx!=null;
+  const picker = S.nextPickerIdx;
+  const scores = document.getElementById('scores');
+  scores.innerHTML = S.players.map((p,i)=>{
+    const isAns  = answering && i===S.answererIdx;
+    const isPick = !answering && i===picker;
+    let cls='pcard', stat='';
+    if(isAns){ cls+=' active'; stat = S.stealMode ? 'Stealing' : 'Answering'; }
+    else if(isPick){ cls+=' active'; stat = (S.phase==='reading' ? 'Reading' : 'Picking'); }
+    const st=(S.streak||[])[i]||0;
+    const badge = st>=2 ? ` 🔥${st}` : (st<=-2 ? ` 🧊${-st}` : '');
+    const maxS=Math.max(...S.scores);
+    const crown=(maxS>0 && S.scores.filter(x=>x===maxS).length===1 && S.scores[i]===maxS) ? '👑 ' : '';
+    return `<div class="${cls}">
+      <div class="pname">${crown}${p}${badge}</div>
+      <div class="pscore">${S.scores[i]}</div>
+      <div class="pstat">${stat}</div>
+    </div>`;
+  }).join('');
+
+  // Board
+  const board=document.getElementById('board');
+  board.style.gridTemplateColumns=`repeat(${S.numCats},1fr)`;
+  board.style.gridTemplateRows=`auto repeat(${S.numQ},1fr)`;
+  let h='';
+  (S.categories||[]).forEach(c=>{ h+=`<div class="cat">${c}</div>`; });
+  for(let qi=0; qi<S.numQ; qi++){
+    for(let ci=0; ci<S.numCats; ci++){
+      const key=`${ci}-${qi}`;
+      if((S.blocked||{})[key])      h+=`<div class="tile blocked"><span class="star">★</span><span class="sc">All-Play<br>coming soon</span></div>`;
+      else if((S.used||{})[key])    h+=`<div class="tile used">✓</div>`;
+      else                          h+=`<div class="tile">${PTS[qi]}</div>`;
+    }
+  }
+  board.innerHTML=h;
+
+  // Question overlay
+  const qs=document.getElementById('qscreen');
+  const q=S.currentQuestion;
+  const showQ = q && q.text && S.phase!=='pick';
+  if(showQ){
+    document.getElementById('qcat').textContent=(S.categories||[])[S.curCat]||'';
+    document.getElementById('qpts').textContent=S.curPts||'';
+    document.getElementById('qtext').textContent=q.text;
+    const who=S.players[S.answererIdx];
+    document.getElementById('qwho').innerHTML = who
+      ? (S.stealMode ? `<b>${who}</b> is stealing` : `<b>${who}</b> is answering`)
+      : '';
+    // The answer only ever arrives once the judge has revealed it.
+    const ansEl=document.getElementById('qans');
+    if(S.revealedAnswer){
+      document.getElementById('qanstext').textContent=S.revealedAnswer;
+      ansEl.style.display='block';
+    } else {
+      ansEl.style.display='none';
+    }
+    qs.style.display='flex';
+  } else {
+    qs.style.display='none';
+  }
+}
+
+init();
+</script>
+</body>
+</html>

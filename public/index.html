@@ -417,8 +417,27 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button id="openSettingsBtn" aria-label="Settings" style="display:flex;align-items:center;gap:5px;background:transparent;border:none;cursor:pointer;color:var(--gold-lo);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px;"><span style="font-size:16px;">⚙</span> Settings</button>
       <button id="endGameBtnSetup" style="background:transparent;border:none;cursor:pointer;font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;padding:4px;opacity:.8;">End Game Session</button>
     </div>
+    <div style="display:flex;justify-content:center;margin-top:4px;">
+      <button id="tvBtn" style="display:flex;align-items:center;gap:5px;background:transparent;border:none;cursor:pointer;color:var(--muted);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px;"><span style="font-size:14px;">📺</span> <span id="tvBtnLabel">Connect to TV</span></button>
+    </div>
     <div id="buildFooter" style="margin-top:10px;text-align:center;font-size:10px;line-height:1.5;color:var(--muted);opacity:.65;"></div>
 
+  </div>
+</div>
+
+<div class="modal-bg" id="tvModal" style="z-index:975;">
+  <div class="modal-box" style="max-width:330px;">
+    <div class="modal-title">Connect to TV</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5;">
+      On the TV, open <b style="color:var(--ink);">/tv</b> — it shows a 4-digit code. Enter it here.
+    </div>
+    <input id="tvCode" type="tel" inputmode="numeric" maxlength="4" placeholder="0000"
+      style="width:100%;padding:14px;border:2px solid var(--card3);border-radius:12px;font-family:'Playfair Display',serif;font-size:32px;font-weight:900;text-align:center;letter-spacing:8px;color:var(--ink);background:var(--card2);">
+    <div id="tvErr" style="font-size:12px;color:var(--red);margin-top:8px;min-height:16px;"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button class="mbtn mbtn-cancel" id="tvCancel" style="flex:1;">Cancel</button>
+      <button class="mbtn" id="tvGo" style="flex:1;background:var(--gold);color:var(--ink);">Connect</button>
+    </div>
   </div>
 </div>
 
@@ -623,13 +642,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 </div>
 
 <!-- RULESET DETAILS MODAL (stacks over stats) -->
-<div class="modal-bg" id="rulesetDetailsModal" style="z-index:950;">
-  <div class="modal-box" style="max-width:440px;text-align:left;max-height:85vh;display:flex;flex-direction:column;">
-    <div class="modal-title" style="margin-bottom:10px;">Ruleset Details</div>
-    <div id="rulesetDetailsContent" style="overflow-y:auto;flex:1;margin-bottom:12px;"></div>
-    <button class="mbtn mbtn-cancel" onclick="closeRulesetDetails()" style="align-self:center;padding:6px 24px;font-size:12px;width:auto;">Back</button>
-  </div>
-</div>
+
 
 <!-- DEDUP DEBUG LOG MODAL -->
 <div class="modal-bg" id="dedupLogModal" style="z-index:950;">
@@ -731,8 +744,8 @@ const BACKEND='https://family-trivia-y0om.onrender.com';
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.9';
-const APP_BUILT_AT='2026-07-13T20:48:24Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.11';
+const APP_BUILT_AT='2026-07-13T22:19:11Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -885,7 +898,9 @@ function publicState(){
   STATE_PUBLIC.forEach(k => { out[k] = G[k]; });
 
   // Current question: text only. The answer and explanation are deliberately dropped.
-  const key = (G.curCat!=null && G.curQ!=null) ? `${G.curCat}-${G.curQ}` : null;
+  // Back on the board ('pick'), no question is live — don't ship a stale one.
+  const onBoard = (G.phase === 'pick');
+  const key = (!onBoard && G.curCat!=null && G.curQ!=null) ? `${G.curCat}-${G.curQ}` : null;
   const qd  = key ? G.qData[key] : null;
   out.currentQuestion = qd && qd.question
     ? { text: qd.question, loading: !!qd.loading }
@@ -1054,19 +1069,88 @@ function findStealIdx(S){
 // snapshot it received must not re-broadcast it, or two devices echo forever.
 // Hence the `S === G` guard: G is the local truth; anything else came from the wire.
 // ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// BIG SCREEN — this phone pushes its public state to a TV room.
+// The TV shows a code; we claim it here. From then on, every commit() also POSTs
+// the snapshot. publicState()'s allow-list guarantees no answer travels.
+// ═══════════════════════════════════════════════════════════════════════════
+let TV_CODE = null;
+
+async function connectTV(code){
+  code = String(code||'').trim();
+  if(!/^\d{4}$/.test(code)) return {ok:false, err:'Enter the 4-digit code shown on the TV.'};
+  try{
+    const r = await fetch(BACKEND+'/api/room/'+code);
+    if(!r.ok) return {ok:false, err:'No TV found with that code. Check the number.'};
+  }catch(e){ return {ok:false, err:'Could not reach the server.'}; }
+  TV_CODE = code;
+  try{ localStorage.setItem('ftn_tv', code); }catch(e){}
+  pushToTV();                       // send the current state immediately
+  return {ok:true};
+}
+
+function updateTVBadge(){
+  const lbl=document.getElementById('tvBtnLabel');
+  const btn=document.getElementById('tvBtn');
+  if(!lbl||!btn) return;
+  if(TV_CODE){
+    lbl.textContent='TV '+TV_CODE+' \u2014 tap to disconnect';
+    btn.style.color='var(--teal)';
+  } else {
+    lbl.textContent='Connect to TV';
+    btn.style.color='var(--muted)';
+  }
+}
+
+function openTVModal(){
+  const m=document.getElementById('tvModal');
+  document.getElementById('tvCode').value='';
+  document.getElementById('tvErr').textContent='';
+  m.classList.add('show');
+  setTimeout(()=>document.getElementById('tvCode').focus(),120);
+}
+function closeTVModal(){ document.getElementById('tvModal').classList.remove('show'); }
+
+async function tvConnectFromModal(){
+  const code=document.getElementById('tvCode').value;
+  const err=document.getElementById('tvErr');
+  err.textContent='Connecting\u2026';
+  const r=await connectTV(code);
+  if(r.ok){ closeTVModal(); updateTVBadge(); toast('\ud83d\udcfa Connected to TV '+code); }
+  else { err.textContent=r.err; }
+}
+
+function disconnectTV(){
+  if(TV_CODE){ fetch(BACKEND+'/api/room/'+TV_CODE+'/close',{method:'POST'}).catch(()=>{}); }
+  TV_CODE=null;
+  try{ localStorage.removeItem('ftn_tv'); }catch(e){}
+  updateTVBadge();
+}
+
+async function pushToTV(){
+  if(!TV_CODE) return;
+  try{
+    await fetch(BACKEND+'/api/room/'+TV_CODE+'/state',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(publicState())
+    });
+  }catch(e){ /* a dropped frame is fine — the next commit resends everything */ }
+}
+
 let _subscribers = [];
 let _commitQueued = false;
 
 function onStateChange(fn){ _subscribers.push(fn); }
 
 function commit(){
-  if(!_subscribers.length) return;
+  if(!_subscribers.length && !TV_CODE) return;
   if(_commitQueued) return;           // coalesce a burst of renders into one broadcast
   _commitQueued = true;
   Promise.resolve().then(()=>{
     _commitQueued = false;
     const snap = publicState();
     _subscribers.forEach(fn => { try{ fn(snap); }catch(e){ console.warn('sync subscriber failed', e); } });
+    pushToTV();                     // and the TV, if one is connected
   });
 }
 
@@ -1285,7 +1369,11 @@ async function loadRoster(){
     if(loading){ loading.style.display='block'; loading.textContent='Couldn\u2019t reach the server \u2014 it may be waking up. Tap \u21BB Reload in a few seconds.'; }
     return;
   }
-  roster=players;
+  // Sort by nickname (what the picker shows), case-insensitive and accent-aware
+  // so "Álvaro" files next to "Alec" rather than at the end.
+  roster=players.slice().sort((a,b)=>
+    String(a.nickname||'').localeCompare(String(b.nickname||''), undefined, {sensitivity:'base'})
+  );
   renderRoster(); // renderRoster hides the loading text and draws the cards (or "No players yet")
 }
 
@@ -2385,6 +2473,7 @@ function buildEnd(){
 // NEW GAME / RESTART
 // ═══════════════════════════════════════════════════════════════════
 function endGame(){
+  if(TV_CODE) disconnectTV();      // tear down the room with the game
   _inGame=false;
   window.speechSynthesis?.cancel();
   if(G.recording) stopMic();
@@ -2470,125 +2559,14 @@ function buildStatsHTML(){
   return html;
 }
 
-let _adminTab='session';
-let _rulesetList=null;     // [{full ruleset rows}]
-let _selectedRuleset=null; // currently selected ruleset version
-let _rulesetStats=null;    // stats for the selected ruleset
 
+// Ruleset calibration lives in the standalone admin page (/admin.html) now.
+// The in-game stats modal only shows THIS GAME.
 function openStats(){
-  _adminTab='session'; _rulesetList=null; _selectedRuleset=null; _rulesetStats=null;
   document.getElementById('statsModal').classList.add('show');
-  renderAdminTab();
+  document.getElementById('statsContent').innerHTML = buildStatsHTML();
 }
 
-function showAdminTab(which){
-  _adminTab=which;
-  renderAdminTab();
-  if(which==='ruleset') ensureRulesetData();
-}
-
-function renderAdminTab(){
-  const which=_adminTab;
-  const tab=(active)=>`flex:1;padding:8px;border:none;border-radius:8px;font-family:Outfit,sans-serif;font-size:12px;font-weight:700;cursor:pointer;background:${active?'var(--gold)':'rgba(255,255,255,.08)'};color:${active?'#000':'rgba(255,255,255,.6)'};`;
-  let html=`<div style="display:flex;gap:8px;margin-bottom:16px;">
-    <button onclick="showAdminTab('session')" style="${tab(which==='session')}">This Game</button>
-    <button onclick="showAdminTab('ruleset')" style="${tab(which==='ruleset')}">By Ruleset</button>
-  </div>`;
-  html += (which==='session') ? buildStatsHTML() : rulesetPaneHTML();
-  document.getElementById('statsContent').innerHTML=html;
-}
-
-function rulesetPaneHTML(){
-  if(_rulesetList===null)
-    return '<div style="color:rgba(255,255,255,.4);text-align:center;padding:24px 0;">Loading rulesets\u2026</div>';
-  if(_rulesetList.length===0)
-    return '<div style="color:rgba(255,255,255,.4);text-align:center;padding:24px 0;">No difficulty rulesets defined yet.</div>';
-
-  const opts=_rulesetList.map(r=>{
-    const v=r.difficulty_ruleset_version;
-    const label='Ruleset '+v+(r.note?' \u2014 '+r.note:'');
-    return `<option value="${v}"${v===_selectedRuleset?' selected':''}>${label}</option>`;
-  }).join('');
-  let html=`<div style="margin-bottom:14px;">
-    <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:6px;">Difficulty Ruleset</div>
-    <div style="display:flex;gap:8px;align-items:stretch;">
-      <select onchange="selectRuleset(this.value)" style="flex:1;min-width:0;background:#1c1c28;color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:8px 10px;font-family:Outfit,sans-serif;font-size:13px;text-overflow:ellipsis;">${opts}</select>
-      <button onclick="openRulesetDetails()" title="View ruleset details" style="flex:0 0 auto;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:rgba(255,255,255,.8);font-size:16px;font-weight:700;padding:0 12px;cursor:pointer;">\u24d8</button>
-    </div>
-  </div>`;
-
-  if(_rulesetStats===null)
-    return html+'<div style="color:rgba(255,255,255,.4);text-align:center;padding:24px 0;">Loading stats\u2026</div>';
-
-  const s=_rulesetStats;
-  if((s.total||0)===0){
-    html+='<div style="color:rgba(255,255,255,.4);text-align:center;padding:18px 0;">No answers recorded under this ruleset yet.</div>';
-  } else {
-    html+='<div class="stats-section">By Tier</div>'+tierTableHTML(s.byTier||{});
-  }
-  return html;
-}
-
-function openRulesetDetails(){
-  const r=_rulesetList&&_rulesetList.find(x=>x.difficulty_ruleset_version===_selectedRuleset);
-  if(!r) return;
-  document.getElementById('rulesetDetailsContent').innerHTML=rulesetDetailsHTML(r);
-  document.getElementById('rulesetDetailsModal').classList.add('show');
-}
-function closeRulesetDetails(){
-  document.getElementById('rulesetDetailsModal').classList.remove('show');
-}
-
-function rulesetDetailsHTML(r){
-  const lbl=t=>`<div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.35);margin:14px 0 6px;">${t}</div>`;
-  const prose=t=>`<div style="font-size:12px;color:rgba(255,255,255,.75);line-height:1.5;background:rgba(255,255,255,.04);border-radius:8px;padding:10px;">${t?t:'<span style="color:rgba(255,255,255,.3);">(none)</span>'}</div>`;
-  let html=`<div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.1);padding-top:12px;">`;
-  const created=r.created_at?new Date(r.created_at).toLocaleString():'';
-  html+=`<div style="font-size:11px;color:rgba(255,255,255,.45);margin-bottom:4px;">Ruleset ${r.difficulty_ruleset_version} \u00b7 Model: ${r.model||'\u2014'}${created?' \u00b7 '+created:''}</div>`;
-  if(r.note) html+=`<div style="font-size:12px;color:rgba(255,255,255,.6);font-style:italic;margin-bottom:6px;">${r.note}</div>`;
-
-  html+=lbl('Tier Targets');
-  if(Array.isArray(r.tiers)&&r.tiers.length){
-    html+='<table class="stats-table"><tr><th>Tier</th><th>Target</th><th style="text-align:left;">Style anchor</th></tr>';
-    r.tiers.forEach(t=>{ html+=`<tr><td>${t.name}</td><td>${t.pct}%</td><td style="text-align:left;font-size:11px;">${t.anchor||''}</td></tr>`; });
-    html+='</table>';
-  } else { html+=prose(null); }
-
-  html+=lbl('Reference Player')+prose(r.reference_player);
-  html+=lbl('Audience Note')+prose(r.audience_note);
-  html+=lbl('AI Judge Leniency')+prose(r.judge_prompt);
-
-  html+=lbl('Category Overrides');
-  const ov=r.category_overrides;
-  if(ov && typeof ov==='object' && Object.keys(ov).length){
-    Object.keys(ov).forEach(k=>{ html+=`<div style="font-size:11px;font-weight:700;color:var(--gold-hi);margin:8px 0 4px;">${k}</div>`+prose(ov[k]); });
-  } else { html+=prose(null); }
-
-  html+=lbl('Easy Nudge')+prose(r.easy_nudge);
-  html+=lbl('Hard Nudge')+prose(r.hard_nudge);
-  html+='</div>';
-  return html;
-}
-
-async function ensureRulesetData(){
-  if(_rulesetList===null){
-    _rulesetList=await dbGetRulesets();
-    if(_rulesetList.length && _selectedRuleset===null)
-      _selectedRuleset=_rulesetList[_rulesetList.length-1].difficulty_ruleset_version; // highest = current
-    if(_adminTab==='ruleset') renderAdminTab();
-  }
-  if(_selectedRuleset!=null && _rulesetStats===null){
-    _rulesetStats=await dbGetRulesetStats(_selectedRuleset);
-    if(_adminTab==='ruleset') renderAdminTab();
-  }
-}
-
-function selectRuleset(v){
-  _selectedRuleset=Number(v);
-  _rulesetStats=null;
-  renderAdminTab();
-  ensureRulesetData();
-}
 function closeStats(){ document.getElementById('statsModal').classList.remove('show'); }
 
 function openDedupLog(){
@@ -2695,21 +2673,6 @@ async function dbGetAttempts(player_id){
     const r=await fetch(BACKEND+'/api/attempts/'+player_id);
     return await r.json();
   }catch(e){ return []; }
-}
-
-async function dbGetRulesets(){
-  try{
-    const r=await fetch(BACKEND+'/api/rulesets');
-    const d=await r.json();
-    return Array.isArray(d)?d:[];
-  }catch(e){ return []; }
-}
-
-async function dbGetRulesetStats(ruleset){
-  try{
-    const r=await fetch(BACKEND+'/api/stats/tiers?ruleset='+encodeURIComponent(ruleset));
-    return await r.json();
-  }catch(e){ return {byTier:{},total:0,totalOK:0,byMode:{},steals:{att:0,ok:0}}; }
 }
 
 async function dbCheckQuestion(fingerprint){
@@ -2865,6 +2828,25 @@ function init(){
   pickJudge(G.judgeMode||'human');
   document.querySelectorAll('.dseg').forEach(s=>s.addEventListener('click',()=>pickMode(s.dataset.dm)));
   pickMode(gameMode||'normal');
+  // Big Screen
+  const tvBtn=document.getElementById('tvBtn');
+  if(tvBtn) tvBtn.addEventListener('click',()=>{ TV_CODE ? disconnectTV() : openTVModal(); });
+  const tvGo=document.getElementById('tvGo');
+  if(tvGo) tvGo.addEventListener('click',tvConnectFromModal);
+  const tvCancel=document.getElementById('tvCancel');
+  if(tvCancel) tvCancel.addEventListener('click',closeTVModal);
+  const tvInput=document.getElementById('tvCode');
+  if(tvInput) tvInput.addEventListener('keydown',e=>{ if(e.key==='Enter') tvConnectFromModal(); });
+  // Scanned the TV's QR code? It lands here as ?tv=1234 — connect straight away.
+  try{
+    const p=new URLSearchParams(location.search).get('tv');
+    if(p && /^\d{4}$/.test(p)){
+      connectTV(p).then(r=>{ if(r.ok){ updateTVBadge(); toast('\ud83d\udcfa Connected to TV '+p); } });
+      history.replaceState({}, '', location.pathname);
+    }
+  }catch(e){}
+  updateTVBadge();
+
   document.getElementById('openSettingsBtn').addEventListener('click',()=>show('settings'));
   document.getElementById('settingsBackBtn').addEventListener('click',()=>show('setup'));
   document.querySelectorAll('.chip[data-g]').forEach(c=>c.addEventListener('click',()=>chipClick(c)));

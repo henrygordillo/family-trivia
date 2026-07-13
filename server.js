@@ -6,8 +6,8 @@ const path = require('path');
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
-const VERSION = '3.8';
-const BUILT_AT = '2026-07-13T14:20:57Z';
+const VERSION = '3.9';
+const BUILT_AT = '2026-07-13T22:19:11Z';
 
 const app = express();
 app.use(cors());
@@ -21,11 +21,111 @@ app.get('/api/version', (req, res) => {
 // Serve the game HTML file
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Big Screen: /tv is nicer to type on a TV remote than /tv.html
+app.get('/tv', (req, res) => res.sendFile(path.join(__dirname, 'public', 'tv.html')));
+
 // Initialize Supabase client
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GAME ROOMS — Big Screen Mode
+//
+// Topology is deliberately simple: ONE writer (the judge's phone) and one or more
+// readers (the TV). That's exactly what Server-Sent Events are for — a one-way
+// push stream, built into every browser, no client library, no extra keys.
+//
+// Rooms live in memory and are EPHEMERAL: they die with the game (or after idle
+// expiry). Nothing to clean up, and two games running at once can never collide
+// because each has its own code.
+// ═══════════════════════════════════════════════════════════════════════════
+const rooms = new Map();          // code -> { state, clients:Set<res>, createdAt, touchedAt }
+const ROOM_TTL_MS = 4 * 60 * 60 * 1000;   // reap rooms idle for 4h
+
+function reapRooms(){
+  const now = Date.now();
+  for (const [code, room] of rooms) {
+    if (now - room.touchedAt > ROOM_TTL_MS) {
+      room.clients.forEach(res => { try { res.end(); } catch(e){} });
+      rooms.delete(code);
+    }
+  }
+}
+setInterval(reapRooms, 10 * 60 * 1000).unref?.();
+
+function newCode(){
+  // 4 digits, avoiding codes already in use. Short enough to type on a phone.
+  for (let i = 0; i < 50; i++) {
+    const c = String(Math.floor(1000 + Math.random() * 9000));
+    if (!rooms.has(c)) return c;
+  }
+  return String(Date.now()).slice(-4);
+}
+
+// The TV calls this on load: create a room and get a code to display.
+app.post('/api/room/new', (req, res) => {
+  const code = newCode();
+  rooms.set(code, { state: null, clients: new Set(), createdAt: Date.now(), touchedAt: Date.now() });
+  res.json({ code });
+});
+
+// The TV subscribes here. Stays open; the server pushes every state change.
+app.get('/api/room/:code/stream', (req, res) => {
+  const room = rooms.get(req.params.code);
+  if (!room) return res.status(404).json({ error: 'no such room' });
+
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',        // don't let a proxy buffer the stream
+  });
+  res.flushHeaders?.();
+
+  room.clients.add(res);
+  room.touchedAt = Date.now();
+
+  // Send whatever we already have, so a TV joining mid-game isn't blank.
+  if (room.state) res.write(`event: state\ndata: ${JSON.stringify(room.state)}\n\n`);
+  else            res.write(`event: waiting\ndata: {}\n\n`);
+
+  // Keep-alive: proxies drop idle connections, and Render is behind one.
+  const ping = setInterval(() => { try { res.write(': ping\n\n'); } catch(e){} }, 25000);
+
+  req.on('close', () => { clearInterval(ping); room.clients.delete(res); });
+});
+
+// The phone pushes state here. Body IS the public snapshot — it must never
+// contain an answer; that's enforced on the client by publicState()'s allow-list.
+app.post('/api/room/:code/state', (req, res) => {
+  const room = rooms.get(req.params.code);
+  if (!room) return res.status(404).json({ error: 'no such room' });
+  room.state = req.body;
+  room.touchedAt = Date.now();
+  const payload = `event: state\ndata: ${JSON.stringify(room.state)}\n\n`;
+  room.clients.forEach(c => { try { c.write(payload); } catch(e){} });
+  res.json({ ok: true, listeners: room.clients.size });
+});
+
+// Does this code exist? The phone checks before claiming it.
+app.get('/api/room/:code', (req, res) => {
+  const room = rooms.get(req.params.code);
+  if (!room) return res.status(404).json({ error: 'no such room' });
+  res.json({ code: req.params.code, listeners: room.clients.size, hasState: !!room.state });
+});
+
+// Game over — tear the room down.
+app.post('/api/room/:code/close', (req, res) => {
+  const room = rooms.get(req.params.code);
+  if (room) {
+    const bye = `event: closed\ndata: {}\n\n`;
+    room.clients.forEach(c => { try { c.write(bye); c.end(); } catch(e){} });
+    rooms.delete(req.params.code);
+  }
+  res.json({ ok: true });
+});
 
 // ── Anthropic proxy ───────────────────────────────────────────────────────────
 app.post('/api/claude', async (req, res) => {
