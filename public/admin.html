@@ -55,6 +55,15 @@ table.grid td.dim{text-align:center;color:rgba(255,255,255,.4);font-weight:400;}
   <div class="sub">Admin · Ruleset Calibration</div>
   <div id="buildFooter" style="margin:6px 0 18px;font-size:10px;line-height:1.6;opacity:.6;"></div>
 
+  <div class="lbl">Difficulty Mode</div>
+  <div class="row" style="margin-bottom:14px;">
+    <select id="modeSelect" style="min-width:0;">
+      <option value="normal">Normal (baseline)</option>
+      <option value="easy">Easier</option>
+      <option value="hard">Harder</option>
+    </select>
+  </div>
+
   <div class="lbl">Difficulty Ruleset</div>
   <div class="row">
     <select id="rsSelect"></select>
@@ -69,7 +78,29 @@ table.grid td.dim{text-align:center;color:rgba(255,255,255,.4);font-weight:400;}
 </div>
 
 <script>
-const TARGET_RATES={100:75,200:66,300:50,400:33,500:20};
+// Targets are DERIVED from the selected ruleset's tiers + the selected mode's nudge —
+// never hardcoded, or admin would silently disagree with what the app actually asked for.
+// These fallbacks must match DEFAULT_RULESET in index.html.
+const FALLBACK_TIERS=[75,66,50,33,20];
+const FALLBACK_EASY_NUDGE=15, FALLBACK_HARD_NUDGE=-15;
+let TARGET_RATES={100:75,200:66,300:50,400:33,500:20};   // recomputed on every load
+let MODE='normal';
+
+function recomputeTargets(){
+  const r=RULESETS.find(x=>x.difficulty_ruleset_version===SELECTED)||{};
+  const tiers=Array.isArray(r.tiers)&&r.tiers.length===5
+    ? r.tiers.map(t=>Number(t.pct))
+    : FALLBACK_TIERS;
+  let nudge=0;
+  if(MODE==='easy') nudge=(r.easy_nudge==null?FALLBACK_EASY_NUDGE:Number(r.easy_nudge));
+  else if(MODE==='hard') nudge=(r.hard_nudge==null?FALLBACK_HARD_NUDGE:Number(r.hard_nudge));
+  const pts=[100,200,300,400,500];
+  const out={};
+  tiers.forEach((pct,i)=>{
+    out[pts[i]]=Math.max(15,Math.min(90,Math.round(pct+nudge)));   // same clamp as the app
+  });
+  TARGET_RATES=out;
+}
 const LOW=25;    // fewer answers than this = statistically insufficient (flagged everywhere)
 const NOISY=50;  // overall: fewer answers than this = whole ruleset is noisy
 let RULESETS=[]; let SELECTED=null;
@@ -175,14 +206,22 @@ async function loadStats(){
   area.innerHTML='<div class="muted">Loading…</div>';
   if(SELECTED==null){ area.innerHTML='<div class="muted">No ruleset selected.</div>'; return; }
   let s;
-  try{ s=await api('/api/stats/tiers?ruleset='+encodeURIComponent(SELECTED)); }
+  recomputeTargets();
+  try{ s=await api('/api/stats/tiers?ruleset='+encodeURIComponent(SELECTED)+'&mode='+encodeURIComponent(MODE)); }
   catch(e){ area.innerHTML='<div class="muted">Couldn’t reach the server. Reload in a moment.</div>'; return; }
   if(!s || (s.total||0)===0){ area.innerHTML='<div class="muted">No answers recorded under this ruleset yet.</div>'; return; }
   const modeStr=Object.keys(s.byMode||{}).map(m=>m+': '+s.byMode[m]).join('  ·  ')||'—';
   const stealStr=(s.steals&&s.steals.att>0)?(s.steals.ok+'/'+s.steals.att):'0';
   const noisy = s.total<NOISY ? `<div class="warn">⚠ Only ${s.total} answers under this ruleset — numbers are noisy. Accumulate more before tuning.</div>` : '';
+  // Calibration measures the Normal baseline; Easier/Harder games are measured separately.
+  const MODE_LABEL={normal:'Normal',easy:'Easier',hard:'Harder'};
+  const others=Object.entries(s.modeCounts||{})
+    .filter(([m])=>m!==MODE)
+    .map(([m,n])=>`${MODE_LABEL[m]||m}: ${n}`).join(' · ');
+  const modeNote = `<div class="muted" style="font-size:11px;margin-bottom:10px;">Showing <b>${MODE_LABEL[MODE]}</b> games, measured against ${MODE==='normal'?'the baseline targets':'the nudged targets for this mode'}.${others?` Not shown — ${others}.`:''}</div>`;
   area.innerHTML=
     noisy+
+    modeNote+
     `<div class="meta">${s.total} answers · steals ${stealStr} · by mode ${modeStr}</div>`+
     '<div class="section">By Tier</div>'+tierTable(s.byTier||{})+
     '<div class="section">Category × Tier</div>'+matrixTable(s)+
@@ -229,8 +268,8 @@ document.getElementById('detailsBtn').addEventListener('click',()=>{
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live.
-const ADMIN_VERSION='3.2';
-const ADMIN_BUILT_AT='2026-07-12T16:53:12Z';   // UTC; shown in the device's local time
+const ADMIN_VERSION='3.5';
+const ADMIN_BUILT_AT='2026-07-13T12:53:08Z';   // UTC; shown in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -270,6 +309,9 @@ async function renderBuildFooter(){
   sel.innerHTML=RULESETS.map(r=>`<option value="${r.difficulty_ruleset_version}">Ruleset ${r.difficulty_ruleset_version}${r.note?' — '+r.note:''}</option>`).join('');
   SELECTED=RULESETS[RULESETS.length-1].difficulty_ruleset_version; // newest
   sel.value=SELECTED;
+  const msel=document.getElementById('modeSelect');
+  msel.value=MODE;
+  msel.addEventListener('change',()=>{ MODE=msel.value; loadStats(); });
   loadStats();
 })();
 </script>

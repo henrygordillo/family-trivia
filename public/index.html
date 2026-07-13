@@ -401,6 +401,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
           </div>
         </div>
       </div>
+      <div style="margin-top:14px;">
+        <span class="slabel" style="text-align:center;">Difficulty</span>
+        <div style="display:flex;background:var(--card3);border-radius:100px;padding:3px;gap:3px;">
+          <button class="dseg" data-dm="easy" style="flex:1;text-align:center;padding:9px 4px;border:none;border-radius:100px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);white-space:nowrap;">Easier</button>
+          <button class="dseg" data-dm="normal" style="flex:1;text-align:center;padding:9px 4px;border:none;border-radius:100px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);white-space:nowrap;">Normal</button>
+          <button class="dseg" data-dm="hard" style="flex:1;text-align:center;padding:9px 4px;border:none;border-radius:100px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);white-space:nowrap;">Harder</button>
+        </div>
+      </div>
       <div id="judgeDesc" style="font-size:12px;color:var(--muted);margin-top:12px;line-height:1.5;text-align:center;"></div>
     </div>
     <div class="sep"></div>
@@ -723,8 +731,8 @@ const BACKEND='https://family-trivia-y0om.onrender.com';
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.6';
-const APP_BUILT_AT='2026-07-12T17:48:39Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.8';
+const APP_BUILT_AT='2026-07-13T12:53:08Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -792,6 +800,8 @@ const DEFAULT_RULESET={
     "Take extra care with facts people commonly get wrong: a person's NATIONALITY, birthplace, or country of origin; who founded/invented/created something; exact dates and years; who won or holds a record; team, band, or company affiliations. Verify these against what you actually know before committing. If unsure, pick a safer question.",
     'Prefer well-established, widely-documented facts over obscure trivia or anything recent enough to have changed.',
   ],
+  easy_nudge:15,    // Easier: shift every tier target UP this many points
+  hard_nudge:-15,   // Harder: shift every tier target DOWN this many points
   self_check:'Before answering, silently check: is every fact here actually true, or am I guessing? If any part is a guess \u2014 especially a nationality, date, founder, or record \u2014 discard it and use a different question.',
   explain_cats:EXPLAIN_CATS,
 };
@@ -859,6 +869,7 @@ let G = {
 let pDefs=[{n:'Mama',ph:'Player 1'},{n:'Papa',ph:'Player 2'},{n:'Alec',ph:'Player 3'},{n:'Gabo',ph:'Player 4'}];
 let shuffleOn=true;
 let timerOn=true;
+let gameMode='normal';      // 'easy' (Easier) | 'normal' | 'hard' (Harder)
 let statsOn=true;           // Lifetime stats on the roster — on by default
 let lifetimeStats=null;     // { player_id: {attempts, correct, pct} }
 const LT_MIN_PICKS=10;      // below this, a hit rate isn't trustworthy — stay neutral grey
@@ -1349,6 +1360,16 @@ function pickJudge(mode){
   updateStartBtn();
   saveSettings();
 }
+function pickMode(mode){
+  gameMode=mode;
+  document.querySelectorAll('.dseg').forEach(s=>{
+    const on=s.dataset.dm===mode;
+    s.style.background=on?'var(--gold)':'transparent';
+    s.style.color=on?'var(--ink)':'var(--muted)';
+  });
+  updateSetupHelper();
+  saveSettings();
+}
 function updateSetupHelper(){
   const desc=document.getElementById('judgeDesc');
   if(!desc) return;
@@ -1358,14 +1379,20 @@ function updateSetupHelper(){
   const judgeTxt=(G.judgeMode==='ai')
     ? 'The app checks your answer — in English, Spanish, or Spanglish.'
     : 'Whoever holds the phone reveals the answer and rules.';
+  const modeTxt=gameMode==='easy'
+    ? 'Easier — questions eased below the usual bar.'
+    : gameMode==='hard'
+      ? 'Harder — questions pitched above the usual bar.'
+      : 'Normal — the standard bar.';
   const players=selectedPlayers.length;
   const picksSeg=players>=1
     ? ` · <span style="color:var(--gold-lo);font-weight:700;">${Math.floor(tiles/players)} picks per player</span>`
     : '';
-  desc.innerHTML=`${n} categories · ${tiles} tiles${picksSeg}<br>${judgeTxt}`;
+  // Same order as the controls above: categories → judge → difficulty
+  desc.innerHTML=`${n} categories · ${tiles} tiles${picksSeg}<br>${judgeTxt}<br>${modeTxt}`;
 }
 function saveSettings(){
-  try{ localStorage.setItem('ftn_settings', JSON.stringify({shuffle:shuffleOn,timer:timerOn,judge:G.judgeMode,stats:statsOn})); }catch(e){}
+  try{ localStorage.setItem('ftn_settings', JSON.stringify({shuffle:shuffleOn,timer:timerOn,judge:G.judgeMode,stats:statsOn,mode:gameMode})); }catch(e){}
 }
 
 function chipClick(btn){
@@ -2069,10 +2096,20 @@ async function regenQuestion(){
 // ═══════════════════════════════════════════════════════════════════
 // AI QUESTION FETCH
 // ═══════════════════════════════════════════════════════════════════
+// Target hit-rate for a tier, shifted by the chosen difficulty mode.
+// Clamped to 15-90% so Harder can't make Expert impossible, nor Easier make the top tier trivial.
+function tierTarget(tier){
+  let pct=tier.pct;
+  if(gameMode==='easy') pct+=(rs('easy_nudge')||0);
+  else if(gameMode==='hard') pct+=(rs('hard_nudge')||0);
+  return Math.max(15, Math.min(90, Math.round(pct)));
+}
+
 async function fetchQ(category, qIndex){
   // All generation parameters come from the ACTIVE ruleset (DB), with built-in fallbacks.
   const tiers=rs('tiers');
   const tier=tiers[Math.min(qIndex,tiers.length-1)];
+  const target=tierTarget(tier);
 
   let alreadyAsked='';
   if(G.askedQuestions.length>0){
@@ -2098,7 +2135,7 @@ async function fetchQ(category, qIndex){
     `You are a trivia question writer for a family game night. Generate ONE question for the category "${category}".\n\n`+
     `REFERENCE PLAYER: ${rs('reference_player')}\n\n`+
     `AUDIENCE NOTE: ${rs('audience_note')}\n\n`+
-    `DIFFICULTY: ${tier.name} — ${tier.anchor}. A typical reference player should be able to answer this correctly about ${tier.pct}% of the time. This percentage is your primary calibration target.\n\n`+
+    `DIFFICULTY: ${tier.name} — ${tier.anchor}. A typical reference player should be able to answer this correctly about ${target}% of the time. This percentage is your primary calibration target.\n\n`+
     (categoryNote?`CATEGORY NOTE: ${categoryNote}\n\n`:'')+
     `STRICT QUALITY RULES:\n${rulesTxt}`+
     alreadyAsked+
@@ -2528,7 +2565,7 @@ async function dbRecordAttempt(player_id, category, tier, correct, pts, is_steal
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({player_id,category,tier,correct,pts,
-        is_steal:!!is_steal, mode:'normal', difficulty_ruleset_version:rulesetVersion()})
+        is_steal:!!is_steal, mode:gameMode, difficulty_ruleset_version:rulesetVersion()})
     });
   }catch(e){ console.warn('Failed to record attempt',e); }
 }
@@ -2686,6 +2723,7 @@ function init(){
     if(typeof s.timer==='boolean') timerOn=s.timer;
     if(s.judge==='ai'||s.judge==='human') G.judgeMode=s.judge;
     if(typeof s.stats==='boolean') statsOn=s.stats;
+    if(s.mode==='easy'||s.mode==='normal'||s.mode==='hard') gameMode=s.mode;
   }catch(e){}
   renderSelectedSummary();
   renderBuildFooter();
@@ -2705,6 +2743,8 @@ function init(){
   document.getElementById('startBtn').addEventListener('click',startGame);
   document.querySelectorAll('.jseg').forEach(s=>s.addEventListener('click',()=>pickJudge(s.dataset.jm)));
   pickJudge(G.judgeMode||'human');
+  document.querySelectorAll('.dseg').forEach(s=>s.addEventListener('click',()=>pickMode(s.dataset.dm)));
+  pickMode(gameMode||'normal');
   document.getElementById('openSettingsBtn').addEventListener('click',()=>show('settings'));
   document.getElementById('settingsBackBtn').addEventListener('click',()=>show('setup'));
   document.querySelectorAll('.chip[data-g]').forEach(c=>c.addEventListener('click',()=>chipClick(c)));

@@ -6,8 +6,8 @@ const path = require('path');
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
-const VERSION = '3.3';
-const BUILT_AT = '2026-07-12T17:48:39Z';
+const VERSION = '3.5';
+const BUILT_AT = '2026-07-13T12:50:50Z';
 
 const app = express();
 app.use(cors());
@@ -162,7 +162,13 @@ app.get('/api/stats/tiers', async (req, res) => {
   if (rs !== undefined && rs !== '') q = q.eq('difficulty_ruleset_version', Number(rs));
   const { data, error } = await q;
   if (error) return res.status(500).json({ error: error.message });
-  const rows = data || [];
+  // Each difficulty mode is measured SEPARATELY, against its own (nudged) targets.
+  // Mixing them would make a correct ruleset look mis-calibrated.
+  // Legacy rows have mode null — treat those as normal.
+  const mode = req.query.mode || 'normal';
+  const all = data || [];
+  const rows = all.filter(r => (r.mode || 'normal') === mode);
+  const excluded = all.length - rows.length;
   const byTier = {}, byCat = {}, byCatTier = {}, byMode = {};
   const steals = { att: 0, ok: 0 };
   let total = 0, totalOK = 0;
@@ -191,7 +197,9 @@ app.get('/api/stats/tiers', async (req, res) => {
       trend.push({ n: chunk.length, ok, pct: Math.round(ok / chunk.length * 100) });
     }
   }
-  res.json({ byTier, byCat, byCatTier, byMode, steals, total, totalOK, trend });
+  const modeCounts = {};
+  all.forEach(r => { const m = r.mode || 'normal'; modeCounts[m] = (modeCounts[m] || 0) + 1; });
+  res.json({ byTier, byCat, byCatTier, byMode, steals, total, totalOK, trend, excluded, mode, modeCounts });
 });
 
 // ── Difficulty rulesets: list versions for the stats dropdown ──────────────────
