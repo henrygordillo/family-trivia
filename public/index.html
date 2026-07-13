@@ -743,8 +743,8 @@ const BACKEND='https://family-trivia-y0om.onrender.com';
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.18';
-const APP_BUILT_AT='2026-07-13T23:20:57Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.19';
+const APP_BUILT_AT='2026-07-13T23:53:07Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -2290,6 +2290,8 @@ function showFinalReveal(){
   // room is meant to see it, so publicState() will release it (and the explanation).
   G.phase='reveal';
   clearTimer();
+  renderTables(null);      // <- this is the commit. Without it the TV never learned
+                           //    the question had been resolved at all.
   setStep(2); showPhase('phResult');
   document.getElementById('stealPanel').classList.remove('show');
   // Result statement

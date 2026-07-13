@@ -72,11 +72,11 @@ body{
 .pnum{color:rgba(255,255,255,.25);font-weight:700;margin-right:.35vw;}
 .pscore{font-family:'Playfair Display',serif;font-size:2.6vw;font-weight:900;color:var(--gold-hi);line-height:1.15;}
 /* Hit rate + whether they've picked this round — the phone shows both, so the TV must too */
-.pmeta{display:flex;align-items:center;justify-content:center;gap:.5vw;
-  font-size:.9vw;font-weight:600;color:rgba(255,255,255,.4);height:1.5vw;white-space:nowrap;}
-.pmeta .dot-sep{opacity:.35;}
-.pmeta .picked{font-weight:700;}
-.pmeta .picked.no{color:var(--gold);}          /* still owes a pick this round */
+.pmeta{display:flex;align-items:center;justify-content:center;gap:.5vw;flex-wrap:wrap;
+  height:1.8vw;white-space:nowrap;}
+.pmeta .chip{font-size:.8vw;font-weight:600;color:rgba(255,255,255,.45);
+  background:rgba(255,255,255,.06);border-radius:1vw;padding:.2vh .8vw;}
+.pmeta .chip.owed{color:var(--gold-hi);background:rgba(212,168,67,.14);}
 .pcard.missed{border-color:rgba(192,57,43,.7);background:rgba(192,57,43,.12);}
 .pstat.miss{color:#ff8b7d!important;}
 .pstat{font-size:.95vw;font-weight:700;letter-spacing:.1vw;text-transform:uppercase;height:1.5vw;
@@ -106,7 +106,7 @@ body{
   text-align:center;padding:2vh 6vw;border-radius:1.2vw;
   background:radial-gradient(ellipse at 50% 30%, rgba(60,48,130,.55) 0%, rgba(8,9,15,.2) 75%);}
 #qcat{font-size:1.4vw;letter-spacing:.35vw;text-transform:uppercase;color:var(--gold);}
-#qpts{font-family:'Playfair Display',serif;font-size:3.6vw;font-weight:900;color:var(--gold-hi);line-height:1.1;margin-bottom:2.5vh;}
+#qpts{font-family:'Playfair Display',serif;font-size:3.6vw;font-weight:900;color:var(--gold-hi);line-height:1.1;}
 #qtext{font-family:'Playfair Display',serif;font-size:3.2vw;font-weight:700;line-height:1.3;max-width:82vw;}
 #qwho{margin-top:3vh;font-size:1.7vw;color:rgba(255,255,255,.6);}
 #qwho b{color:var(--gold-hi);}
@@ -118,18 +118,22 @@ body{
 
 /* Countdown — the phone starts it, the TV runs its own so it animates smoothly
    instead of us pushing 30 updates a question. */
-#timer{position:absolute;top:1.5vh;right:2vw;display:none;align-items:center;gap:.9vw;z-index:5;}
+/* The timer belongs WITH the category and points, not floating in a corner. */
+.qhead{display:flex;align-items:center;justify-content:center;gap:2.5vw;margin-bottom:2.5vh;}
+.qhead-txt{text-align:center;}
+#timer{display:none;flex-direction:column;align-items:center;gap:.4vh;}
 #timerRing{transform:rotate(-90deg);}
 #timerTrack{fill:none;stroke:rgba(255,255,255,.14);stroke-width:6;}
 #timerBar{fill:none;stroke:var(--gold);stroke-width:6;stroke-linecap:round;
   transition:stroke-dashoffset 1s linear, stroke .4s;}
 #timerBar.urgent{stroke:var(--red);}
-#timerNum{position:absolute;left:0;width:6vw;text-align:center;
-  font-family:'Playfair Display',serif;font-size:2.2vw;font-weight:900;color:var(--gold-hi);
-  line-height:6vw;pointer-events:none;}
+#timerNum{position:absolute;left:0;top:0;width:5.5vw;height:5.5vw;text-align:center;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Playfair Display',serif;font-size:2vw;font-weight:900;color:var(--gold-hi);
+  pointer-events:none;}
 #timerNum.urgent{color:#ff8b7d;animation:tick .5s ease-in-out infinite;}
 @keyframes tick{0%,100%{transform:scale(1);}50%{transform:scale(1.12);}}
-#timerLbl{font-size:1vw;letter-spacing:.2vw;text-transform:uppercase;color:rgba(255,255,255,.45);font-weight:700;}
+#timerLbl{font-size:.85vw;letter-spacing:.15vw;text-transform:uppercase;color:rgba(255,255,255,.45);font-weight:700;}
 
 /* THE RESULT BEAT — a miss has to be impossible to miss. */
 #result{display:none;margin-top:2.5vh;padding:1.6vh 3vw;border-radius:1vw;
@@ -163,9 +167,8 @@ body{
   animation:pulse 2s ease-in-out infinite;}
 
 .offline{position:fixed;bottom:2.5vh;left:0;right:0;text-align:center;font-size:1vw;color:var(--red);display:none;}
-/* Top-right, inside the safe area — the bottom edge of a TV is often cropped. */
-.tag{position:fixed;top:2.5vh;right:3vw;font-size:.8vw;color:rgba(255,255,255,.3);
-  background:rgba(0,0,0,.35);padding:.5vh 1vw;border-radius:.5vw;letter-spacing:.03vw;z-index:20;}
+.tag{position:fixed;bottom:1vh;left:0;right:0;text-align:center;font-size:.75vw;
+  color:rgba(255,255,255,.25);letter-spacing:.03vw;z-index:20;}
 </style>
 </head>
 <body>
@@ -201,18 +204,22 @@ body{
     <div class="status">Writing the question…</div>
   </div>
   <div id="qscreen">
-    <div id="timer">
-      <div id="timerLbl"></div>
-      <div style="position:relative;">
-        <svg id="timerRing" viewBox="0 0 72 72" style="width:6vw;height:6vw;">
-          <circle id="timerTrack" cx="36" cy="36" r="30"/>
-          <circle id="timerBar" cx="36" cy="36" r="30"/>
-        </svg>
-        <div id="timerNum">30</div>
+    <div class="qhead">
+      <div class="qhead-txt">
+        <div id="qcat"></div>
+        <div id="qpts"></div>
+      </div>
+      <div id="timer">
+        <div style="position:relative;">
+          <svg id="timerRing" viewBox="0 0 72 72" style="width:5.5vw;height:5.5vw;">
+            <circle id="timerTrack" cx="36" cy="36" r="30"/>
+            <circle id="timerBar" cx="36" cy="36" r="30"/>
+          </svg>
+          <div id="timerNum">30</div>
+        </div>
+        <div id="timerLbl"></div>
       </div>
     </div>
-    <div id="qcat"></div>
-    <div id="qpts"></div>
     <div id="qtext"></div>
     <div id="qwho"></div>
     <div id="qans">
@@ -229,8 +236,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='3.10';
-const TV_BUILT_AT='2026-07-13T23:36:43Z';
+const TV_VERSION='3.11';
+const TV_BUILT_AT='2026-07-13T23:53:07Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -247,16 +254,18 @@ function fmt(iso){
   }catch(e){ return ''; }
 }
 // All three builds on one line, so a file that didn't get pushed is obvious.
-let _appVer = null;
-let SRV_VER = '…';
+let _appVer=null, _appBuilt=null;
+let SRV_VER='…', SRV_BUILT=null;
 function paintTags(){
+  // A version number without a timestamp doesn't tell you whether a push landed.
+  const bit=(name,v,t)=> `${name} ${v||'—'}${t?' · '+fmt(t):''}`;
   document.getElementById('tag').textContent =
-    `TV ${TV_VERSION}  ·  App ${_appVer || '—'}  ·  Server ${SRV_VER}`;
+    [bit('TV',TV_VERSION,TV_BUILT_AT), bit('App',_appVer,_appBuilt), bit('Server',SRV_VER,SRV_BUILT)]
+    .join('     |     ');
 }
 paintTags();
 fetch(BACKEND+'/api/version').then(r=>r.json()).then(d=>{
-  SRV_VER = d.version;
-  paintTags();
+  SRV_VER=d.version; SRV_BUILT=d.builtAt; paintTags();
 }).catch(()=>{ SRV_VER='unreachable'; paintTags(); });
 
 // ── Get a room, show the code + QR ────────────────────────────────────────
@@ -427,7 +436,9 @@ function render(S){
 
   // A phone has pushed something — so we're paired, whatever it says.
   setPaired(true, S.device);
-  if(S.appVersion && S.appVersion !== _appVer){ _appVer = S.appVersion; paintTags(); }
+  if(S.appVersion && S.appVersion !== _appVer){
+    _appVer=S.appVersion; _appBuilt=S.appBuiltAt || null; paintTags();
+  }
 
   // NO GAME RUNNING → go back to the join screen. Without this the TV kept
   // rendering the LAST game's board after the phone backed out to setup.
@@ -491,21 +502,25 @@ function render(S){
     const badge = st>=2 ? ` 🔥${st}` : (st<=-2 ? ` 🧊${-st}` : '');
     const crown = (i===leader) ? '👑 ' : '';
 
-    // Hit rate this game
+    // Hit rate — omitted entirely until they've actually answered something,
+    // otherwise every card opens with a meaningless "—".
     const mine=(S.attempts||[]).filter(a=>a.player===p);
     const ok=mine.filter(a=>a.correct).length;
-    const hit = mine.length ? Math.round(ok/mine.length*100)+'%' : '—';
+    const hit = mine.length
+      ? `<span class="chip">${Math.round(ok/mine.length*100)}% correct</span>`
+      : '';
 
-    // Has this player taken their pick this round? (labelled — a bare ✓ meant nothing)
+    // Whether they still owe a pick this round. Spelled out — "✓" and "to pick"
+    // told nobody anything.
     const done=(S.pickedThisRound||[]).includes(i);
     const picked = done
-      ? '<span class="picked">picked ✓</span>'
-      : '<span class="picked no">to pick</span>';
+      ? '<span class="chip">picked this round</span>'
+      : '<span class="chip owed">yet to pick</span>';
 
     return `<div class="${cls}">
       <div class="pname"><span class="pnum">${i+1}</span>${crown}${p}${badge}</div>
       <div class="pscore">${S.scores[i]}</div>
-      <div class="pmeta"><span title="Hit rate this game">${hit} hit</span><span class="dot-sep">·</span>${picked}</div>
+      <div class="pmeta">${hit}${picked}</div>
       <div class="${statCls}">${stat}</div>
     </div>`;
   }).join('');
@@ -534,7 +549,7 @@ function render(S){
       for(let ci=0; ci<S.numCats; ci++){
         const key=`${ci}-${qi}`;
         if((S.blocked||{})[key])   h+=`<div class="tile blocked"><span class="star">★</span><span class="sc">All-Play<br>coming soon</span></div>`;
-        else if((S.used||{})[key]) h+=`<div class="tile used">✓</div>`;
+        else if((S.used||{})[key]) h+=`<div class="tile used"></div>`;
         else                       h+=`<div class="tile">${PTS[qi]}</div>`;
       }
     }
