@@ -6,8 +6,8 @@ const path = require('path');
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
-const VERSION = '3.5';
-const BUILT_AT = '2026-07-13T12:50:50Z';
+const VERSION = '3.7';
+const BUILT_AT = '2026-07-13T13:24:25Z';
 
 const app = express();
 app.use(cors());
@@ -197,9 +197,45 @@ app.get('/api/stats/tiers', async (req, res) => {
       trend.push({ n: chunk.length, ok, pct: Math.round(ok / chunk.length * 100) });
     }
   }
+  // Trend for EVERY mode. Each bucket carries its per-tier mix so the client can work out
+  // the bucket's EXPECTED rate and plot the gap from target (0 = on target for every mode).
+  const trendByMode = {};
+  ['easy', 'normal', 'hard'].forEach(m => {
+    const mrows = all.filter(r => (r.mode || 'normal') === m);
+    const buckets = [];
+    if (mrows.length) {
+      const B = Math.min(10, mrows.length);
+      const size = Math.ceil(mrows.length / B);
+      for (let i = 0; i < mrows.length; i += size) {
+        const chunk = mrows.slice(i, i + size);
+        const ok = chunk.filter(r => r.correct).length;
+        const byTier = {};
+        chunk.forEach(r => {
+          if (!byTier[r.tier]) byTier[r.tier] = { att: 0, ok: 0 };
+          byTier[r.tier].att++;
+          if (r.correct) byTier[r.tier].ok++;
+        });
+        buckets.push({ n: chunk.length, ok, pct: Math.round(ok / chunk.length * 100), byTier });
+      }
+    }
+    trendByMode[m] = buckets;
+  });
+
   const modeCounts = {};
   all.forEach(r => { const m = r.mode || 'normal'; modeCounts[m] = (modeCounts[m] || 0) + 1; });
-  res.json({ byTier, byCat, byCatTier, byMode, steals, total, totalOK, trend, excluded, mode, modeCounts });
+
+  // Tier stats for EVERY mode — the top table compares all three side by side.
+  // (byCat / byCatTier / trend stay single-mode: per-mode category data is far too thin.)
+  const tiersByMode = { easy: {}, normal: {}, hard: {} };
+  all.forEach(r => {
+    const m = r.mode || 'normal';
+    if (!tiersByMode[m]) tiersByMode[m] = {};
+    if (!tiersByMode[m][r.tier]) tiersByMode[m][r.tier] = { att: 0, ok: 0 };
+    tiersByMode[m][r.tier].att++;
+    if (r.correct) tiersByMode[m][r.tier].ok++;
+  });
+
+  res.json({ byTier, byCat, byCatTier, byMode, steals, total, totalOK, trend, excluded, mode, modeCounts, tiersByMode, trendByMode });
 });
 
 // ── Difficulty rulesets: list versions for the stats dropdown ──────────────────

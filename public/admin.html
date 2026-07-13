@@ -48,21 +48,25 @@ table.grid .lowflag{margin-left:0;}
 table.grid td.empty{text-align:center;color:rgba(255,255,255,.15);}
 table.grid td.dim{text-align:center;color:rgba(255,255,255,.4);font-weight:400;}
 </style>
+<style>
+.tier3{width:100%;border-collapse:collapse;}
+.tier3 th,.tier3 td{padding:7px 6px;text-align:center;font-size:12px;}
+.tier3 thead th{font-size:9px;letter-spacing:1px;text-transform:uppercase;opacity:.55;border-bottom:1px solid rgba(255,255,255,.12);}
+.tier3 thead th.mgrp{opacity:1;font-weight:800;}
+.tier3 .mgrp{border-left:1px solid rgba(255,255,255,.12);}
+.tier3 tbody td{border-bottom:1px solid rgba(255,255,255,.06);}
+.tier3 .tcell{text-align:left;font-weight:700;}
+.tier3 .tgt{opacity:.5;}
+.tier3 .frac{opacity:.4;font-size:10px;}
+.tier3 .none{opacity:.25;}
+.tier3 .lown{font-size:9px;opacity:.5;}
+</style>
 </head>
 <body>
 <div class="wrap">
   <h1>Family Trivia</h1>
   <div class="sub">Admin · Ruleset Calibration</div>
   <div id="buildFooter" style="margin:6px 0 18px;font-size:10px;line-height:1.6;opacity:.6;"></div>
-
-  <div class="lbl">Difficulty Mode</div>
-  <div class="row" style="margin-bottom:14px;">
-    <select id="modeSelect" style="min-width:0;">
-      <option value="normal">Normal (baseline)</option>
-      <option value="easy">Easier</option>
-      <option value="hard">Harder</option>
-    </select>
-  </div>
 
   <div class="lbl">Difficulty Ruleset</div>
   <div class="row">
@@ -86,21 +90,22 @@ const FALLBACK_EASY_NUDGE=15, FALLBACK_HARD_NUDGE=-15;
 let TARGET_RATES={100:75,200:66,300:50,400:33,500:20};   // recomputed on every load
 let MODE='normal';
 
-function recomputeTargets(){
+function targetsForMode(mode){
   const r=RULESETS.find(x=>x.difficulty_ruleset_version===SELECTED)||{};
   const tiers=Array.isArray(r.tiers)&&r.tiers.length===5
     ? r.tiers.map(t=>Number(t.pct))
     : FALLBACK_TIERS;
   let nudge=0;
-  if(MODE==='easy') nudge=(r.easy_nudge==null?FALLBACK_EASY_NUDGE:Number(r.easy_nudge));
-  else if(MODE==='hard') nudge=(r.hard_nudge==null?FALLBACK_HARD_NUDGE:Number(r.hard_nudge));
+  if(mode==='easy') nudge=(r.easy_nudge==null?FALLBACK_EASY_NUDGE:Number(r.easy_nudge));
+  else if(mode==='hard') nudge=(r.hard_nudge==null?FALLBACK_HARD_NUDGE:Number(r.hard_nudge));
   const pts=[100,200,300,400,500];
   const out={};
   tiers.forEach((pct,i)=>{
     out[pts[i]]=Math.max(15,Math.min(90,Math.round(pct+nudge)));   // same clamp as the app
   });
-  TARGET_RATES=out;
+  return out;
 }
+function recomputeTargets(){ TARGET_RATES=targetsForMode(MODE); }
 const LOW=25;    // fewer answers than this = statistically insufficient (flagged everywhere)
 const NOISY=50;  // overall: fewer answers than this = whole ruleset is noisy
 let RULESETS=[]; let SELECTED=null;
@@ -116,29 +121,49 @@ function catExpected(ct){
   return n>0?Math.round(w/n):0;
 }
 
-function tierTable(byTier){
+function tierTable(_ignored, tiersByMode){
   const tiers=[100,200,300,400,500];
-  let h='<table><tr><th>Tier</th><th>Att</th><th>OK</th><th>Actual</th><th>Target</th></tr>';
-  let tA=0,tO=0,wT=0;
+  // Spectrum order: Easier <- Normal -> Harder (baseline centred)
+  const modes=[
+    {key:'easy',  label:'Easier', col:'var(--teal-hi, #3dd5c8)'},
+    {key:'normal',label:'Normal', col:'var(--gold-hi, #f0c855)'},
+    {key:'hard',  label:'Harder', col:'#a78bfa'},
+  ];
+  const T={}; modes.forEach(m=>{ T[m.key]=targetsForMode(m.key); });
+
+  let h='<table class="tier3"><thead>';
+  h+='<tr><th></th>';
+  modes.forEach(m=>{ h+=`<th colspan="2" class="mgrp" style="color:${m.col};">${m.label}</th>`; });
+  h+='</tr><tr><th>Tier</th>';
+  modes.forEach(()=>{ h+='<th class="mgrp">Actual</th><th>Target</th>'; });
+  h+='</tr></thead><tbody>';
+
   tiers.forEach(t=>{
-    const att=(byTier[t]&&byTier[t].att)||0, ok=(byTier[t]&&byTier[t].ok)||0;
-    tA+=att; tO+=ok; if(att>0) wT+=TARGET_RATES[t]*att;
-    const actual=att>0?Math.round(ok/att*100):0, target=TARGET_RATES[t];
-    const diff=att>0?actual-target:0;
-    const cls=att===0?'':Math.abs(diff)<=10?'hit-ok':diff>0?'hit-good':'hit-low';
-    const low=(att>0&&att<LOW)?` <span class="lowflag">low n (${att})</span>`:'';
-    h+=`<tr><td>${t}</td><td>${att}</td><td>${ok}</td><td class="${cls}">${att>0?actual+'%':'0%'}${low}</td><td>${target}%</td></tr>`;
+    h+=`<tr><td class="tcell">${t}</td>`;
+    modes.forEach(m=>{
+      const d=((tiersByMode||{})[m.key]||{})[t];
+      const att=(d&&d.att)||0, ok=(d&&d.ok)||0;
+      const tgt=T[m.key][t];
+      if(att===0){
+        h+=`<td class="mgrp none">—</td><td class="tgt">${tgt}%</td>`;
+      } else {
+        const pct=Math.round(ok/att*100);
+        const diff=pct-tgt;
+        const low=att<LOW;
+        const cls=low?'':(Math.abs(diff)<=10?'hit-ok':(diff>0?'hit-good':'hit-low'));
+        const lowTag=low?` <span class="lown">low n</span>`:'';
+        h+=`<td class="mgrp ${cls}" title="${ok}/${att} · target ${tgt}%">`+
+           `<b>${pct}%</b> <span class="frac">(${ok}/${att})</span>${lowTag}</td>`+
+           `<td class="tgt">${tgt}%</td>`;
+      }
+    });
+    h+='</tr>';
   });
-  if(tA>0){
-    const aT=Math.round(tO/tA*100), gT=Math.round(wT/tA), d=aT-gT;
-    const cls=Math.abs(d)<=10?'hit-ok':d>0?'hit-good':'hit-low';
-    h+=`<tr class="total"><td>Total</td><td>${tA}</td><td>${tO}</td><td class="${cls}">${aT}%</td><td>${gT}%</td></tr>`;
-  } else {
-    h+=`<tr class="total"><td>Total</td><td>0</td><td>0</td><td>0%</td><td>—</td></tr>`;
-  }
-  h+='</table>';
+  h+='</tbody></table>';
+  h+='<div class="meta" style="margin-top:6px;">Each mode is compared against <b>its own</b> target (Normal targets shifted by the ruleset\'s nudge). Actual shows hit rate with (correct/attempts). "low n" = under '+LOW+' answers — ignore it. "—" = no games played in that mode yet.</div>';
   return h;
 }
+
 function cellHTML(obj, target){
   if(!obj||obj.att===0) return '<td class="empty">·</td>';
   const pct=Math.round(obj.ok/obj.att*100), diff=pct-target;
@@ -189,16 +214,63 @@ function matrixTable(s){
   return h;
 }
 
-function trendChart(trend){
-  if(!trend||trend.length<2) return '<div class="muted">Not enough data yet for a trend.</div>';
-  const W=680,H=130,pad=26,n=trend.length;
-  const x=i=>pad+(W-2*pad)*(n===1?0:i/(n-1));
-  const y=p=>H-pad-(H-2*pad)*(p/100);
-  const pts=trend.map((b,i)=>`${x(i).toFixed(1)},${y(b.pct).toFixed(1)}`).join(' ');
-  const dots=trend.map((b,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(b.pct).toFixed(1)}" r="3" fill="var(--gold)"/>`).join('');
-  const grid=[0,50,100].map(p=>`<line x1="${pad}" y1="${y(p).toFixed(1)}" x2="${W-pad}" y2="${y(p).toFixed(1)}" stroke="rgba(255,255,255,.08)"/><text x="2" y="${(y(p)+3).toFixed(1)}" fill="rgba(255,255,255,.3)" font-size="9">${p}</text>`).join('');
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;">${grid}<polyline points="${pts}" fill="none" stroke="var(--gold)" stroke-width="2"/>${dots}</svg>
-    <div class="meta">Hit rate across ${n} time buckets (oldest → newest). Steady upward drift can mean questions getting easier or being memorized.</div>`;
+function modeSelectorHTML(){
+  const opts=[['easy','Easier'],['normal','Normal (baseline)'],['hard','Harder']]
+    .map(([v,l])=>`<option value="${v}"${v===MODE?' selected':''}>${l}</option>`).join('');
+  return `<div class="row" style="margin-bottom:12px;"><select id="modeSelect" style="min-width:0;">${opts}</select></div>`;
+}
+function wireModeSelector(){
+  const m=document.getElementById('modeSelect');
+  if(m) m.addEventListener('change',()=>{ MODE=m.value; loadStats(); });
+}
+
+function trendChart(trendByMode){
+  const modes=[
+    {key:'easy',  label:'Easier', col:'var(--teal-hi)'},
+    {key:'normal',label:'Normal', col:'var(--gold-hi)'},
+    {key:'hard',  label:'Harder', col:'#a78bfa'},
+  ];
+  // A bucket's EXPECTED rate = its tiers' targets, weighted by how often each was asked.
+  // We plot actual - expected, so 0 means "on target" for every mode alike.
+  function gaps(mode){
+    const T=targetsForMode(mode);
+    return (trendByMode[mode]||[]).map(b=>{
+      let w=0,n=0;
+      Object.keys(b.byTier||{}).forEach(t=>{ const a=b.byTier[t].att; w+=(T[t]||0)*a; n+=a; });
+      const expected=n>0?w/n:0;
+      return {gap:Math.round(b.pct-expected), n:b.n};
+    });
+  }
+  const series=modes.map(m=>({...m, pts:gaps(m.key)})).filter(s=>s.pts.length>=2);
+  if(!series.length) return '<div class="muted">Not enough data yet for a trend.</div>';
+
+  const maxN=Math.max(...series.map(s=>s.pts.length));
+  const W=680,H=150,pad=30;
+  const x=i=>pad+(W-2*pad)*(maxN===1?0:i/(maxN-1));
+  const LIM=40;                                   // clamp the axis to +/-40 points of gap
+  const y=g=>H/2-((H-2*pad)/2)*(Math.max(-LIM,Math.min(LIM,g))/LIM);
+
+  let grid='';
+  [30,15,0,-15,-30].forEach(g=>{
+    const zero=g===0;
+    grid+=`<line x1="${pad}" y1="${y(g).toFixed(1)}" x2="${W-pad}" y2="${y(g).toFixed(1)}" stroke="rgba(255,255,255,${zero?'.35':'.07'})" stroke-width="${zero?1.5:1}"/>`;
+    grid+=`<text x="2" y="${(y(g)+3).toFixed(1)}" fill="rgba(255,255,255,${zero?'.5':'.28'})" font-size="9">${g>0?'+':''}${g}</text>`;
+  });
+
+  let paths='',dots='',legend='';
+  series.forEach(s=>{
+    const pts=s.pts.map((p,i)=>`${x(i).toFixed(1)},${y(p.gap).toFixed(1)}`).join(' ');
+    paths+=`<polyline points="${pts}" fill="none" stroke="${s.col}" stroke-width="2"/>`;
+    dots+=s.pts.map((p,i)=>{
+      const thin=p.n<LOW;                          // don't imply confidence in a thin bucket
+      return `<circle cx="${x(i).toFixed(1)}" cy="${y(p.gap).toFixed(1)}" r="${thin?2:3.2}" fill="${thin?'transparent':s.col}" stroke="${s.col}" stroke-width="1.2"><title>${s.label}: ${p.gap>0?'+':''}${p.gap} pts vs target · n=${p.n}${thin?' (low n)':''}</title></circle>`;
+    }).join('');
+    legend+=`<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;"><span style="width:14px;height:2px;background:${s.col};display:inline-block;"></span><span style="color:${s.col};font-weight:700;">${s.label}</span></span>`;
+  });
+
+  return `<div style="font-size:11px;margin-bottom:6px;">${legend}</div>`+
+    `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;">${grid}${paths}${dots}</svg>`+
+    `<div class="meta">Gap from target over time (oldest → newest). <b>0 = on target.</b> Above the line = running easier than intended; below = harder. Each mode is measured against its own targets, so all three are comparable. Hollow dots are thin buckets (under ${LOW} answers) — don't read them.</div>`;
 }
 
 async function loadStats(){
@@ -215,17 +287,19 @@ async function loadStats(){
   const noisy = s.total<NOISY ? `<div class="warn">⚠ Only ${s.total} answers under this ruleset — numbers are noisy. Accumulate more before tuning.</div>` : '';
   // Calibration measures the Normal baseline; Easier/Harder games are measured separately.
   const MODE_LABEL={normal:'Normal',easy:'Easier',hard:'Harder'};
-  const others=Object.entries(s.modeCounts||{})
-    .filter(([m])=>m!==MODE)
-    .map(([m,n])=>`${MODE_LABEL[m]||m}: ${n}`).join(' · ');
-  const modeNote = `<div class="muted" style="font-size:11px;margin-bottom:10px;">Showing <b>${MODE_LABEL[MODE]}</b> games, measured against ${MODE==='normal'?'the baseline targets':'the nudged targets for this mode'}.${others?` Not shown — ${others}.`:''}</div>`;
+  const modeNote = '';
   area.innerHTML=
     noisy+
     modeNote+
     `<div class="meta">${s.total} answers · steals ${stealStr} · by mode ${modeStr}</div>`+
-    '<div class="section">By Tier</div>'+tierTable(s.byTier||{})+
-    '<div class="section">Category × Tier</div>'+matrixTable(s)+
-    '<div class="section">Hit Rate Over Time</div>'+trendChart(s.trend||[]);
+    '<div class="section">By Tier · All Modes</div>'+tierTable(s.byTier||{}, s.tiersByMode||{})+
+    '<div class="section">Drift From Target · All Modes</div>'+trendChart(s.trendByMode||{})+
+    '<hr style="border:none;border-top:1px solid rgba(255,255,255,.12);margin:26px 0 18px;">'+
+    '<div class="section">Category × Tier</div>'+
+    '<div class="muted" style="font-size:11px;margin-bottom:10px;">This section only \u2014 pick a mode:</div>'+
+    modeSelectorHTML()+
+    matrixTable(s);
+  wireModeSelector();
 }
 
 function renderDetails(){
@@ -268,8 +342,8 @@ document.getElementById('detailsBtn').addEventListener('click',()=>{
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live.
-const ADMIN_VERSION='3.5';
-const ADMIN_BUILT_AT='2026-07-13T12:53:08Z';   // UTC; shown in the device's local time
+const ADMIN_VERSION='3.7';
+const ADMIN_BUILT_AT='2026-07-13T13:24:25Z';   // UTC; shown in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -309,9 +383,6 @@ async function renderBuildFooter(){
   sel.innerHTML=RULESETS.map(r=>`<option value="${r.difficulty_ruleset_version}">Ruleset ${r.difficulty_ruleset_version}${r.note?' — '+r.note:''}</option>`).join('');
   SELECTED=RULESETS[RULESETS.length-1].difficulty_ruleset_version; // newest
   sel.value=SELECTED;
-  const msel=document.getElementById('modeSelect');
-  msel.value=MODE;
-  msel.addEventListener('change',()=>{ MODE=msel.value; loadStats(); });
   loadStats();
 })();
 </script>
