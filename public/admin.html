@@ -49,6 +49,10 @@ table.grid td.empty{text-align:center;color:rgba(255,255,255,.15);}
 table.grid td.dim{text-align:center;color:rgba(255,255,255,.4);font-weight:400;}
 </style>
 <style>
+.assistbox{border:1px solid rgba(212,168,67,.3);background:rgba(212,168,67,.05);border-radius:10px;padding:14px;margin-bottom:22px;}
+.assistbtn{background:var(--gold);color:#14120e;border:none;border-radius:8px;padding:9px 18px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;letter-spacing:.5px;}
+.assistbtn:disabled{opacity:.55;cursor:default;}
+.sqlbox{background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:11px;overflow-x:auto;font-family:ui-monospace,Menlo,monospace;font-size:11px;line-height:1.5;white-space:pre;margin:8px 0;}
 .tier3{width:100%;border-collapse:collapse;}
 .tier3 th,.tier3 td{padding:7px 6px;text-align:center;font-size:12px;}
 .tier3 thead th{font-size:9px;letter-spacing:1px;text-transform:uppercase;opacity:.55;border-bottom:1px solid rgba(255,255,255,.12);}
@@ -221,6 +225,130 @@ function matrixTable(s){
   return h;
 }
 
+let LAST_STATS=null;   // stashed by loadStats so the assistant can analyse what you're seeing
+
+// Compact, factual payload. Every cell keeps its sample size so the model can judge
+// what it's allowed to conclude — and can tell us where we simply don't have data yet.
+function buildAnalysisPayload(){
+  const s=LAST_STATS;
+  if(!s) return null;
+  const r=RULESETS.find(x=>x.difficulty_ruleset_version===SELECTED)||{};
+  const tiers=[100,200,300,400,500];
+  const modes=['easy','normal','hard'];
+  const MODE_LABEL={easy:'Easier',normal:'Normal',hard:'Harder'};
+
+  const byMode={};
+  modes.forEach(m=>{
+    const T=targetsForMode(m);
+    byMode[MODE_LABEL[m]]=tiers.map(t=>{
+      const d=((s.tiersByMode||{})[m]||{})[t]||{att:0,ok:0};
+      return {
+        tier:t, target_pct:T[t], attempts:d.att, correct:d.ok,
+        actual_pct: d.att>0?Math.round(d.ok/d.att*100):null,
+        gap: d.att>0?Math.round(d.ok/d.att*100)-T[t]:null
+      };
+    });
+  });
+
+  // Category x tier for the mode currently on screen
+  const catRows=[];
+  (s.categoriesAll||[]).forEach(cat=>{
+    const row={category:cat, tiers:{}};
+    tiers.forEach(t=>{
+      const d=((s.byCatTier||{})[cat]||{})[t];
+      row.tiers[t]= d&&d.att ? {attempts:d.att, actual_pct:Math.round(d.ok/d.att*100), target_pct:TARGET_RATES[t]} : null;
+    });
+    catRows.push(row);
+  });
+
+  return {
+    ruleset_version:SELECTED,
+    ruleset_note:r.note||null,
+    current_tier_targets_normal:(Array.isArray(r.tiers)?r.tiers.map(t=>({name:t.name,pct:t.pct})):null),
+    current_easy_nudge:(r.easy_nudge==null?FALLBACK_EASY_NUDGE:r.easy_nudge),
+    current_hard_nudge:(r.hard_nudge==null?FALLBACK_HARD_NUDGE:r.hard_nudge),
+    min_sample_size:LOW,
+    by_mode:byMode,
+    category_matrix:{mode:MODE_LABEL[MODE], rows:catRows},
+    total_answers:s.totalAll||0
+  };
+}
+
+function analysisPrompt(payload){
+  return `You are a game-difficulty calibration analyst for a family trivia app.
+
+The app asks questions at 5 point tiers (100-500). Each tier has a TARGET hit rate - the share of questions a typical player should get right. Three difficulty modes exist: Normal (the baseline) plus Easier and Harder, which shift every target by a nudge. Each mode is judged against ITS OWN targets.
+
+Here is the data:
+
+${JSON.stringify(payload,null,2)}
+
+RULES YOU MUST FOLLOW:
+1. A cell with fewer than ${payload.min_sample_size} attempts is NOT evidence. Never draw a conclusion from it. Do not describe it as a trend, a problem, or a success.
+2. Where data is missing or too thin to judge, SAY SO EXPLICITLY and tell us what to play to fill the gap. This is one of your most useful outputs - do not skip it.
+3. A gap within +/-10 points of target is fine. Do not recommend changes for it.
+4. Never invent a finding to seem useful. "The data does not support a conclusion here" is a valid and valuable answer.
+5. Be concrete: name the tier, the mode, the actual vs target, and the sample size behind every claim.
+
+Respond in this exact structure, using plain headings:
+
+## What the data says
+Only findings backed by at least ${payload.min_sample_size} attempts. For each: the numbers, and whether it is a real signal.
+
+## Where we lack data
+Which modes/tiers/categories have too little data to judge, and what to play to fix that.
+
+## Recommendation
+Should the ruleset change? If yes, exactly which targets or nudges, and why. If no, say so plainly.
+
+## SQL
+If (and only if) you recommend a change, give the SQL for a NEW ruleset version (never edit an existing one - versions are frozen once they have attempts). Copy every field from the current ruleset, changing only what you recommend. Increment difficulty_ruleset_version. If no change is warranted, write "No change recommended."
+
+Be concise. No preamble.`;
+}
+
+async function runAssistant(){
+  const out=document.getElementById('assistOut');
+  const btn=document.getElementById('assistBtn');
+  const payload=buildAnalysisPayload();
+  if(!payload){ out.innerHTML='<div class="muted">Load stats first.</div>'; return; }
+  btn.disabled=true; btn.textContent='Analysing…';
+  out.innerHTML='<div class="muted">Reading the numbers…</div>';
+  try{
+    const r=await fetch('/api/claude',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,
+        messages:[{role:'user',content:analysisPrompt(payload)}]})
+    });
+    if(!r.ok) throw new Error('proxy '+r.status);
+    const d=await r.json();
+    const txt=(d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+    out.innerHTML=mdToHTML(txt||'(empty response)');
+  }catch(e){
+    out.innerHTML='<div class="muted">Analysis failed — '+(e.message||'try again')+'.</div>';
+  }
+  btn.disabled=false; btn.textContent='Analyse';
+}
+
+// Minimal markdown: headings, bold, code blocks, bullets
+function mdToHTML(t){
+  const esc=x=>x.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const blocks=t.split(/```(?:sql)?/);
+  let h='';
+  blocks.forEach((b,i)=>{
+    if(i%2===1){ h+=`<pre class="sqlbox">${esc(b.trim())}</pre>`; return; }
+    b.split('\n').forEach(line=>{
+      const l=line.trim();
+      if(!l){ h+=''; return; }
+      if(l.startsWith('## ')) h+=`<div class="section" style="margin-top:16px;">${esc(l.slice(3))}</div>`;
+      else if(l.startsWith('# ')) h+=`<div class="section" style="margin-top:16px;">${esc(l.slice(2))}</div>`;
+      else if(/^[-*]\s/.test(l)) h+=`<div style="margin:3px 0 3px 14px;">• ${esc(l.slice(2)).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')}</div>`;
+      else h+=`<div style="margin:6px 0;line-height:1.55;">${esc(l).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')}</div>`;
+    });
+  });
+  return h;
+}
+
 function modeSelectorHTML(){
   const opts=[['easy','Easier'],['normal','Normal (baseline)'],['hard','Harder']]
     .map(([v,l])=>`<option value="${v}"${v===MODE?' selected':''}>${l}</option>`).join('');
@@ -288,6 +416,7 @@ async function loadStats(){
   recomputeTargets();
   try{ s=await api('/api/stats/tiers?ruleset='+encodeURIComponent(SELECTED)+'&mode='+encodeURIComponent(MODE)); }
   catch(e){ area.innerHTML='<div class="muted">Couldn’t reach the server. Reload in a moment.</div>'; return; }
+  LAST_STATS=s;
   if(!s || (s.totalAll||0)===0){ area.innerHTML='<div class="muted">No answers recorded under this ruleset yet.</div>'; return; }
   const modeStr=Object.keys(s.byMode||{}).map(m=>m+': '+s.byMode[m]).join('  ·  ')||'—';
   const stealStr=(s.steals&&s.steals.att>0)?(s.steals.ok+'/'+s.steals.att):'0';
@@ -299,6 +428,14 @@ async function loadStats(){
     noisy+
     modeNote+
     `<div class="meta">${s.total} answers · steals ${stealStr} · by mode ${modeStr}</div>`+
+    '<div class="assistbox">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">'+
+        '<div><div class="section" style="margin:0;">Calibration Assistant</div>'+
+        '<div class="muted" style="font-size:11px;margin-top:2px;">Reads the numbers below and says what (if anything) to change — and where we still lack data.</div></div>'+
+        '<button id="assistBtn" class="assistbtn">Analyse</button>'+
+      '</div>'+
+      '<div id="assistOut" style="margin-top:12px;"></div>'+
+    '</div>'+
     '<div class="section">By Tier · All Modes</div>'+tierTable(s.byTier||{}, s.tiersByMode||{})+
     '<div class="section">Drift From Target · All Modes</div>'+trendChart(s.trendByMode||{})+
     '<hr style="border:none;border-top:1px solid rgba(255,255,255,.12);margin:26px 0 18px;">'+
@@ -307,6 +444,8 @@ async function loadStats(){
     modeSelectorHTML()+
     matrixTable(s);
   wireModeSelector();
+  const ab=document.getElementById('assistBtn');
+  if(ab) ab.addEventListener('click',runAssistant);
 }
 
 function renderDetails(){
@@ -349,8 +488,8 @@ document.getElementById('detailsBtn').addEventListener('click',()=>{
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live.
-const ADMIN_VERSION='3.8';
-const ADMIN_BUILT_AT='2026-07-13T14:20:57Z';   // UTC; shown in the device's local time
+const ADMIN_VERSION='3.9';
+const ADMIN_BUILT_AT='2026-07-13T14:26:17Z';   // UTC; shown in the device's local time
 
 function fmtBuildTime(iso){
   try{
