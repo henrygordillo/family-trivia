@@ -72,10 +72,13 @@ body{
 .pnum{color:rgba(255,255,255,.25);font-weight:700;margin-right:.35vw;}
 .pscore{font-family:'Playfair Display',serif;font-size:2.6vw;font-weight:900;color:var(--gold-hi);line-height:1.15;}
 /* Hit rate + whether they've picked this round — the phone shows both, so the TV must too */
-.pmeta{display:flex;align-items:center;justify-content:center;gap:.8vw;
-  font-size:.95vw;font-weight:600;color:rgba(255,255,255,.42);height:1.5vw;}
-.pmeta .picked{font-weight:800;}
-.pmeta .picked.no{color:var(--gold);}
+.pmeta{display:flex;align-items:center;justify-content:center;gap:.5vw;
+  font-size:.9vw;font-weight:600;color:rgba(255,255,255,.4);height:1.5vw;white-space:nowrap;}
+.pmeta .dot-sep{opacity:.35;}
+.pmeta .picked{font-weight:700;}
+.pmeta .picked.no{color:var(--gold);}          /* still owes a pick this round */
+.pcard.missed{border-color:rgba(192,57,43,.7);background:rgba(192,57,43,.12);}
+.pstat.miss{color:#ff8b7d!important;}
 .pstat{font-size:.95vw;font-weight:700;letter-spacing:.1vw;text-transform:uppercase;height:1.5vw;
   color:transparent;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .pcard.active .pstat{color:var(--gold-hi);}
@@ -99,7 +102,7 @@ body{
 .tile.blocked .sc{font-size:.75vw;font-weight:700;letter-spacing:.05vw;text-transform:uppercase;opacity:.75;}
 
 /* Question — occupies the board's slot. Scores stay visible above it. */
-#qscreen{display:none;flex:1;min-height:0;flex-direction:column;align-items:center;justify-content:center;
+#qscreen{display:none;position:relative;flex:1;min-height:0;flex-direction:column;align-items:center;justify-content:center;
   text-align:center;padding:2vh 6vw;border-radius:1.2vw;
   background:radial-gradient(ellipse at 50% 30%, rgba(60,48,130,.55) 0%, rgba(8,9,15,.2) 75%);}
 #qcat{font-size:1.4vw;letter-spacing:.35vw;text-transform:uppercase;color:var(--gold);}
@@ -115,7 +118,7 @@ body{
 
 /* Countdown — the phone starts it, the TV runs its own so it animates smoothly
    instead of us pushing 30 updates a question. */
-#timer{position:absolute;top:2.5vh;left:3vw;display:none;align-items:center;gap:1vw;z-index:15;}
+#timer{position:absolute;top:1.5vh;right:2vw;display:none;align-items:center;gap:.9vw;z-index:5;}
 #timerRing{transform:rotate(-90deg);}
 #timerTrack{fill:none;stroke:rgba(255,255,255,.14);stroke-width:6;}
 #timerBar{fill:none;stroke:var(--gold);stroke-width:6;stroke-linecap:round;
@@ -190,16 +193,6 @@ body{
 </div>
 
 <div id="game" style="position:relative;">
-  <div id="timer">
-    <div style="position:relative;">
-      <svg id="timerRing" width="6vw" height="6vw" viewBox="0 0 72 72" style="width:6vw;height:6vw;">
-        <circle id="timerTrack" cx="36" cy="36" r="30"/>
-        <circle id="timerBar" cx="36" cy="36" r="30"/>
-      </svg>
-      <div id="timerNum">30</div>
-    </div>
-    <div id="timerLbl"></div>
-  </div>
   <div class="scores" id="scores"></div>
   <div id="board"></div>
   <div id="gen">
@@ -208,6 +201,16 @@ body{
     <div class="status">Writing the question…</div>
   </div>
   <div id="qscreen">
+    <div id="timer">
+      <div id="timerLbl"></div>
+      <div style="position:relative;">
+        <svg id="timerRing" viewBox="0 0 72 72" style="width:6vw;height:6vw;">
+          <circle id="timerTrack" cx="36" cy="36" r="30"/>
+          <circle id="timerBar" cx="36" cy="36" r="30"/>
+        </svg>
+        <div id="timerNum">30</div>
+      </div>
+    </div>
     <div id="qcat"></div>
     <div id="qpts"></div>
     <div id="qtext"></div>
@@ -226,8 +229,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='3.9';
-const TV_BUILT_AT='2026-07-13T23:20:57Z';
+const TV_VERSION='3.10';
+const TV_BUILT_AT='2026-07-13T23:36:43Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -396,6 +399,14 @@ function runTimer(t){
   },1000);
 }
 
+// Plain next player in the rotation (for "On deck").
+function nextInOrder(S, fromIdx){
+  const o=S.turnOrder||[]; const n=o.length;
+  const pos=o.indexOf(fromIdx);
+  if(pos<0 || n<2) return -1;
+  return o[(pos+1)%n];
+}
+
 // Mirrors the phone's findStealIdx(): the next player in turn order who hasn't
 // already been wrong on this question.
 function nextEligible(S, fromIdx){
@@ -436,57 +447,65 @@ function render(S){
   const questionOpen = !!(q && q.text);
   const generating = !!S.generating;
 
-  // ── Scores — mirrors the phone's scoreboard exactly:
-  //    #, name (+crown, +streak), hit rate, score, picked-this-round, status.
-  const answering = S.answererIdx!=null && questionOpen;
+  // ── Scores. Status is driven by PHASE, not by whether answererIdx happens to be
+  //    set — it's set the moment a tile is tapped, which is why the TV was saying
+  //    "Answering" while the judge was still reading the question aloud.
+  const ph = S.phase;                     // pick | reading | answering | steal-offer | reveal
   const picker = S.nextPickerIdx;
 
-  // Who's next in line? (phone: findStealIdx / on-deck)
-  const stealIdx  = answering ? nextEligible(S, S.answererIdx) : -1;
-  let onDeckIdx = -1;
-  if(!answering){
-    const pp=(S.turnOrder||[]).indexOf(picker);
-    if(pp>=0){
-      onDeckIdx=S.turnOrder[(pp+1)%S.turnOrder.length];
-      if(onDeckIdx===picker) onDeckIdx=-1;
-    }
+  let statusOf = () => '';
+  if(ph==='reading'){
+    // Judge is reading it out. The picker is on the spot; the next player waits.
+    const nxt = nextInOrder(S, S.answererIdx);
+    statusOf = i => i===S.answererIdx ? ['Reading','active']
+                  : i===nxt           ? ['On deck','ondeck'] : ['',''];
+  } else if(ph==='answering'){
+    const stealer = S.stealMode ? -1 : nextEligible(S, S.answererIdx);
+    statusOf = i => i===S.answererIdx ? [S.stealMode?'Stealing':'Answering', S.stealMode?'steal':'active']
+                  : i===stealer       ? ['Ready to steal!','steal'] : ['',''];
+  } else if(ph==='steal-offer'){
+    // Judge said "incorrect" — the steal is offered but not taken.
+    statusOf = i => i===S.answererIdx      ? ['Missed','wrongcard']
+                  : i===S.pendingStealIdx  ? ['Ready to steal!','steal'] : ['',''];
+  } else if(ph==='reveal'){
+    // Question is done and the turn has already advanced — say who's up.
+    statusOf = i => i===picker ? ['Picks next','active'] : ['',''];
+  } else {                                 // 'pick' — back on the board
+    const nxt = nextInOrder(S, picker);
+    statusOf = i => i===picker ? ['Picking','active']
+                  : i===nxt    ? ['On deck','ondeck'] : ['',''];
   }
 
   const maxS=Math.max(...S.scores);
   const leader=(maxS>0 && S.scores.filter(x=>x===maxS).length===1) ? S.scores.indexOf(maxS) : -1;
 
   document.getElementById('scores').innerHTML = S.players.map((p,i)=>{
-    const isAns    = answering && i===S.answererIdx;
-    const isPick   = !answering && i===picker;
-    const isSteal  = answering && i===stealIdx;
-    const isOnDeck = !answering && i===onDeckIdx;
-
-    let cls='pcard', stat='', statCls='pstat';
-    if(isAns){        cls += S.stealMode ? ' steal' : ' active';
-                      stat = S.stealMode ? 'Stealing' : 'Answering'; }
-    else if(isPick){  cls += ' active';  stat = (S.phase==='reading' ? 'Reading' : 'Picking'); }
-    else if(isSteal){ cls += ' steal';   stat = 'Ready to steal!'; statCls += ' ready'; }
-    else if(isOnDeck){cls += ' ondeck';  stat = 'On deck'; }
+    const [stat, kind] = statusOf(i);
+    let cls='pcard', statCls='pstat';
+    if(kind==='active')    cls+=' active';
+    if(kind==='steal'){    cls+=' steal';  statCls+=' ready'; }
+    if(kind==='ondeck')    cls+=' ondeck';
+    if(kind==='wrongcard'){cls+=' missed'; statCls+=' miss'; }
 
     const st=(S.streak||[])[i]||0;
     const badge = st>=2 ? ` 🔥${st}` : (st<=-2 ? ` 🧊${-st}` : '');
     const crown = (i===leader) ? '👑 ' : '';
 
-    // Hit rate this game (phone's "Hit" column) — from attempts, which carry no answers
+    // Hit rate this game
     const mine=(S.attempts||[]).filter(a=>a.player===p);
     const ok=mine.filter(a=>a.correct).length;
     const hit = mine.length ? Math.round(ok/mine.length*100)+'%' : '—';
 
-    // Picked this round (phone's "Picked?" column)
+    // Has this player taken their pick this round? (labelled — a bare ✓ meant nothing)
     const done=(S.pickedThisRound||[]).includes(i);
     const picked = done
-      ? '<span class="picked">✓</span>'
-      : '<span class="picked no">–</span>';
+      ? '<span class="picked">picked ✓</span>'
+      : '<span class="picked no">to pick</span>';
 
     return `<div class="${cls}">
       <div class="pname"><span class="pnum">${i+1}</span>${crown}${p}${badge}</div>
       <div class="pscore">${S.scores[i]}</div>
-      <div class="pmeta"><span>${hit}</span>${picked}</div>
+      <div class="pmeta"><span title="Hit rate this game">${hit} hit</span><span class="dot-sep">·</span>${picked}</div>
       <div class="${statCls}">${stat}</div>
     </div>`;
   }).join('');
