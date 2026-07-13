@@ -81,7 +81,7 @@ table.grid td.dim{text-align:center;color:rgba(255,255,255,.4);font-weight:400;}
 
   <div class="lbl">Difficulty Ruleset</div>
   <div class="row">
-    <select id="rsSelect"></select>
+    <select id="rsSelect" style="max-width:100%;text-overflow:ellipsis;"></select>
     <button class="pill" id="detailsBtn">ⓘ Details</button>
   </div>
 
@@ -117,6 +117,13 @@ function targetsForMode(mode){
   return out;
 }
 function recomputeTargets(){ TARGET_RATES=targetsForMode(MODE); }
+// Mode colours deliberately avoid teal/gold/red — those mean "on target",
+// "running easy" and "running hard" in the cells, and would read as a verdict.
+const MODE_COLS=[
+  {key:'easy',  label:'Easier', col:'#6ea8ff'},
+  {key:'normal',label:'Normal', col:'rgba(255,255,255,.82)'},
+  {key:'hard',  label:'Harder', col:'#a78bfa'},
+];
 const LOW=25;    // fewer answers than this = statistically insufficient (flagged everywhere)
 const NOISY=50;  // overall: fewer answers than this = whole ruleset is noisy
 let RULESETS=[]; let SELECTED=null;
@@ -135,11 +142,7 @@ function catExpected(ct){
 function tierTable(_ignored, tiersByMode){
   const tiers=[100,200,300,400,500];
   // Spectrum order: Easier <- Normal -> Harder (baseline centred)
-  const modes=[
-    {key:'easy',  label:'Easier', col:'var(--teal-hi, #3dd5c8)'},
-    {key:'normal',label:'Normal', col:'var(--gold-hi, #f0c855)'},
-    {key:'hard',  label:'Harder', col:'#a78bfa'},
-  ];
+  const modes=MODE_COLS;
   const T={}; modes.forEach(m=>{ T[m.key]=targetsForMode(m.key); });
 
   let h='<table class="tier3"><thead>';
@@ -390,7 +393,7 @@ async function runAssistant(){
   const btn=document.getElementById('assistBtn');
   const payload=buildAnalysisPayload();
   if(!payload){ out.innerHTML='<div class="muted">Load stats first.</div>'; return; }
-  btn.disabled=true; btn.textContent='Analysing…';
+  btn.disabled=true; btn.textContent='Analyzing…';
 
   // This call takes a while (big prompt, long answer). Without a live indicator it
   // reads as hung — so show cycling status plus a running clock.
@@ -435,7 +438,7 @@ async function runAssistant(){
     stop();
     out.innerHTML='<div class="muted">Analysis failed — '+(e.message||'try again')+'.</div>';
   }
-  btn.disabled=false; btn.textContent='Analyse';
+  btn.disabled=false; btn.textContent='Analyze';
 }
 
 function wireCopyButtons(root){
@@ -482,11 +485,7 @@ function wireModeSelector(){
 }
 
 function trendChart(trendByMode){
-  const modes=[
-    {key:'easy',  label:'Easier', col:'var(--teal-hi)'},
-    {key:'normal',label:'Normal', col:'var(--gold-hi)'},
-    {key:'hard',  label:'Harder', col:'#a78bfa'},
-  ];
+  const modes=MODE_COLS;
   // A bucket's EXPECTED rate = its tiers' targets, weighted by how often each was asked.
   // We plot actual - expected, so 0 means "on target" for every mode alike.
   function gaps(mode){
@@ -553,14 +552,14 @@ async function loadStats(){
     noisy+
     modeNote+
     `<div class="meta">${s.total} answers · steals ${stealStr} · by mode ${modeStr}</div>`+
-    (emptyRuleset?'<div class="warn">No answers recorded under this ruleset yet \u2014 the tables below are empty. Play a few games, then Analyse.</div>':'')+
+    (emptyRuleset?'<div class="warn">No answers recorded under this ruleset yet \u2014 the tables below are empty. Play a few games, then Analyze.</div>':'')+
     '<div class="assistbox">'+
       '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">'+
         '<div><div class="section" style="margin:0;">Calibration Assistant</div>'+
         '<div class="muted" style="font-size:11px;margin-top:2px;">Reads the numbers below and says what (if anything) to change — and where we still lack data.</div></div>'+
         '<div style="display:flex;gap:8px;align-items:center;">'+
           '<button id="assistCopyAll" class="copyall" style="display:none;">Copy analysis</button>'+
-          '<button id="assistBtn" class="assistbtn">Analyse</button>'+
+          '<button id="assistBtn" class="assistbtn">Analyze</button>'+
         '</div>'+
       '</div>'+
       '<div id="assistOut" style="margin-top:12px;"></div>'+
@@ -619,8 +618,8 @@ document.getElementById('detailsBtn').addEventListener('click',()=>{
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live.
-const ADMIN_VERSION='3.12';
-const ADMIN_BUILT_AT='2026-07-13T16:49:02Z';   // UTC; shown in the device's local time
+const ADMIN_VERSION='3.13';
+const ADMIN_BUILT_AT='2026-07-13T20:10:05Z';   // UTC; shown in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -657,7 +656,8 @@ async function renderBuildFooter(){
     document.getElementById('statsArea').innerHTML='<div class="muted">No rulesets defined yet.</div>'; return;
   }
   const sel=document.getElementById('rsSelect');
-  sel.innerHTML=RULESETS.map(r=>`<option value="${r.difficulty_ruleset_version}">Ruleset ${r.difficulty_ruleset_version}${r.note?' — '+r.note:''}</option>`).join('');
+  const short=n=>{ if(!n) return ''; const t=String(n).trim(); return t.length>42?' — '+t.slice(0,42).trim()+'\u2026':' — '+t; };
+  sel.innerHTML=RULESETS.map(r=>`<option value="${r.difficulty_ruleset_version}">Ruleset ${r.difficulty_ruleset_version}${short(r.note)}</option>`).join('');
   SELECTED=RULESETS[RULESETS.length-1].difficulty_ruleset_version; // newest
   sel.value=SELECTED;
   loadStats();
