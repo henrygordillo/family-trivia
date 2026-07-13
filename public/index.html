@@ -744,8 +744,8 @@ const BACKEND='https://family-trivia-y0om.onrender.com';
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.11';
-const APP_BUILT_AT='2026-07-13T22:19:11Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.12';
+const APP_BUILT_AT='2026-07-13T22:35:14Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1770,6 +1770,7 @@ async function pickQ(ci,qi){
 
   G.curCat=ci; G.curQ=qi; G.curPts=PTS[qi];
   G.wrongPlayers=[]; G.stealMode=false;
+  G.lastResult=null;        // clear the previous verdict (the TV renders this)
   G.transcript=''; G.answererIdx=getEffectivePicker();
   // Record this player's pick for the current round (for the picks-this-round indicator)
   if(!G.pickedThisRound) G.pickedThisRound=[];
@@ -2068,6 +2069,9 @@ function resolveAnswer(correct){
     if(G.playerProfiles&&G.playerProfiles[_pNameW]){
       dbRecordAttempt(G.playerProfiles[_pNameW].id,G.categories[G.curCat],G.curPts,false,0,G.stealMode);
     }
+    // Record the miss too — the TV renders this, and without it a wrong answer
+    // was invisible on the big screen (the name at the bottom just quietly changed).
+    G.lastResult={player:_pNameW, pts:0, steal:G.stealMode, correct:false};
     G.wrongPlayers.push(G.answererIdx);
     const stealIdx=findStealIdx();
     if(stealIdx!==-1){

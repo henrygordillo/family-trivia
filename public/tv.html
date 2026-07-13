@@ -62,16 +62,31 @@ body{
 .tile.blocked .star{font-size:2vw;line-height:1;}
 .tile.blocked .sc{font-size:.75vw;font-weight:700;letter-spacing:.05vw;text-transform:uppercase;opacity:.75;}
 
-/* Question overlay */
-#qscreen{display:none;position:fixed;inset:0;background:radial-gradient(ellipse at 50% 30%, #241d4a 0%, #08090f 75%);
-  flex-direction:column;align-items:center;justify-content:center;padding:6vh 8vw;text-align:center;z-index:10;}
-#qcat{font-size:1.5vw;letter-spacing:.35vw;text-transform:uppercase;color:var(--gold);margin-bottom:1vh;}
-#qpts{font-family:'Playfair Display',serif;font-size:4.5vw;font-weight:900;color:var(--gold-hi);line-height:1;margin-bottom:4vh;}
-#qtext{font-family:'Playfair Display',serif;font-size:3.6vw;font-weight:700;line-height:1.3;max-width:80vw;}
-#qwho{margin-top:5vh;font-size:1.8vw;color:rgba(255,255,255,.6);}
+/* Question — occupies the board's slot. Scores stay visible above it. */
+#qscreen{display:none;flex:1;min-height:0;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:2vh 6vw;border-radius:1.2vw;
+  background:radial-gradient(ellipse at 50% 30%, rgba(60,48,130,.55) 0%, rgba(8,9,15,.2) 75%);}
+#qcat{font-size:1.4vw;letter-spacing:.35vw;text-transform:uppercase;color:var(--gold);}
+#qpts{font-family:'Playfair Display',serif;font-size:3.6vw;font-weight:900;color:var(--gold-hi);line-height:1.1;margin-bottom:2.5vh;}
+#qtext{font-family:'Playfair Display',serif;font-size:3.2vw;font-weight:700;line-height:1.3;max-width:82vw;}
+#qwho{margin-top:3vh;font-size:1.7vw;color:rgba(255,255,255,.6);}
 #qwho b{color:var(--gold-hi);}
-#qans{margin-top:4vh;font-size:2.6vw;font-weight:800;color:var(--teal-hi);display:none;}
-#qans .lbl{display:block;font-size:1.1vw;letter-spacing:.25vw;text-transform:uppercase;color:rgba(255,255,255,.45);font-weight:600;margin-bottom:.8vh;}
+#qans{margin-top:2.5vh;font-size:2.4vw;font-weight:800;color:var(--teal-hi);display:none;}
+#qans .lbl{display:block;font-size:1vw;letter-spacing:.25vw;text-transform:uppercase;color:rgba(255,255,255,.45);font-weight:600;margin-bottom:.6vh;}
+
+/* THE RESULT BEAT — a miss has to be impossible to miss. */
+#result{display:none;margin-top:2.5vh;padding:1.6vh 3vw;border-radius:1vw;
+  font-size:2.2vw;font-weight:800;letter-spacing:.05vw;animation:pop .35s ease-out;}
+#result.right{background:rgba(26,122,69,.25);border:2px solid #2ecc71;color:#7be8a5;}
+#result.wrong{background:rgba(192,57,43,.22);border:2px solid var(--red);color:#ff8b7d;}
+#result .sub{display:block;font-size:1.3vw;font-weight:600;opacity:.85;margin-top:.6vh;}
+@keyframes pop{0%{transform:scale(.9);opacity:0;}60%{transform:scale(1.03);}100%{transform:scale(1);opacity:1;}}
+
+/* Flash the whole screen so a change is noticed from across the room */
+.flash-right{animation:fr .7s ease-out;}
+.flash-wrong{animation:fw .7s ease-out;}
+@keyframes fr{0%{box-shadow:inset 0 0 0 0 rgba(46,204,113,0);}25%{box-shadow:inset 0 0 22vh 0 rgba(46,204,113,.28);}100%{box-shadow:inset 0 0 0 0 rgba(46,204,113,0);}}
+@keyframes fw{0%{box-shadow:inset 0 0 0 0 rgba(192,57,43,0);}25%{box-shadow:inset 0 0 22vh 0 rgba(192,57,43,.32);}100%{box-shadow:inset 0 0 0 0 rgba(192,57,43,0);}}
 
 .offline{position:fixed;bottom:1.5vh;left:0;right:0;text-align:center;font-size:1vw;color:var(--red);display:none;}
 .tag{position:fixed;bottom:1.5vh;right:2vw;font-size:.85vw;color:rgba(255,255,255,.22);}
@@ -95,22 +110,22 @@ body{
 <div id="game">
   <div class="scores" id="scores"></div>
   <div id="board"></div>
-</div>
-
-<div id="qscreen">
-  <div id="qcat"></div>
-  <div id="qpts"></div>
-  <div id="qtext"></div>
-  <div id="qwho"></div>
-  <div id="qans"><span class="lbl">Answer</span><span id="qanstext"></span></div>
+  <div id="qscreen">
+    <div id="qcat"></div>
+    <div id="qpts"></div>
+    <div id="qtext"></div>
+    <div id="qwho"></div>
+    <div id="qans"><span class="lbl">Answer</span><span id="qanstext"></span></div>
+    <div id="result"></div>
+  </div>
 </div>
 
 <div class="offline" id="offline">Lost connection to the game — reload this page</div>
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='3.1';
-const TV_BUILT_AT='2026-07-13T22:19:11Z';
+const TV_VERSION='3.2';
+const TV_BUILT_AT='2026-07-13T22:35:14Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -165,21 +180,25 @@ function listen(){
 }
 
 // ── Render the snapshot ───────────────────────────────────────────────────
+let _lastResultKey = null;      // so we only flash once per verdict
+
 function render(S){
   if(!S || !S.players || !S.players.length) return;
   document.getElementById('join').style.display='none';
   document.getElementById('game').style.display='flex';
 
-  // Scores
-  const answering = S.answererIdx!=null;
+  const q = S.currentQuestion;
+  const questionOpen = !!(q && q.text);
+
+  // ── Scores (always visible, even during a question) ──
+  const answering = S.answererIdx!=null && questionOpen;
   const picker = S.nextPickerIdx;
-  const scores = document.getElementById('scores');
-  scores.innerHTML = S.players.map((p,i)=>{
+  document.getElementById('scores').innerHTML = S.players.map((p,i)=>{
     const isAns  = answering && i===S.answererIdx;
-    const isPick = !answering && i===picker;
+    const isPick = !questionOpen && i===picker;
     let cls='pcard', stat='';
-    if(isAns){ cls+=' active'; stat = S.stealMode ? 'Stealing' : 'Answering'; }
-    else if(isPick){ cls+=' active'; stat = (S.phase==='reading' ? 'Reading' : 'Picking'); }
+    if(isAns){ cls += S.stealMode ? ' steal' : ' active'; stat = S.stealMode ? 'Stealing' : 'Answering'; }
+    else if(isPick){ cls+=' active'; stat='Picking'; }
     const st=(S.streak||[])[i]||0;
     const badge = st>=2 ? ` 🔥${st}` : (st<=-2 ? ` 🧊${-st}` : '');
     const maxS=Math.max(...S.scores);
@@ -191,45 +210,78 @@ function render(S){
     </div>`;
   }).join('');
 
-  // Board
-  const board=document.getElementById('board');
-  board.style.gridTemplateColumns=`repeat(${S.numCats},1fr)`;
-  board.style.gridTemplateRows=`auto repeat(${S.numQ},1fr)`;
-  let h='';
-  (S.categories||[]).forEach(c=>{ h+=`<div class="cat">${c}</div>`; });
-  for(let qi=0; qi<S.numQ; qi++){
-    for(let ci=0; ci<S.numCats; ci++){
-      const key=`${ci}-${qi}`;
-      if((S.blocked||{})[key])      h+=`<div class="tile blocked"><span class="star">★</span><span class="sc">All-Play<br>coming soon</span></div>`;
-      else if((S.used||{})[key])    h+=`<div class="tile used">✓</div>`;
-      else                          h+=`<div class="tile">${PTS[qi]}</div>`;
-    }
-  }
-  board.innerHTML=h;
+  // ── Board OR question — never both ──
+  document.getElementById('board').style.display   = questionOpen ? 'none' : 'grid';
+  document.getElementById('qscreen').style.display = questionOpen ? 'flex' : 'none';
 
-  // Question overlay
-  const qs=document.getElementById('qscreen');
-  const q=S.currentQuestion;
-  const showQ = q && q.text && S.phase!=='pick';
-  if(showQ){
-    document.getElementById('qcat').textContent=(S.categories||[])[S.curCat]||'';
-    document.getElementById('qpts').textContent=S.curPts||'';
-    document.getElementById('qtext').textContent=q.text;
-    const who=S.players[S.answererIdx];
-    document.getElementById('qwho').innerHTML = who
-      ? (S.stealMode ? `<b>${who}</b> is stealing` : `<b>${who}</b> is answering`)
-      : '';
-    // The answer only ever arrives once the judge has revealed it.
-    const ansEl=document.getElementById('qans');
-    if(S.revealedAnswer){
-      document.getElementById('qanstext').textContent=S.revealedAnswer;
-      ansEl.style.display='block';
-    } else {
-      ansEl.style.display='none';
+  if(!questionOpen){
+    const board=document.getElementById('board');
+    board.style.gridTemplateColumns=`repeat(${S.numCats},1fr)`;
+    board.style.gridTemplateRows=`auto repeat(${S.numQ},1fr)`;
+    let h='';
+    (S.categories||[]).forEach(c=>{ h+=`<div class="cat">${c}</div>`; });
+    for(let qi=0; qi<S.numQ; qi++){
+      for(let ci=0; ci<S.numCats; ci++){
+        const key=`${ci}-${qi}`;
+        if((S.blocked||{})[key])   h+=`<div class="tile blocked"><span class="star">★</span><span class="sc">All-Play<br>coming soon</span></div>`;
+        else if((S.used||{})[key]) h+=`<div class="tile used">✓</div>`;
+        else                       h+=`<div class="tile">${PTS[qi]}</div>`;
+      }
     }
-    qs.style.display='flex';
+    board.innerHTML=h;
+    _lastResultKey=null;                       // back on the board — arm the next flash
+    document.getElementById('result').style.display='none';
+    return;
+  }
+
+  // ── Question ──
+  document.getElementById('qcat').textContent=(S.categories||[])[S.curCat]||'';
+  document.getElementById('qpts').textContent=S.curPts||'';
+  document.getElementById('qtext').textContent=q.text;
+
+  const who=S.players[S.answererIdx];
+  document.getElementById('qwho').innerHTML = who
+    ? (S.stealMode ? `<b>${who}</b> is stealing` : `<b>${who}</b> is answering`)
+    : '';
+
+  // The answer only ever arrives after the judge reveals it.
+  const ansEl=document.getElementById('qans');
+  if(S.revealedAnswer){
+    document.getElementById('qanstext').textContent=S.revealedAnswer;
+    ansEl.style.display='block';
   } else {
-    qs.style.display='none';
+    ansEl.style.display='none';
+  }
+
+  // ── THE RESULT BEAT ──
+  // Without this, a wrong answer just quietly swapped the name at the bottom and
+  // nobody noticed. Now the room gets a loud, unmissable verdict.
+  const res=document.getElementById('result');
+  const r=S.lastResult;
+  if(r){
+    const key = `${r.player}|${r.correct}|${r.pts}|${r.steal}`;
+    res.className = r.correct ? 'right' : 'wrong';
+    if(r.correct){
+      res.innerHTML = `✓ ${r.player} got it${r.steal?' — STOLEN!':''}`
+        + `<span class="sub">+${r.pts} points</span>`;
+    } else {
+      // Who's up next for the steal? That's the answerer once stealMode is on.
+      const stealer = S.stealMode ? S.players[S.answererIdx] : null;
+      res.innerHTML = `✗ ${r.player} missed`
+        + `<span class="sub">${stealer ? stealer + ' can steal it' : 'Nobody stole it'}</span>`;
+    }
+    res.style.display='block';
+    if(key !== _lastResultKey){
+      _lastResultKey = key;
+      const body=document.body;
+      body.classList.remove('flash-right','flash-wrong');
+      void body.offsetWidth;                        // restart the animation
+      body.classList.add(r.correct ? 'flash-right' : 'flash-wrong');
+      setTimeout(()=>body.classList.remove('flash-right','flash-wrong'), 800);
+    }
+  } else {
+    res.style.display='none';
+    _lastResultKey=null;
   }
 }
 
