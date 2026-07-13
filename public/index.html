@@ -434,10 +434,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <input id="tvCode" type="tel" inputmode="numeric" maxlength="4" placeholder="0000"
       style="width:100%;padding:14px;border:2px solid var(--card3);border-radius:12px;font-family:'Playfair Display',serif;font-size:32px;font-weight:900;text-align:center;letter-spacing:8px;color:var(--ink);background:var(--card2);">
     <div id="tvErr" style="font-size:12px;color:var(--red);margin-top:8px;min-height:16px;"></div>
-    <div style="display:flex;gap:8px;margin-top:12px;">
-      <button class="mbtn mbtn-cancel" id="tvCancel" style="flex:1;">Cancel</button>
-      <button class="mbtn" id="tvGo" style="flex:1;background:var(--gold);color:var(--ink);">Connect</button>
-    </div>
+    <button class="mbtn" id="tvScan" style="width:100%;margin-top:6px;background:var(--card2);border:1.5px solid var(--card3);color:var(--ink);display:flex;align-items:center;justify-content:center;gap:8px;">📷 Scan the TV's QR code</button>
+    <video id="tvVideo" playsinline muted style="display:none;width:100%;border-radius:12px;margin-top:10px;background:#000;"></video>
+    <button class="mbtn mbtn-cancel" id="tvCancel" style="width:100%;margin-top:8px;">Cancel</button>
   </div>
 </div>
 
@@ -744,8 +743,8 @@ const BACKEND='https://family-trivia-y0om.onrender.com';
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.14';
-const APP_BUILT_AT='2026-07-13T22:49:14Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.15';
+const APP_BUILT_AT='2026-07-13T23:06:38Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -897,6 +896,12 @@ const STATE_LOCAL   = ['recognition','recording','transcript', // mic
 function publicState(){
   const out = {};
   STATE_PUBLIC.forEach(k => { out[k] = G[k]; });
+
+  // Is a game actually on? Without this the TV keeps showing the LAST game's
+  // board after you back out to setup — stale tiles, stale players.
+  out.active = !!_inGame && Array.isArray(G.players) && G.players.length > 0;
+  out.appVersion = APP_VERSION;
+  out.appBuiltAt = APP_BUILT_AT;
 
   // Current question: text only. The answer and explanation are deliberately dropped.
   // Back on the board ('pick'), no question is live — don't ship a stale one.
@@ -1110,15 +1115,57 @@ function openTVModal(){
   m.classList.add('show');
   setTimeout(()=>document.getElementById('tvCode').focus(),120);
 }
-function closeTVModal(){ document.getElementById('tvModal').classList.remove('show'); }
+function closeTVModal(){ stopScan(); document.getElementById('tvModal').classList.remove('show'); }
 
 async function tvConnectFromModal(){
   const code=document.getElementById('tvCode').value;
   const err=document.getElementById('tvErr');
   err.textContent='Connecting\u2026';
   const r=await connectTV(code);
-  if(r.ok){ closeTVModal(); updateTVBadge(); toast('\ud83d\udcfa Connected to TV '+code); }
+  if(r.ok){ stopScan(); closeTVModal(); updateTVBadge(); toast('\ud83d\udcfa Connected to TV '+code); }
   else { err.textContent=r.err; }
+}
+
+// ── QR scanning ────────────────────────────────────────────────────────────
+// The code is always 4 digits, so there's nothing to "submit" — connect as soon
+// as the 4th digit lands. And if the phone can read barcodes, skip typing entirely.
+let _scanStream=null, _scanTimer=null;
+
+function stopScan(){
+  if(_scanTimer){ clearInterval(_scanTimer); _scanTimer=null; }
+  if(_scanStream){ _scanStream.getTracks().forEach(t=>t.stop()); _scanStream=null; }
+  const v=document.getElementById('tvVideo');
+  if(v){ v.style.display='none'; v.srcObject=null; }
+}
+
+async function startScan(){
+  const err=document.getElementById('tvErr');
+  const v=document.getElementById('tvVideo');
+  if(!('BarcodeDetector' in window)){
+    err.textContent='This browser can\u2019t scan QR codes — use your camera app, or type the code.';
+    return;
+  }
+  try{
+    _scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+  }catch(e){
+    err.textContent='Camera permission denied — type the code instead.';
+    return;
+  }
+  v.srcObject=_scanStream; v.style.display='block'; await v.play().catch(()=>{});
+  err.textContent='Point at the code on the TV\u2026';
+  const det=new window.BarcodeDetector({formats:['qr_code']});
+  _scanTimer=setInterval(async()=>{
+    try{
+      const codes=await det.detect(v);
+      if(!codes.length) return;
+      // The TV's QR encodes  <origin>/?tv=1234
+      const m=String(codes[0].rawValue||'').match(/tv=(\d{4})/);
+      if(!m) return;
+      clearInterval(_scanTimer); _scanTimer=null;
+      document.getElementById('tvCode').value=m[1];
+      await tvConnectFromModal();
+    }catch(e){}
+  }, 350);
 }
 
 function disconnectTV(){
@@ -1688,7 +1735,8 @@ async function startGame(){
   // buildBoard is a pure renderer now, so the caller owns the state change.
   G.phase='pick';
   buildBoard();
-  show('board');
+  show('board');          // this sets _inGame — which publicState()'s `active` depends on
+  pushToTV();             // ...so the TV needs one more push AFTER it, or it thinks no game started
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -2279,6 +2327,13 @@ window.addEventListener('pagehide', ()=>{
   }
 });
 
+// Whenever the phone leaves a game, the TV has to hear about it or it keeps
+// rendering the last board it saw.
+function tvGameEnded(){
+  _inGame=false;
+  pushToTV();
+}
+
 function backToBoard(){
   window.speechSynthesis?.cancel();
   if(G.recording) stopMic();
@@ -2626,6 +2681,7 @@ function doRestart(){
   closeRestart();
   window.speechSynthesis?.cancel();
   if(G.recording) stopMic();
+  tvGameEnded();          // TV: drop the old board, wait for the next game
   // Restore player names
   // Restore names in original entry order (G.setupNames preserved at game start)
   if(G.setupNames?.length>=2){
@@ -2859,12 +2915,20 @@ function init(){
   // Big Screen
   const tvBtn=document.getElementById('tvBtn');
   if(tvBtn) tvBtn.addEventListener('click',()=>{ TV_CODE ? disconnectTV() : openTVModal(); });
-  const tvGo=document.getElementById('tvGo');
-  if(tvGo) tvGo.addEventListener('click',tvConnectFromModal);
   const tvCancel=document.getElementById('tvCancel');
-  if(tvCancel) tvCancel.addEventListener('click',closeTVModal);
+  if(tvCancel) tvCancel.addEventListener('click',()=>{ stopScan(); closeTVModal(); });
+  const tvScan=document.getElementById('tvScan');
+  if(tvScan) tvScan.addEventListener('click',startScan);
   const tvInput=document.getElementById('tvCode');
-  if(tvInput) tvInput.addEventListener('keydown',e=>{ if(e.key==='Enter') tvConnectFromModal(); });
+  if(tvInput){
+    // 4 digits is the whole code — no reason to make anyone press a button.
+    tvInput.addEventListener('input',()=>{
+      const v=tvInput.value.replace(/\D/g,'').slice(0,4);
+      tvInput.value=v;
+      if(v.length===4) tvConnectFromModal();
+    });
+    tvInput.addEventListener('keydown',e=>{ if(e.key==='Enter') tvConnectFromModal(); });
+  }
   // Scanned the TV's QR code? It lands here as ?tv=1234 — connect straight away.
   try{
     const p=new URLSearchParams(location.search).get('tv');
@@ -2947,7 +3011,7 @@ function init(){
       try{ history.pushState({g:1},''); }catch(e){}
     } else if(confirm('Exit the current game? Your progress will be lost.')){
       _inGame=false;
-      if(TV_CODE) disconnectTV();     // don't strand the TV on a dead game
+      pushToTV();            // stay paired, but tell the TV the game is over
       show('setup');
     } else {
       // Stay on the board — re-arm the trap

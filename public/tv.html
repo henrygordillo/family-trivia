@@ -116,7 +116,7 @@ body{
     </div>
     <div id="qr"></div>
   </div>
-  <div class="hint"><span class="dot"></span>On your phone, tap <b>Connect to TV</b> and enter this code</div>
+  <div class="hint" id="hint"><span class="dot"></span>On your phone, tap <b>Connect to TV</b> — enter this code, or scan the QR code</div>
 </div>
 
 <div id="game">
@@ -134,10 +134,11 @@ body{
 
 <div class="offline" id="offline">Lost connection to the game — reload this page</div>
 <div class="tag" id="tag"></div>
+<div class="tag" id="tagLeft" style="right:auto;left:2vw;"></div>
 
 <script>
-const TV_VERSION='3.4';
-const TV_BUILT_AT='2026-07-13T22:49:14Z';
+const TV_VERSION='3.5';
+const TV_BUILT_AT='2026-07-13T23:06:38Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -153,7 +154,20 @@ function fmt(iso){
     return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} ${ap}`;
   }catch(e){ return ''; }
 }
-document.getElementById('tag').textContent = `TV ${TV_VERSION} · ${fmt(TV_BUILT_AT)}`;
+// Show all three builds, so it's obvious when one of them didn't get pushed.
+let SRV_VER = '…';
+function paintTags(app){
+  document.getElementById('tag').textContent =
+    `TV ${TV_VERSION} · ${fmt(TV_BUILT_AT)}`;
+  document.getElementById('tagLeft').textContent =
+    `App ${app||'—'}  ·  Server ${SRV_VER}`;
+}
+paintTags(null);
+fetch(BACKEND+'/api/version').then(r=>r.json()).then(d=>{
+  SRV_VER = d.version + ' · ' + fmt(d.builtAt);
+  paintTags(_appVer);
+}).catch(()=>{ SRV_VER='unreachable'; paintTags(_appVer); });
+let _appVer = null;
 
 // ── Get a room, show the code + QR ────────────────────────────────────────
 async function init(){
@@ -181,12 +195,25 @@ async function init(){
   listen();
 }
 
+// ── Paired / not paired ───────────────────────────────────────────────────
+let _paired=false;
+function setPaired(on){
+  if(on===_paired) return;
+  _paired=on;
+  const h=document.getElementById('hint');
+  if(on){
+    h.innerHTML='<span class="dot" style="background:#2ecc71;"></span>Connected to your phone \u2014 start the game there';
+  } else {
+    h.innerHTML='<span class="dot"></span>On your phone, tap <b>Connect to TV</b> \u2014 enter this code, or scan the QR code';
+  }
+}
+
 // ── Subscribe to the room's push stream ───────────────────────────────────
 function listen(){
   ES = new EventSource(BACKEND+'/api/room/'+CODE+'/stream');
   ES.addEventListener('state',   e => render(JSON.parse(e.data)));
-  ES.addEventListener('waiting', () => {});      // no game yet — keep showing the code
-  ES.addEventListener('closed',  () => { location.reload(); });
+  ES.addEventListener('waiting', () => { setPaired(false); });   // no phone yet
+  ES.addEventListener('closed',  () => { location.reload(); });  // phone left — fresh code
   ES.onerror = () => { document.getElementById('offline').style.display='block'; };
   ES.onopen  = () => { document.getElementById('offline').style.display='none'; };
 }
@@ -210,7 +237,21 @@ function nextEligible(S, fromIdx){
 }
 
 function render(S){
-  if(!S || !S.players || !S.players.length) return;
+  if(!S) return;
+
+  // A phone has pushed something — so we're paired, whatever it says.
+  setPaired(true);
+  if(S.appVersion && S.appVersion !== _appVer){ _appVer = S.appVersion; paintTags(_appVer); }
+
+  // NO GAME RUNNING → go back to the join screen. Without this the TV kept
+  // rendering the LAST game's board after the phone backed out to setup.
+  if(!S.active || !S.players || !S.players.length){
+    document.getElementById('join').style.display='flex';
+    document.getElementById('game').style.display='none';
+    _lastResultKey=null;
+    return;
+  }
+
   document.getElementById('join').style.display='none';
   document.getElementById('game').style.display='flex';
 
