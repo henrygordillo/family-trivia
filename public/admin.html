@@ -185,9 +185,16 @@ function expectedCell(obj, exp){
 function matrixTable(s){
   const tiers=[100,200,300,400,500];
   const byCatTier=s.byCatTier||{}, byCat=s.byCat||{}, byTier=s.byTier||{};
-  const cats=Object.keys(byCatTier).sort();
+  // Rows come from every mode's categories — so switching to a mode with no data
+  // still shows the full grid (empty cells), never a blank page that traps you.
+  const cats=(s.categoriesAll&&s.categoriesAll.length)
+    ? s.categoriesAll.slice().sort()
+    : Object.keys(byCatTier).sort();
   if(!cats.length) return '<div class="muted">No data.</div>';
-  let h='<div style="overflow-x:auto;"><table class="grid"><tr><th>Category</th>';
+  const empty=(s.total||0)===0
+    ? '<div class="muted" style="font-size:11px;margin-bottom:8px;">No games played in this mode yet — the grid below is empty.</div>'
+    : '';
+  let h=empty+'<div style="overflow-x:auto;"><table class="grid"><tr><th>Category</th>';
   tiers.forEach(t=>h+=`<th>${t}</th>`);
   h+='<th>Overall</th><th>Expected</th></tr>';
   cats.forEach(cat=>{
@@ -281,7 +288,7 @@ async function loadStats(){
   recomputeTargets();
   try{ s=await api('/api/stats/tiers?ruleset='+encodeURIComponent(SELECTED)+'&mode='+encodeURIComponent(MODE)); }
   catch(e){ area.innerHTML='<div class="muted">Couldn’t reach the server. Reload in a moment.</div>'; return; }
-  if(!s || (s.total||0)===0){ area.innerHTML='<div class="muted">No answers recorded under this ruleset yet.</div>'; return; }
+  if(!s || (s.totalAll||0)===0){ area.innerHTML='<div class="muted">No answers recorded under this ruleset yet.</div>'; return; }
   const modeStr=Object.keys(s.byMode||{}).map(m=>m+': '+s.byMode[m]).join('  ·  ')||'—';
   const stealStr=(s.steals&&s.steals.att>0)?(s.steals.ok+'/'+s.steals.att):'0';
   const noisy = s.total<NOISY ? `<div class="warn">⚠ Only ${s.total} answers under this ruleset — numbers are noisy. Accumulate more before tuning.</div>` : '';
@@ -342,8 +349,8 @@ document.getElementById('detailsBtn').addEventListener('click',()=>{
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live.
-const ADMIN_VERSION='3.7';
-const ADMIN_BUILT_AT='2026-07-13T13:24:25Z';   // UTC; shown in the device's local time
+const ADMIN_VERSION='3.8';
+const ADMIN_BUILT_AT='2026-07-13T14:20:57Z';   // UTC; shown in the device's local time
 
 function fmtBuildTime(iso){
   try{

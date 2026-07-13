@@ -6,8 +6,8 @@ const path = require('path');
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
-const VERSION = '3.7';
-const BUILT_AT = '2026-07-13T13:24:25Z';
+const VERSION = '3.8';
+const BUILT_AT = '2026-07-13T14:20:57Z';
 
 const app = express();
 app.use(cors());
@@ -235,7 +235,9 @@ app.get('/api/stats/tiers', async (req, res) => {
     if (r.correct) tiersByMode[m][r.tier].ok++;
   });
 
-  res.json({ byTier, byCat, byCatTier, byMode, steals, total, totalOK, trend, excluded, mode, modeCounts, tiersByMode, trendByMode });
+  res.json({ byTier, byCat, byCatTier, byMode, steals, total, totalOK, trend, excluded, mode, modeCounts, tiersByMode, trendByMode,
+    categoriesAll: [...new Set(all.map(r => r.category).filter(Boolean))].sort(),
+    totalAll: all.length });
 });
 
 // ── Difficulty rulesets: list versions for the stats dropdown ──────────────────
