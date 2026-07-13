@@ -53,6 +53,8 @@ table.grid td.dim{text-align:center;color:rgba(255,255,255,.4);font-weight:400;}
 .assistbtn{background:var(--gold);color:#14120e;border:none;border-radius:8px;padding:9px 18px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;letter-spacing:.5px;}
 .assistbtn:disabled{opacity:.55;cursor:default;}
 .sqlwrap{position:relative;}
+.spin{width:13px;height:13px;border:2px solid rgba(212,168,67,.25);border-top-color:var(--gold);border-radius:50%;display:inline-block;animation:spin .8s linear infinite;flex:0 0 auto;}
+@keyframes spin{to{transform:rotate(360deg);}}
 .copyall{background:transparent;color:var(--gold);border:1px solid rgba(212,168,67,.5);border-radius:8px;padding:8px 14px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;}
 .copyall:hover{background:rgba(212,168,67,.12);}
 .copybtn{position:absolute;top:8px;right:8px;background:rgba(212,168,67,.85);color:#14120e;border:none;border-radius:6px;padding:4px 10px;font-family:inherit;font-size:10px;font-weight:800;cursor:pointer;letter-spacing:.5px;z-index:2;}
@@ -389,7 +391,31 @@ async function runAssistant(){
   const payload=buildAnalysisPayload();
   if(!payload){ out.innerHTML='<div class="muted">Load stats first.</div>'; return; }
   btn.disabled=true; btn.textContent='Analysing…';
-  out.innerHTML='<div class="muted">Reading the numbers…</div>';
+
+  // This call takes a while (big prompt, long answer). Without a live indicator it
+  // reads as hung — so show cycling status plus a running clock.
+  const steps=[
+    'Reading the tier and mode numbers…',
+    'Checking which cells have enough data to trust…',
+    'Looking for the shape of the misses…',
+    'Working out which lever is at fault…',
+    'Drafting the recommendation…',
+    'Writing the SQL…',
+    'Almost there — long answers take a moment…'
+  ];
+  let si=0, t0=Date.now();
+  const paint=()=>{
+    const secs=Math.floor((Date.now()-t0)/1000);
+    out.innerHTML='<div class="muted" style="display:flex;align-items:center;gap:10px;">'+
+      '<span class="spin"></span>'+
+      `<span>${steps[Math.min(si,steps.length-1)]} <span style="opacity:.55;">(${secs}s)</span></span>`+
+    '</div>';
+  };
+  paint();
+  const tick=setInterval(paint,1000);
+  const advance=setInterval(()=>{ if(si<steps.length-1) si++; },5000);
+  const stop=()=>{ clearInterval(tick); clearInterval(advance); };
+
   try{
     const r=await fetch('/api/claude',{
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -399,12 +425,14 @@ async function runAssistant(){
     if(!r.ok) throw new Error('proxy '+r.status);
     const d=await r.json();
     const txt=(d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+    stop();
     LAST_ANALYSIS=txt||'';
     out.innerHTML=mdToHTML(txt||'(empty response)');
     wireCopyButtons(out);
     const ca=document.getElementById('assistCopyAll');
     if(ca && LAST_ANALYSIS){ ca.style.display='inline-block'; }
   }catch(e){
+    stop();
     out.innerHTML='<div class="muted">Analysis failed — '+(e.message||'try again')+'.</div>';
   }
   btn.disabled=false; btn.textContent='Analyse';
@@ -591,8 +619,8 @@ document.getElementById('detailsBtn').addEventListener('click',()=>{
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live.
-const ADMIN_VERSION='3.11';
-const ADMIN_BUILT_AT='2026-07-13T16:46:02Z';   // UTC; shown in the device's local time
+const ADMIN_VERSION='3.12';
+const ADMIN_BUILT_AT='2026-07-13T16:49:02Z';   // UTC; shown in the device's local time
 
 function fmtBuildTime(iso){
   try{
