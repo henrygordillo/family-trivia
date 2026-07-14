@@ -743,8 +743,8 @@ const BACKEND='https://family-trivia-y0om.onrender.com';
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.23';
-const APP_BUILT_AT='2026-07-14T01:28:10Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.24';
+const APP_BUILT_AT='2026-07-14T01:44:46Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -919,6 +919,9 @@ function publicState(){
   STATE_PUBLIC.forEach(k => { out[k] = G[k]; });
   out.seq = ++_stateSeq;        // the TV drops anything older than what it has
   out.sentAt = Date.now();      // ...and notices when we stop sending
+  // Foreground or not? A backgrounded tab beats slowly; a closed one never beats.
+  // The TV needs to know which silence it's looking at.
+  out.visible = (typeof document!=='undefined' && document.visibilityState==='visible');
   out.device = deviceLabel();
 
   // Is a game actually on? Without this the TV keeps showing the LAST game's
@@ -1007,6 +1010,13 @@ function show(id){
   var bb=document.getElementById('backBtn');
   if(bb) bb.style.display=(id==='qscreen'?'':'none');
 }
+// Re-arm the back trap. MUST be deferred: pushState called synchronously from
+// inside a popstate handler is unreliable on Android Chrome, and when it fails the
+// next back press leaves the app (taking the TV's room with it).
+function armBack(){
+  setTimeout(()=>{ try{ history.pushState({ftn:1},''); }catch(e){} }, 0);
+}
+
 function toast(msg){
   const t=document.getElementById('toast');
   t.textContent=msg; t.classList.add('show');
@@ -1280,6 +1290,24 @@ function commit(){
     _subscribers.forEach(fn => { try{ fn(snap); }catch(e){ console.warn('sync subscriber failed', e); } });
     pushToTV();                     // and the TV, if one is connected
   });
+}
+
+// A tile that cannot produce a question. It joins the blocked set, so the board's
+// playable total shrinks and the game can reach its end.
+function retireTile(key){
+  G.blocked = G.blocked || {};
+  G.blocked[key] = 'dead';
+  const t=document.getElementById('tile-'+key);
+  if(t){
+    t.className='q-tile blocked';
+    t.innerHTML='<span class="blk-star">\u2014</span><span class="blk-sub">Unavailable</span>';
+    t.onclick=function(){ toast('This tile couldn\u2019t generate a question.'); };
+  }
+  toast('Tile retired — carry on.');
+  refreshBoard();
+  // If that was the last playable tile, the game is now over.
+  const total=G.numCats*G.numQ-Object.keys(G.blocked||{}).length;
+  if(Object.keys(G.used).length >= total) endQuestion();
 }
 
 // The receiving end: a display-only screen renders EVERYTHING from a snapshot.
@@ -1803,6 +1831,7 @@ async function startGame(){
   // Block the leftover tiles so remaining tiles divide evenly by player count
   // (spread across distinct categories and tiers so it looks intentional).
   G.blocked={};
+  G.genFails={};
   const blockCount=(G.numCats*G.numQ)%G.numActivePlayers;
   if(blockCount>0){
     const cats=shuffle([...Array(G.numCats).keys()]);
@@ -1926,8 +1955,26 @@ async function pickQ(ci,qi){
     G.qData[key]=await fetchQ(G.categories[ci],qi);
   }catch(e){
     delete G.qData[key];
-    toast('Could not generate — tap the tile to retry, or pick another.');
-    show('board'); return;
+    G.genFails = G.genFails || {};
+    G.genFails[key] = (G.genFails[key]||0) + 1;
+
+    // First couple of failures: just let them retry or pick elsewhere.
+    if(G.genFails[key] < 2){
+      toast('Could not generate — tap the tile to retry, or pick another.');
+      show('board'); return;
+    }
+
+    // It has failed repeatedly. Offer to retire the tile so the game can still end.
+    show('board');
+    setTimeout(()=>{
+      const cat=G.categories[ci];
+      if(confirm(`"${cat} ${PTS[qi]}" won't generate a question.\n\nRetire this tile? The game will carry on without it (nobody scores it).`)){
+        retireTile(key);
+      } else {
+        toast('Tap the tile to try again, or pick another.');
+      }
+    }, 60);
+    return;
   }
 
   const qd=G.qData[key];
@@ -2551,12 +2598,20 @@ async function fetchQ(category, qIndex){
     if(m) s=m[0];
     try{ const o=JSON.parse(s); return (o&&o.question&&o.answer)?o:null; }catch(e){ return null; }
   };
-  const generateOnce=async()=>{
+  // Stripped to the bone: no avoid-list, no rules, no self-check. Used only when
+  // the full prompt has failed repeatedly — a plain question beats a dead tile.
+  const simplePrompt =
+    `Write ONE trivia question for the category "${category}".\n`+
+    `Difficulty: ${tier.name} — about ${target}% of players should get it right.\n`+
+    `The answer must be 1-5 words. Do not put the answer in the question.\n`+
+    `Reply with ONLY this JSON, nothing else: {"question":"...","answer":"..."}`;
+
+  const generateOnce=async(usePrompt)=>{
     try{
       const resp=await fetch(BACKEND+'/api/claude',{
         method:'POST', headers:{'Content-Type':'application/json'},
         body:JSON.stringify({model:rs('model'),max_tokens:700,
-          messages:[{role:'user',content:prompt}]})
+          messages:[{role:'user',content:usePrompt}]})
       });
       if(!resp.ok) return null;
       const d=await resp.json();
@@ -2567,11 +2622,15 @@ async function fetchQ(category, qIndex){
 
   let best=null, bestSeen=null;
   const MAX_TRIES=6;
+  let genFails=0;
   for(let attempt=0; attempt<MAX_TRIES; attempt++){
-    const qObj=await generateOnce();
+    // Escalate: once the rich prompt has failed a few times, stop fighting it.
+    const useSimple = genFails >= 2;
+    const qObj=await generateOnce(useSimple ? simplePrompt : prompt);
     if(!qObj){
       // Generation failed — brief backoff, then retry (doesn't consume the dedup budget)
-      _log.tries.push({n:attempt+1, result:'gen-fail'});
+      genFails++;
+      _log.tries.push({n:attempt+1, result:'gen-fail', simple:useSimple});
       await new Promise(r=>setTimeout(r,500));
       continue;
     }
@@ -3116,7 +3175,7 @@ function init(){
       if(TV_CODE){
         disconnectTV();
         toast('\ud83d\udcfa TV disconnected');
-        try{ history.pushState({g:1},''); }catch(e){}   // absorb this back press
+        armBack();                 // absorb this press; the next one exits cleanly
       }
       return;
     }
@@ -3124,15 +3183,14 @@ function init(){
     if(onQuestion){
       // Back from a question → return to the tiles, keep the game running
       backToBoard();
-      try{ history.pushState({g:1},''); }catch(e){}
+      armBack();
     } else if(confirm('Exit the current game? Your progress will be lost.')){
       _inGame=false;
-      pushToTV();            // stay paired for now, but tell the TV the game is over
+      if(TV_CODE) disconnectTV();     // don't leave the TV on a game that's over
       show('setup');
-      try{ history.pushState({g:1},''); }catch(e){}   // keep the trap armed for the TV
+      armBack();
     } else {
-      // Stay on the board — re-arm the trap
-      try{ history.pushState({g:1},''); }catch(e){}
+      armBack();                       // stay on the board — keep the trap armed
     }
   });
   // Backstop for tab refresh/close while a game is on

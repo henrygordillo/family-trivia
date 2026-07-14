@@ -276,8 +276,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='3.16';
-const TV_BUILT_AT='2026-07-14T01:28:10Z';
+const TV_VERSION='3.17';
+const TV_BUILT_AT='2026-07-14T01:44:46Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -537,17 +537,32 @@ let _seq=0, _lastHeard=0;
 
 // The phone heartbeats every 8s. If we stop hearing it (back button, closed tab,
 // dead wifi), go back to the join screen instead of sitting on a frozen game.
-// Browsers throttle background tabs to ~1 heartbeat per minute, so a 25s timeout
-// treated "you switched windows" as "the phone is gone". Wait properly long.
-const PHONE_TIMEOUT_MS = 150000;   // 2.5 min — comfortably past any throttling
+// Two very different silences:
+//   • the phone is in the FOREGROUND and stops beating  → it's gone. React fast.
+//   • the phone is BACKGROUNDED                          → the browser throttled its
+//     heartbeat to ~1/min. Be patient, it's still alive.
+// Without this distinction we either dropped live phones or clung to dead ones.
+const TIMEOUT_ACTIVE = 30000;    // was in the foreground → 30s of silence means gone
+const TIMEOUT_HIDDEN = 180000;   // was backgrounded → tolerate heavy throttling
+let _phoneVisible = true;
+
+function dropPhone(){
+  _lastHeard=0; _seq=0;
+  setPaired(false, '');
+  document.getElementById('join').style.display='flex';
+  document.getElementById('game').style.display='none';
+}
+
 setInterval(()=>{
-  if(_lastHeard && Date.now()-_lastHeard > PHONE_TIMEOUT_MS){
-    _lastHeard=0; _seq=0;
-    setPaired(false, '');
-    document.getElementById('join').style.display='flex';
-    document.getElementById('game').style.display='none';
-  }
-}, 10000);
+  if(!_lastHeard) return;
+  const limit = _phoneVisible ? TIMEOUT_ACTIVE : TIMEOUT_HIDDEN;
+  if(Date.now()-_lastHeard > limit) dropPhone();
+}, 5000);
+
+// Escape hatch: any remote/keyboard press on the TV resets it back to a fresh code.
+window.addEventListener('keydown', (e)=>{
+  if(e.key==='r' || e.key==='R' || e.key==='Escape') location.reload();
+});
 
 function render(S){
   if(!S) return;
@@ -559,6 +574,7 @@ function render(S){
     _seq = S.seq;
   }
   _lastHeard = Date.now();
+  if(typeof S.visible==='boolean') _phoneVisible = S.visible;
 
   // A phone has pushed something — so we're paired, whatever it says.
   setPaired(true, S.device);
