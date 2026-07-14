@@ -743,8 +743,8 @@ const BACKEND='https://family-trivia-y0om.onrender.com';
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.22';
-const APP_BUILT_AT='2026-07-14T01:08:18Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.23';
+const APP_BUILT_AT='2026-07-14T01:28:10Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1150,6 +1150,9 @@ async function connectTV(code){
   }catch(e){ return {ok:false, err:'Could not reach the server.'}; }
   TV_CODE = code;
   try{ localStorage.setItem('ftn_tv', code); }catch(e){}
+  // Arm a history entry so a back gesture reaches our popstate handler and we can
+  // tear the room down, instead of the page being bfcached with the TV still live.
+  try{ history.pushState({g:1},''); }catch(e){}
   pushToTV();                       // send the current state immediately
   return {ok:true};
 }
@@ -3107,7 +3110,16 @@ function init(){
 
   // Guard accidental exit: intercept the back gesture during a game
   window.addEventListener('popstate',()=>{
-    if(!_inGame) return;
+    // Not in a game, but a TV is still attached (e.g. on setup): the back gesture
+    // would otherwise leave the TV stranded in a dead room.
+    if(!_inGame){
+      if(TV_CODE){
+        disconnectTV();
+        toast('\ud83d\udcfa TV disconnected');
+        try{ history.pushState({g:1},''); }catch(e){}   // absorb this back press
+      }
+      return;
+    }
     const onQuestion=document.getElementById('qscreen').classList.contains('active');
     if(onQuestion){
       // Back from a question → return to the tiles, keep the game running
@@ -3115,8 +3127,9 @@ function init(){
       try{ history.pushState({g:1},''); }catch(e){}
     } else if(confirm('Exit the current game? Your progress will be lost.')){
       _inGame=false;
-      pushToTV();            // stay paired, but tell the TV the game is over
+      pushToTV();            // stay paired for now, but tell the TV the game is over
       show('setup');
+      try{ history.pushState({g:1},''); }catch(e){}   // keep the trap armed for the TV
     } else {
       // Stay on the board — re-arm the trap
       try{ history.pushState({g:1},''); }catch(e){}

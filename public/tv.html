@@ -108,7 +108,9 @@ body{
 #qcat{font-size:1.4vw;letter-spacing:.35vw;text-transform:uppercase;color:var(--gold);}
 #qpts{font-family:'Playfair Display',serif;font-size:3.6vw;font-weight:900;color:var(--gold-hi);line-height:1.1;}
 #qtext{font-family:'Playfair Display',serif;font-size:3.2vw;font-weight:700;line-height:1.3;max-width:82vw;}
-#qwho{margin-top:3vh;font-size:1.7vw;color:rgba(255,255,255,.6);}
+/* Sits with the category, points and timer — everything you need to know ABOUT
+   the question, above the question itself. */
+#qwho{margin-top:.6vh;font-size:1.5vw;color:rgba(255,255,255,.55);min-height:1.8vw;}
 #qwho b{color:var(--gold-hi);}
 #qans{margin-top:2.5vh;display:none;}
 #qans .lbl{display:block;font-size:1vw;letter-spacing:.25vw;text-transform:uppercase;color:rgba(255,255,255,.45);font-weight:600;margin-bottom:.6vh;}
@@ -119,7 +121,7 @@ body{
 /* Countdown — the phone starts it, the TV runs its own so it animates smoothly
    instead of us pushing 30 updates a question. */
 /* The timer belongs WITH the category and points, not floating in a corner. */
-.qhead{display:flex;align-items:center;justify-content:center;gap:2.5vw;margin-bottom:2.5vh;}
+.qhead{display:flex;align-items:center;justify-content:center;gap:3vw;margin-bottom:3vh;}
 .qhead-txt{text-align:center;}
 #timer{display:none;flex-direction:column;align-items:center;gap:.4vh;}
 #timerRing{transform:rotate(-90deg);}
@@ -246,6 +248,7 @@ body{
       <div class="qhead-txt">
         <div id="qcat"></div>
         <div id="qpts"></div>
+        <div id="qwho"></div>
       </div>
       <div id="timer">
         <div style="position:relative;">
@@ -259,7 +262,6 @@ body{
       </div>
     </div>
     <div id="qtext"></div>
-    <div id="qwho"></div>
     <div id="qans">
       <span class="lbl">Answer</span>
       <div id="qanstext"></div>
@@ -274,8 +276,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='3.15';
-const TV_BUILT_AT='2026-07-14T01:08:18Z';
+const TV_VERSION='3.16';
+const TV_BUILT_AT='2026-07-14T01:28:10Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
