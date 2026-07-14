@@ -743,8 +743,8 @@ const BACKEND='https://family-trivia-y0om.onrender.com';
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.25';
-const APP_BUILT_AT='2026-07-14T01:53:56Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.26';
+const APP_BUILT_AT='2026-07-14T02:00:43Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1011,6 +1011,71 @@ function show(id){
   if(bb) bb.style.display=(id==='qscreen'?'':'none');
   ensureBackTrap();     // every transition tops the trap back up
 }
+// ── GAME RESUME ───────────────────────────────────────────────────────────
+// A back gesture can always escape a mobile browser, whatever we do. Rather than
+// keep fighting it, make leaving harmless: the game is saved continuously, and
+// re-opening the app offers to carry on exactly where it left off.
+const SAVE_KEY = 'ftn_game';
+
+function saveGame(){
+  if(!_inGame || !G.players || !G.players.length) return;
+  try{
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      at: Date.now(),
+      tv: TV_CODE || null,
+      mode: gameMode,
+      rulesetVersion: rulesetVersion(),
+      g: {
+        players:G.players, scores:G.scores, categories:G.categories,
+        numCats:G.numCats, numQ:G.numQ,
+        turnOrder:G.turnOrder, turnPos:G.turnPos, nextPickerIdx:G.nextPickerIdx,
+        numActivePlayers:G.numActivePlayers,
+        used:G.used, blocked:G.blocked, genFails:G.genFails,
+        qData:G.qData, askedQuestions:G.askedQuestions, attempts:G.attempts,
+        streak:G.streak, pickedThisRound:G.pickedThisRound,
+        roundNumber:G.roundNumber, roundQuestionCount:G.roundQuestionCount,
+        judgeMode:G.judgeMode, hjJudgeIdx:G.hjJudgeIdx,
+        playerProfiles:G.playerProfiles, setupNames:G.setupNames,
+      }
+    }));
+  }catch(e){}
+}
+function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
+
+function loadSave(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw) return null;
+    const s=JSON.parse(raw);
+    if(!s || !s.g || !Array.isArray(s.g.players) || !s.g.players.length) return null;
+    // Stale games aren't worth offering.
+    if(Date.now()-(s.at||0) > 12*60*60*1000){ clearSave(); return null; }
+    // Already finished? Nothing to resume.
+    const total=s.g.numCats*s.g.numQ-Object.keys(s.g.blocked||{}).length;
+    if(Object.keys(s.g.used||{}).length >= total){ clearSave(); return null; }
+    return s;
+  }catch(e){ return null; }
+}
+
+async function resumeGame(s){
+  Object.assign(G, s.g);
+  G.curCat=null; G.curQ=null; G.curPts=0;
+  G.answererIdx=null; G.wrongPlayers=[]; G.stealMode=false;
+  G.lastResult=null; G.pendingStealIdx=null; G.roundEnded=null;
+  G.phase='pick';
+  if(s.mode) gameMode=s.mode;
+  await loadActiveRuleset();
+  buildBoard();
+  show('board');
+  // Re-attach the TV if it's still holding the same room.
+  if(s.tv){
+    const r=await connectTV(s.tv);
+    if(r.ok) updateTVBadge();
+  }
+  pushToTV();
+  toast('Game resumed');
+}
+
 // ── Back-gesture trap ─────────────────────────────────────────────────────
 // A back press must never silently drop out of the app while a game is running
 // or a TV is attached — it strands the TV in a dead room and loses the game with
@@ -1298,7 +1363,7 @@ let _commitQueued = false;
 function onStateChange(fn){ _subscribers.push(fn); }
 
 function commit(){
-  if(!_subscribers.length && !TV_CODE) return;
+  if(!_subscribers.length && !TV_CODE){ saveGame(); return; }   // still persist locally
   if(_commitQueued) return;           // coalesce a burst of renders into one broadcast
   _commitQueued = true;
   Promise.resolve().then(()=>{
@@ -1306,6 +1371,7 @@ function commit(){
     const snap = publicState();
     _subscribers.forEach(fn => { try{ fn(snap); }catch(e){ console.warn('sync subscriber failed', e); } });
     pushToTV();                     // and the TV, if one is connected
+    saveGame();                     // ...and to disk, so a stray back press costs nothing
   });
 }
 
@@ -2476,6 +2542,7 @@ function endQuestion(){
   if(sc) sc.style.display='none';
   const total=G.numCats*G.numQ-Object.keys(G.blocked||{}).length;
   if(Object.keys(G.used).length>=total){
+    clearSave();                     // finished — nothing to resume
     show('end'); buildEnd();
   } else {
     show('board'); refreshBoard();
@@ -3077,6 +3144,21 @@ function init(){
   }catch(e){}
   renderSelectedSummary();
   renderBuildFooter();
+
+  // A game left running — a stray back press, a closed tab, a dead battery.
+  // Offer it back rather than losing it.
+  const saved = loadSave();
+  if(saved){
+    const done = Object.keys(saved.g.used||{}).length;
+    const total = saved.g.numCats*saved.g.numQ - Object.keys(saved.g.blocked||{}).length;
+    setTimeout(()=>{
+      if(confirm(`Resume your game?\n\n${saved.g.players.join(', ')}\n${done} of ${total} tiles played.`)){
+        resumeGame(saved);
+      } else {
+        clearSave();
+      }
+    }, 400);
+  }
   document.getElementById('openPickerBtn').addEventListener('click',openPicker);
   document.getElementById('pickerDoneBtn').addEventListener('click',closePicker);
   document.getElementById('reloadRosterBtn').addEventListener('click',loadRoster);
@@ -3213,7 +3295,8 @@ function init(){
     // On the board. Leaving means abandoning the game — always ask.
     if(confirm('Exit the current game? Your progress will be lost.')){
       _inGame=false;
-      if(TV_CODE) disconnectTV();         // never leave the TV on a dead game
+      clearSave();                         // an intentional exit really does discard it
+      if(TV_CODE) disconnectTV();          // never leave the TV on a dead game
       show('setup');
       _backDepth=0;                        // trap released — a further back exits
     } else {
