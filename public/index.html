@@ -743,8 +743,8 @@ const BACKEND='https://family-trivia-y0om.onrender.com';
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.24';
-const APP_BUILT_AT='2026-07-14T01:44:46Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.25';
+const APP_BUILT_AT='2026-07-14T01:53:56Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1009,12 +1009,29 @@ function show(id){
   _inGame=(id==='board'||id==='qscreen');
   var bb=document.getElementById('backBtn');
   if(bb) bb.style.display=(id==='qscreen'?'':'none');
+  ensureBackTrap();     // every transition tops the trap back up
 }
-// Re-arm the back trap. MUST be deferred: pushState called synchronously from
-// inside a popstate handler is unreliable on Android Chrome, and when it fails the
-// next back press leaves the app (taking the TV's room with it).
-function armBack(){
-  setTimeout(()=>{ try{ history.pushState({ftn:1},''); }catch(e){} }, 0);
+// ── Back-gesture trap ─────────────────────────────────────────────────────
+// A back press must never silently drop out of the app while a game is running
+// or a TV is attached — it strands the TV in a dead room and loses the game with
+// no warning. One pushState isn't enough: re-arming inside a popstate handler is
+// unreliable on Android Chrome, so we keep a small BUFFER of entries and top it
+// up on every screen change.
+let _backDepth = 0;
+const BACK_BUFFER = 3;
+
+function armBack(n){
+  const want = n || 1;
+  setTimeout(()=>{
+    for(let i=0;i<want;i++){
+      try{ history.pushState({ftn:1},''); _backDepth++; }catch(e){}
+    }
+  }, 0);
+}
+// Keep the buffer topped up whenever we're somewhere a back press matters.
+function ensureBackTrap(){
+  if(!_inGame && !TV_CODE) return;
+  if(_backDepth < 1) armBack(BACK_BUFFER);
 }
 
 function toast(msg){
@@ -1162,7 +1179,7 @@ async function connectTV(code){
   try{ localStorage.setItem('ftn_tv', code); }catch(e){}
   // Arm a history entry so a back gesture reaches our popstate handler and we can
   // tear the room down, instead of the page being bfcached with the TV still live.
-  try{ history.pushState({g:1},''); }catch(e){}
+  armBack(BACK_BUFFER);
   pushToTV();                       // send the current state immediately
   return {ok:true};
 }
@@ -1770,7 +1787,7 @@ async function startGame(){
     return;
   }
   // Trap the phone/browser back gesture so an accidental back doesn't kill the game
-  try{ history.pushState({g:1},''); }catch(e){}
+  armBack(BACK_BUFFER);
   const names=selectedPlayers.map(p=>p.nickname);
 
   // Build playerProfiles map: nickname -> player object (with id for DB)
@@ -3169,28 +3186,38 @@ function init(){
 
   // Guard accidental exit: intercept the back gesture during a game
   window.addEventListener('popstate',()=>{
-    // Not in a game, but a TV is still attached (e.g. on setup): the back gesture
+    if(_backDepth > 0) _backDepth--;      // this press consumed one of our entries
+
+    // Not in a game, but a TV is still attached (e.g. on setup): a back press here
     // would otherwise leave the TV stranded in a dead room.
     if(!_inGame){
       if(TV_CODE){
-        disconnectTV();
-        toast('\ud83d\udcfa TV disconnected');
-        armBack();                 // absorb this press; the next one exits cleanly
+        if(confirm('Leave? The TV will be disconnected.')){
+          disconnectTV();
+          _backDepth=0;                   // stop trapping — let the next press exit
+          return;
+        }
+        armBack(BACK_BUFFER);
       }
       return;
     }
+
     const onQuestion=document.getElementById('qscreen').classList.contains('active');
     if(onQuestion){
       // Back from a question → return to the tiles, keep the game running
       backToBoard();
-      armBack();
-    } else if(confirm('Exit the current game? Your progress will be lost.')){
+      armBack(BACK_BUFFER);
+      return;
+    }
+
+    // On the board. Leaving means abandoning the game — always ask.
+    if(confirm('Exit the current game? Your progress will be lost.')){
       _inGame=false;
-      if(TV_CODE) disconnectTV();     // don't leave the TV on a game that's over
+      if(TV_CODE) disconnectTV();         // never leave the TV on a dead game
       show('setup');
-      armBack();
+      _backDepth=0;                        // trap released — a further back exits
     } else {
-      armBack();                       // stay on the board — keep the trap armed
+      armBack(BACK_BUFFER);                // staying — keep the trap deep
     }
   });
   // Backstop for tab refresh/close while a game is on
