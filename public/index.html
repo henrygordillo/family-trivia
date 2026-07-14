@@ -743,8 +743,8 @@ const BACKEND='https://family-trivia-y0om.onrender.com';
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.20';
-const APP_BUILT_AT='2026-07-14T00:38:34Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.21';
+const APP_BUILT_AT='2026-07-14T00:53:54Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1252,8 +1252,15 @@ async function pushToTV(){
 }
 
 // Heartbeat: a browser back-gesture doesn't always fire pagehide, so the TV could
-// sit on a dead room forever. A steady ping lets the TV notice we're gone.
+// otherwise sit on a dead room forever. A steady ping lets the TV notice we're gone.
 setInterval(()=>{ if(TV_CODE) pushToTV(); }, 8000);
+
+// ...but a BACKGROUND tab has its timers throttled to roughly once a minute, so
+// that heartbeat goes quiet whenever this tab isn't in front. Push the moment we
+// come back, so the TV never mistakes "not in focus" for "gone".
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='visible' && TV_CODE) pushToTV();
+});
 
 let _subscribers = [];
 let _commitQueued = false;

@@ -166,14 +166,30 @@ body{
   padding:1.2vh 2.5vw;border-radius:2vw;border:none;cursor:pointer;display:none;
   animation:pulse 2s ease-in-out infinite;}
 
-/* End of a round — the phone announces it, so the room should hear it too. */
-#roundEnd{display:none;position:absolute;top:0;left:0;right:0;
-  background:linear-gradient(90deg,rgba(212,168,67,0),rgba(212,168,67,.22),rgba(212,168,67,0));
-  border-top:2px solid var(--gold);border-bottom:2px solid var(--gold);
-  padding:1.2vh 0;text-align:center;z-index:8;animation:slideIn .5s ease-out;}
-#roundEnd .t{font-family:'Playfair Display',serif;font-size:2vw;font-weight:900;color:var(--gold-hi);line-height:1.1;}
-#roundEnd .s{font-size:1.1vw;color:rgba(255,255,255,.6);margin-top:.3vh;}
-@keyframes slideIn{from{transform:translateY(-100%);opacity:0;}to{transform:translateY(0);opacity:1;}}
+/* End of a round — a proper panel, not a translucent strip. Same numbers the
+   phone's callout shows: main vs steal, attempts, hit rate, points, total. */
+#roundEnd{display:none;flex:1;min-height:0;flex-direction:column;align-items:center;
+  justify-content:center;padding:2vh 4vw;animation:pop .45s cubic-bezier(.2,.9,.3,1.2);}
+#roundEnd .t{font-family:'Playfair Display',serif;font-size:3.4vw;font-weight:900;
+  color:var(--gold-hi);line-height:1.1;margin-bottom:.5vh;}
+#roundEnd .s{font-size:1.5vw;color:rgba(255,255,255,.6);margin-bottom:2.5vh;}
+#roundEnd .s b{color:#fff;}
+.rtab{border-collapse:collapse;width:82vw;max-width:82vw;}
+.rtab th{font-size:.9vw;font-weight:700;letter-spacing:.1vw;text-transform:uppercase;
+  color:rgba(255,255,255,.4);padding:.6vh .8vw;}
+.rtab thead tr:first-child th{border-bottom:1px solid rgba(255,255,255,.15);}
+.rtab .grp{color:rgba(255,255,255,.55);}
+.rtab .grp.main{color:var(--gold);}
+.rtab .grp.steal{color:var(--purple-hi);}
+.rtab td{padding:1vh .8vw;text-align:center;font-size:1.4vw;font-weight:600;
+  color:rgba(255,255,255,.75);border-top:1px solid rgba(255,255,255,.07);}
+.rtab td.nm{text-align:left;font-size:1.7vw;font-weight:700;color:#fff;white-space:nowrap;}
+.rtab td.tot{text-align:right;font-family:'Playfair Display',serif;font-size:2.2vw;
+  font-weight:900;color:var(--gold-hi);}
+.rtab tr.lead td{background:rgba(212,168,67,.1);}
+.rtab tr.lead td.nm{color:var(--gold-hi);}
+.rtab .dim{color:rgba(255,255,255,.3);}
+.rtab .sep{border-left:1px solid rgba(255,255,255,.12);}
 
 .offline{position:fixed;bottom:2.5vh;left:0;right:0;text-align:center;font-size:1vw;color:var(--red);display:none;}
 .tag{position:fixed;bottom:1vh;left:0;right:0;text-align:center;font-size:.75vw;
@@ -205,8 +221,12 @@ body{
 </div>
 
 <div id="game" style="position:relative;">
-  <div id="roundEnd"><div class="t"></div><div class="s"></div></div>
   <div class="scores" id="scores"></div>
+  <div id="roundEnd">
+    <div class="t"></div>
+    <div class="s"></div>
+    <div id="roundTable"></div>
+  </div>
   <div id="board"></div>
   <div id="gen">
     <div class="spinner"></div>
@@ -246,8 +266,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='3.13';
-const TV_BUILT_AT='2026-07-14T00:38:34Z';
+const TV_VERSION='3.14';
+const TV_BUILT_AT='2026-07-14T00:53:54Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -328,6 +348,53 @@ function listen(){
 
 // ── Render the snapshot ───────────────────────────────────────────────────
 let _lastResultKey = null;      // so we only flash once per verdict
+
+// ── End of round ──────────────────────────────────────────────────────────
+// Mirrors the phone's callout: main vs steal, attempts, hit rate, points, total.
+function renderRoundEnd(S){
+  const re=document.getElementById('roundEnd');
+  const rows=S.players.map((p,i)=>{
+    const att=(S.attempts||[]).filter(a=>a.player===p);
+    const main=att.filter(a=>a.type==='main');
+    const stl =att.filter(a=>a.type==='steal');
+    const tally=arr=>{
+      const ok=arr.filter(a=>a.correct).length;
+      const pts=arr.filter(a=>a.correct).reduce((s,a)=>s+(a.pts||0),0);
+      return { n:arr.length, ok, pct: arr.length?Math.round(ok/arr.length*100):null, pts };
+    };
+    return { name:p, score:S.scores[i], main:tally(main), steal:tally(stl) };
+  }).sort((a,b)=>b.score-a.score);
+
+  const lead=rows[0];
+  const tied=rows.filter(r=>r.score===lead.score).length>1;
+  re.querySelector('.t').textContent = `End of Round ${S.roundEnded.round}`;
+  re.querySelector('.s').innerHTML = lead.score>0
+    ? (tied ? `Tied at <b>${lead.score}</b>` : `<b>${lead.name}</b> leads with <b>${lead.score}</b>`)
+    : 'Still all square';
+
+  const cell=(t)=> t.n
+    ? `<td>${t.ok}/${t.n}</td><td>${t.pct}%</td><td>${t.pts}</td>`
+    : `<td class="dim">—</td><td class="dim">—</td><td class="dim">—</td>`;
+
+  let h='<table class="rtab"><thead>'
+    + '<tr><th></th>'
+    + '<th colspan="3" class="grp main sep">Own picks</th>'
+    + '<th colspan="3" class="grp steal sep">Steals</th>'
+    + '<th class="sep"></th></tr>'
+    + '<tr><th style="text-align:left;">Player</th>'
+    + '<th class="sep">Got</th><th>Rate</th><th>Pts</th>'
+    + '<th class="sep">Got</th><th>Rate</th><th>Pts</th>'
+    + '<th class="sep" style="text-align:right;">Total</th></tr></thead><tbody>';
+  rows.forEach((r,idx)=>{
+    h+=`<tr class="${idx===0&&r.score>0?'lead':''}">`
+     + `<td class="nm">${idx===0&&r.score>0&&!tied?'👑 ':''}${r.name}</td>`
+     + cell(r.main).replace('<td>','<td class="sep">').replace('<td class="dim">','<td class="dim sep">')
+     + cell(r.steal).replace('<td>','<td class="sep">').replace('<td class="dim">','<td class="dim sep">')
+     + `<td class="tot sep">${r.score}</td></tr>`;
+  });
+  h+='</tbody></table>';
+  document.getElementById('roundTable').innerHTML=h;
+}
 
 // ── Countdown ─────────────────────────────────────────────────────────────
 // The phone tells us ONCE that a timer started (id, total, seconds left). We run
@@ -445,14 +512,17 @@ let _seq=0, _lastHeard=0;
 
 // The phone heartbeats every 8s. If we stop hearing it (back button, closed tab,
 // dead wifi), go back to the join screen instead of sitting on a frozen game.
+// Browsers throttle background tabs to ~1 heartbeat per minute, so a 25s timeout
+// treated "you switched windows" as "the phone is gone". Wait properly long.
+const PHONE_TIMEOUT_MS = 150000;   // 2.5 min — comfortably past any throttling
 setInterval(()=>{
-  if(_lastHeard && Date.now()-_lastHeard > 25000){
+  if(_lastHeard && Date.now()-_lastHeard > PHONE_TIMEOUT_MS){
     _lastHeard=0; _seq=0;
     setPaired(false, '');
     document.getElementById('join').style.display='flex';
     document.getElementById('game').style.display='none';
   }
-}, 5000);
+}, 10000);
 
 function render(S){
   if(!S) return;
@@ -484,21 +554,6 @@ function render(S){
   document.getElementById('game').style.display='flex';
 
   handleSpeak(S.speak);
-
-  // ── Round closed ──
-  const re=document.getElementById('roundEnd');
-  if(S.roundEnded){
-    const sorted=S.players.map((p,i)=>({p,s:S.scores[i]})).sort((a,b)=>b.s-a.s);
-    const lead=sorted[0];
-    const tied=sorted.filter(x=>x.s===lead.s).length>1;
-    re.querySelector('.t').textContent = `End of Round ${S.roundEnded.round}`;
-    re.querySelector('.s').innerHTML = lead.s>0
-      ? (tied ? `Tied at <b>${lead.s}</b>` : `<b>${lead.p}</b> leads with <b>${lead.s}</b>`)
-      : 'Still all square';
-    re.style.display='block';
-  } else {
-    re.style.display='none';
-  }
 
   const q = S.currentQuestion;
   const questionOpen = !!(q && q.text);
@@ -571,10 +626,18 @@ function render(S){
     </div>`;
   }).join('');
 
-  // ── Board / generating / question — exactly one at a time ──
-  document.getElementById('board').style.display   = (!questionOpen && !generating) ? 'grid' : 'none';
-  document.getElementById('gen').style.display     = generating ? 'flex' : 'none';
-  document.getElementById('qscreen').style.display = questionOpen ? 'flex' : 'none';
+  // ── Round end / board / generating / question — exactly one at a time ──
+  const roundOver = !!S.roundEnded;
+  document.getElementById('roundEnd').style.display = roundOver ? 'flex' : 'none';
+  document.getElementById('board').style.display   = (!roundOver && !questionOpen && !generating) ? 'grid' : 'none';
+  document.getElementById('gen').style.display     = (!roundOver && generating) ? 'flex' : 'none';
+  document.getElementById('qscreen').style.display = (!roundOver && questionOpen) ? 'flex' : 'none';
+
+  if(roundOver){
+    renderRoundEnd(S);
+    stopTimer();
+    return;
+  }
 
   if(generating){
     const g=S.generating;
@@ -616,8 +679,8 @@ function render(S){
   const who=S.players[S.answererIdx];
   let whoTxt='';
   if(who && !S.lastResult){
-    if(ph==='reading')        whoTxt = `Get ready, <b>${who}</b>`;
-    else if(ph==='answering') whoTxt = S.stealMode ? `<b>${who}</b> is stealing` : `<b>${who}</b> is answering`;
+    if(ph==='reading')        whoTxt = `Get ready to answer, <b>${who}</b>`;
+    else if(ph==='answering') whoTxt = S.stealMode ? `Steal it, <b>${who}</b>` : `Answer the question, <b>${who}</b>`;
   }
   document.getElementById('qwho').innerHTML = whoTxt;
 
