@@ -236,8 +236,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='3.11';
-const TV_BUILT_AT='2026-07-13T23:53:07Z';
+const TV_VERSION='3.12';
+const TV_BUILT_AT='2026-07-14T00:02:25Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -591,45 +591,62 @@ function render(S){
   runTimer(S.timer);
 
   // ── THE RESULT BEAT ──
-  // Without this, a wrong answer just quietly swapped the name at the bottom and
-  // nobody noticed. Now the room gets a loud, unmissable verdict.
+  // Phase-driven, like the status. stealMode STAYS true after a failed steal, so
+  // testing it directly made the TV keep saying "X is stealing" long after X had
+  // already missed and the question was over.
   const res=document.getElementById('result');
   const r=S.lastResult;
-  if(r){
-    // TWO BEATS, in step with the judge:
-    //   'steal-offer' → the judge tapped Incorrect. Announce the miss and who may steal.
-    //   stealMode     → the judge tapped Ready to Steal. Now it's live.
-    const offering = (S.phase==='steal-offer' && S.pendingStealIdx!=null);
-    const key = `${r.player}|${r.correct}|${r.pts}|${r.steal}|${S.phase}|${S.stealMode}`;
-    res.className = r.correct ? 'right' : (S.stealMode && !S.pendingStealIdx ? 'stealing' : 'wrong');
-    if(r.correct){
-      res.innerHTML = `✓ ${r.player} got it${r.steal?' — STOLEN!':''}`
-        + `<span class="sub">+${r.pts} points</span>`;
-    } else if(offering){
-      const stealer = S.players[S.pendingStealIdx];
-      res.innerHTML = `✗ ${r.player} missed`
-        + `<span class="sub">${stealer} can steal it</span>`;
-    } else if(S.stealMode){
-      const stealer = S.players[S.answererIdx];
-      res.innerHTML = `⚡ ${stealer} is stealing`
-        + `<span class="sub">${r.player} missed \u2014 half points up for grabs</span>`;
+
+  if(!r){
+    res.style.display='none';
+    _lastResultKey=null;
+  } else {
+    let cls, html;
+
+    if(ph==='steal-offer' && S.pendingStealIdx!=null){
+      // Someone missed and a steal is on the table — works for the 1st miss and
+      // for a 2nd/3rd stealer alike.
+      cls='wrong';
+      html = `✗ ${r.player} missed`
+           + `<span class="sub">${S.players[S.pendingStealIdx]} can steal it</span>`;
+
+    } else if(ph==='answering' && S.stealMode){
+      cls='stealing';
+      html = `⚡ ${S.players[S.answererIdx]} is stealing`
+           + `<span class="sub">half points up for grabs</span>`;
+
+    } else if(ph==='reveal'){
+      if(r.correct){
+        cls='right';
+        html = `✓ ${r.player} got it${r.steal?' — STOLEN!':''}`
+             + `<span class="sub">+${r.pts} points</span>`;
+      } else {
+        // Everyone had a go and nobody got it.
+        cls='wrong';
+        html = `✗ Nobody got it`
+             + `<span class="sub">The answer was above</span>`;
+      }
+
     } else {
-      res.innerHTML = `✗ ${r.player} missed`
-        + `<span class="sub">Nobody stole it</span>`;
+      cls='wrong';
+      html = `✗ ${r.player} missed`;
     }
+
+    const key = `${ph}|${r.player}|${r.correct}|${r.pts}|${S.stealMode}|${S.pendingStealIdx}`;
+    res.className = cls;
+    res.innerHTML = html;
     res.style.display='block';
+
     if(key !== _lastResultKey){
       _lastResultKey = key;
       const body=document.body;
       body.classList.remove('flash-right','flash-wrong');
       void body.offsetWidth;                        // restart the animation
-      body.classList.add(r.correct ? 'flash-right' : 'flash-wrong');
+      body.classList.add(r.correct && ph==='reveal' ? 'flash-right' : 'flash-wrong');
       setTimeout(()=>body.classList.remove('flash-right','flash-wrong'), 800);
     }
-  } else {
-    res.style.display='none';
-    _lastResultKey=null;
   }
+
 }
 
 init();
