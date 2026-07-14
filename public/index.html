@@ -743,8 +743,8 @@ const BACKEND='https://family-trivia-y0om.onrender.com';
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.21';
-const APP_BUILT_AT='2026-07-14T00:53:54Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.22';
+const APP_BUILT_AT='2026-07-14T01:08:18Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -2019,6 +2019,10 @@ function setInfoText(phase){
 // ═══════════════════════════════════════════════════════════════════
 function goToAnswer(){
   window.speechSynthesis?.cancel();
+  // The reading is over — we're on the clock now. Without this the phase stayed
+  // 'reading' and the TV never moved past "Get ready to answer".
+  G.phase='answering';
+  renderTables(G.answererIdx);
   if(G.judgeMode==='human'){
     // Stay on phQuestion, show HJ panel
     document.getElementById('nextBtn').style.display='none';
@@ -2413,11 +2417,19 @@ function endQuestion(){
 
 // The browser back gesture / closing the tab doesn't route through endGame(),
 // so the TV was left connected to a dead room. Close it on the way out.
-window.addEventListener('pagehide', ()=>{
-  if(TV_CODE && navigator.sendBeacon){
-    navigator.sendBeacon(BACKEND+'/api/room/'+TV_CODE+'/close');
-  }
-});
+function closeRoomBeacon(){
+  if(!TV_CODE) return;
+  const url = BACKEND+'/api/room/'+TV_CODE+'/close';
+  try{
+    if(navigator.sendBeacon) navigator.sendBeacon(url);
+    else fetch(url,{method:'POST',keepalive:true}).catch(()=>{});
+  }catch(e){}
+}
+// pagehide is the reliable one on iOS; beforeunload covers desktop; unload is a
+// last resort. Any of them firing is enough — closing an already-closed room is safe.
+window.addEventListener('pagehide', closeRoomBeacon);
+window.addEventListener('beforeunload', closeRoomBeacon);
+window.addEventListener('unload', closeRoomBeacon);
 
 // Whenever the phone leaves a game, the TV has to hear about it or it keeps
 // rendering the last board it saw.

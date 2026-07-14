@@ -170,8 +170,15 @@ body{
    phone's callout shows: main vs steal, attempts, hit rate, points, total. */
 #roundEnd{display:none;flex:1;min-height:0;flex-direction:column;align-items:center;
   justify-content:center;padding:2vh 4vw;animation:pop .45s cubic-bezier(.2,.9,.3,1.2);}
-#roundEnd .t{font-family:'Playfair Display',serif;font-size:3.4vw;font-weight:900;
-  color:var(--gold-hi);line-height:1.1;margin-bottom:.5vh;}
+.rv{display:none;font-size:2.2vw;font-weight:800;padding:1.4vh 3vw;border-radius:1vw;
+  margin-bottom:2.5vh;text-align:center;}
+.rv.right{background:rgba(26,122,69,.25);border:2px solid #2ecc71;color:#7be8a5;}
+.rv.wrong{background:rgba(192,57,43,.22);border:2px solid var(--red);color:#ff8b7d;}
+.rv .pts{opacity:.85;}
+.rv .ans{font-size:1.3vw;font-weight:600;color:rgba(255,255,255,.65);margin-top:.6vh;}
+.rv .ans b{color:var(--teal-hi);}
+#roundEnd .t{font-family:'Playfair Display',serif;font-size:2.8vw;font-weight:900;
+  color:var(--gold-hi);line-height:1.1;margin-bottom:.4vh;}
 #roundEnd .s{font-size:1.5vw;color:rgba(255,255,255,.6);margin-bottom:2.5vh;}
 #roundEnd .s b{color:#fff;}
 .rtab{border-collapse:collapse;width:82vw;max-width:82vw;}
@@ -223,6 +230,7 @@ body{
 <div id="game" style="position:relative;">
   <div class="scores" id="scores"></div>
   <div id="roundEnd">
+    <div id="roundVerdict" class="rv"></div>
     <div class="t"></div>
     <div class="s"></div>
     <div id="roundTable"></div>
@@ -266,8 +274,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='3.14';
-const TV_BUILT_AT='2026-07-14T00:53:54Z';
+const TV_VERSION='3.15';
+const TV_BUILT_AT='2026-07-14T01:08:18Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -353,6 +361,21 @@ let _lastResultKey = null;      // so we only flash once per verdict
 // Mirrors the phone's callout: main vs steal, attempts, hit rate, points, total.
 function renderRoundEnd(S){
   const re=document.getElementById('roundEnd');
+
+  // The verdict for the question that just closed the round — without this, the
+  // last player of a round never saw their "correct".
+  const r=S.lastResult;
+  const v=document.getElementById('roundVerdict');
+  if(r){
+    v.className = r.correct ? 'rv right' : 'rv wrong';
+    v.innerHTML = r.correct
+      ? `✓ ${r.player} got it${r.steal?' — STOLEN!':''} <span class="pts">+${r.pts}</span>`
+      : `✗ Nobody got it`;
+    if(S.revealedAnswer) v.innerHTML += `<div class="ans">Answer: <b>${S.revealedAnswer}</b></div>`;
+    v.style.display='block';
+  } else {
+    v.style.display='none';
+  }
   const rows=S.players.map((p,i)=>{
     const att=(S.attempts||[]).filter(a=>a.player===p);
     const main=att.filter(a=>a.type==='main');
@@ -627,7 +650,10 @@ function render(S){
   }).join('');
 
   // ── Round end / board / generating / question — exactly one at a time ──
-  const roundOver = !!S.roundEnded;
+  // The round panel belongs to the REVEAL beat: the phone shows the result and the
+  // round callout together. Once the judge taps Next (phase='pick') we're back to
+  // the board — otherwise the panel stuck on screen with no tiles behind it.
+  const roundOver = !!S.roundEnded && ph==='reveal';
   document.getElementById('roundEnd').style.display = roundOver ? 'flex' : 'none';
   document.getElementById('board').style.display   = (!roundOver && !questionOpen && !generating) ? 'grid' : 'none';
   document.getElementById('gen').style.display     = (!roundOver && generating) ? 'flex' : 'none';
