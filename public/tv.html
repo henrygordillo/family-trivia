@@ -166,6 +166,15 @@ body{
   padding:1.2vh 2.5vw;border-radius:2vw;border:none;cursor:pointer;display:none;
   animation:pulse 2s ease-in-out infinite;}
 
+/* End of a round — the phone announces it, so the room should hear it too. */
+#roundEnd{display:none;position:absolute;top:0;left:0;right:0;
+  background:linear-gradient(90deg,rgba(212,168,67,0),rgba(212,168,67,.22),rgba(212,168,67,0));
+  border-top:2px solid var(--gold);border-bottom:2px solid var(--gold);
+  padding:1.2vh 0;text-align:center;z-index:8;animation:slideIn .5s ease-out;}
+#roundEnd .t{font-family:'Playfair Display',serif;font-size:2vw;font-weight:900;color:var(--gold-hi);line-height:1.1;}
+#roundEnd .s{font-size:1.1vw;color:rgba(255,255,255,.6);margin-top:.3vh;}
+@keyframes slideIn{from{transform:translateY(-100%);opacity:0;}to{transform:translateY(0);opacity:1;}}
+
 .offline{position:fixed;bottom:2.5vh;left:0;right:0;text-align:center;font-size:1vw;color:var(--red);display:none;}
 .tag{position:fixed;bottom:1vh;left:0;right:0;text-align:center;font-size:.75vw;
   color:rgba(255,255,255,.25);letter-spacing:.03vw;z-index:20;}
@@ -196,6 +205,7 @@ body{
 </div>
 
 <div id="game" style="position:relative;">
+  <div id="roundEnd"><div class="t"></div><div class="s"></div></div>
   <div class="scores" id="scores"></div>
   <div id="board"></div>
   <div id="gen">
@@ -236,8 +246,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='3.12';
-const TV_BUILT_AT='2026-07-14T00:02:25Z';
+const TV_VERSION='3.13';
+const TV_BUILT_AT='2026-07-14T00:38:34Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -431,8 +441,29 @@ function nextEligible(S, fromIdx){
   return -1;
 }
 
+let _seq=0, _lastHeard=0;
+
+// The phone heartbeats every 8s. If we stop hearing it (back button, closed tab,
+// dead wifi), go back to the join screen instead of sitting on a frozen game.
+setInterval(()=>{
+  if(_lastHeard && Date.now()-_lastHeard > 25000){
+    _lastHeard=0; _seq=0;
+    setPaired(false, '');
+    document.getElementById('join').style.display='flex';
+    document.getElementById('game').style.display='none';
+  }
+}, 5000);
+
 function render(S){
   if(!S) return;
+
+  // Out-of-order arrival: two rapid pushes can land backwards. Never let an older
+  // state overwrite a newer one — that's what made the steal beats flicker/stick.
+  if(S.seq!=null){
+    if(S.seq < _seq) return;
+    _seq = S.seq;
+  }
+  _lastHeard = Date.now();
 
   // A phone has pushed something — so we're paired, whatever it says.
   setPaired(true, S.device);
@@ -453,6 +484,21 @@ function render(S){
   document.getElementById('game').style.display='flex';
 
   handleSpeak(S.speak);
+
+  // ── Round closed ──
+  const re=document.getElementById('roundEnd');
+  if(S.roundEnded){
+    const sorted=S.players.map((p,i)=>({p,s:S.scores[i]})).sort((a,b)=>b.s-a.s);
+    const lead=sorted[0];
+    const tied=sorted.filter(x=>x.s===lead.s).length>1;
+    re.querySelector('.t').textContent = `End of Round ${S.roundEnded.round}`;
+    re.querySelector('.s').innerHTML = lead.s>0
+      ? (tied ? `Tied at <b>${lead.s}</b>` : `<b>${lead.p}</b> leads with <b>${lead.s}</b>`)
+      : 'Still all square';
+    re.style.display='block';
+  } else {
+    re.style.display='none';
+  }
 
   const q = S.currentQuestion;
   const questionOpen = !!(q && q.text);
@@ -565,11 +611,15 @@ function render(S){
   document.getElementById('qpts').textContent=S.curPts||'';
   document.getElementById('qtext').textContent=q.text;
 
-  // Who's on the spot. Suppressed once the result banner is saying it louder.
+  // Who's on the spot — phase-driven. It used to always say "is answering", even
+  // while the judge was still reading the question out loud.
   const who=S.players[S.answererIdx];
-  document.getElementById('qwho').innerHTML = (who && !S.lastResult)
-    ? `<b>${who}</b> is answering`
-    : '';
+  let whoTxt='';
+  if(who && !S.lastResult){
+    if(ph==='reading')        whoTxt = `Get ready, <b>${who}</b>`;
+    else if(ph==='answering') whoTxt = S.stealMode ? `<b>${who}</b> is stealing` : `<b>${who}</b> is answering`;
+  }
+  document.getElementById('qwho').innerHTML = whoTxt;
 
   // The answer — and its explanation — only arrive after the judge reveals.
   const ansEl=document.getElementById('qans');
@@ -624,7 +674,7 @@ function render(S){
         // Everyone had a go and nobody got it.
         cls='wrong';
         html = `✗ Nobody got it`
-             + `<span class="sub">The answer was above</span>`;
+             + `<span class="sub">No points this time</span>`;
       }
 
     } else {

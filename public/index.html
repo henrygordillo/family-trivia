@@ -743,8 +743,8 @@ const BACKEND='https://family-trivia-y0om.onrender.com';
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.19';
-const APP_BUILT_AT='2026-07-13T23:53:07Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.20';
+const APP_BUILT_AT='2026-07-14T00:38:34Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -880,6 +880,7 @@ const STATE_PUBLIC = [
   'roundNumber','roundQuestionCount',
   'phase','judgeMode','lastResult',
   'pendingStealIdx',   // who is being OFFERED the steal (before they take it)
+  'roundEnded',        // {round, at} — set when a round closes, cleared on the next pick
   'attempts',   // {cat,tier,player,type,correct,pts} — no answers; the hit-rate column needs it
 ];
 const STATE_PRIVATE = ['qData','askedQuestions'];              // hold answers
@@ -912,9 +913,12 @@ function deviceLabel(){
   return br ? `${dev} · ${br}` : dev;
 }
 
+let _stateSeq = 0;
 function publicState(){
   const out = {};
   STATE_PUBLIC.forEach(k => { out[k] = G[k]; });
+  out.seq = ++_stateSeq;        // the TV drops anything older than what it has
+  out.sentAt = Date.now();      // ...and notices when we stop sending
   out.device = deviceLabel();
 
   // Is a game actually on? Without this the TV keeps showing the LAST game's
@@ -1230,15 +1234,26 @@ function disconnectTV(){
   updateTVBadge();
 }
 
+let _pushInFlight=false, _pushPending=false;
 async function pushToTV(){
   if(!TV_CODE) return;
+  // Only ONE request in flight at a time. Without this, two quick state changes
+  // race and the TV can receive them out of order — showing a stale beat.
+  if(_pushInFlight){ _pushPending=true; return; }
+  _pushInFlight=true;
   try{
     await fetch(BACKEND+'/api/room/'+TV_CODE+'/state',{
       method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify(publicState())
     });
-  }catch(e){ /* a dropped frame is fine — the next commit resends everything */ }
+  }catch(e){ /* a dropped frame is fine — the next push resends everything */ }
+  _pushInFlight=false;
+  if(_pushPending){ _pushPending=false; pushToTV(); }   // send the latest state
 }
+
+// Heartbeat: a browser back-gesture doesn't always fire pagehide, so the TV could
+// sit on a dead room forever. A steady ping lets the TV notice we're gone.
+setInterval(()=>{ if(TV_CODE) pushToTV(); }, 8000);
 
 let _subscribers = [];
 let _commitQueued = false;
@@ -1876,6 +1891,7 @@ async function pickQ(ci,qi){
   G.wrongPlayers=[]; G.stealMode=false;
   G.lastResult=null;        // clear the previous verdict (the TV renders this)
   G.pendingStealIdx=null;
+  G.roundEnded=null;
   G.transcript=''; G.answererIdx=getEffectivePicker();
   // Record this player's pick for the current round (for the picks-this-round indicator)
   if(!G.pickedThisRound) G.pickedThisRound=[];
@@ -2320,7 +2336,12 @@ function showFinalReveal(){
   // roundQuestionCount already incremented in advanceTurnPos
   const isRoundEnd=G.numActivePlayers>0&&G.roundQuestionCount>0&&
     G.roundQuestionCount%G.numActivePlayers===0;
-  if(isRoundEnd){ G.roundNumber++; G.pickedThisRound=[]; }
+  if(isRoundEnd){
+    G.roundNumber++;
+    G.pickedThisRound=[];
+    // Tell the TV a round just closed — it shows the same beat the phone does.
+    G.roundEnded = { round: G.roundNumber - 1, at: Date.now() };
+  }
   if(sc&&scRows){
     const isJudge=(i)=>G.judgeMode==='human'&&i===G.hjJudgeIdx;
     const sorted=[...G.players.map((p,i)=>({name:p,score:G.scores[i],idx:i,judge:isJudge(i)}))]
