@@ -765,13 +765,13 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 // ═══════════════════════════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════════
-const BACKEND='https://family-trivia-y0om.onrender.com';
+const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.protocol||'')) ? '' : 'https://family-trivia-y0om.onrender.com';  // same-origin when served (matches tv/join); absolute only for file://
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.30';
-const APP_BUILT_AT='2026-07-15T21:08:10Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.31';
+const APP_BUILT_AT='2026-07-15T21:53:43Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
