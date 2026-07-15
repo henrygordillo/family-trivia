@@ -6,8 +6,8 @@ const path = require('path');
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
-const VERSION = '3.14';
-const BUILT_AT = '2026-07-15T22:34:37Z';
+const VERSION = '3.15';
+const BUILT_AT = '2026-07-15T23:06:14Z';
 
 const app = express();
 app.use(cors());
@@ -121,8 +121,15 @@ function broadcastViewers(room){
 // The phone pushes state here. Body IS the public snapshot — it must never
 // contain an answer; that's enforced on the client by publicState()'s allow-list.
 app.post('/api/room/:code/state', (req, res) => {
-  const room = rooms.get(req.params.code);
-  if (!room) return res.status(404).json({ error: 'no such room' });
+  let room = rooms.get(req.params.code);
+  if (!room) {
+    // Self-heal: if the server restarted (in-memory rooms wiped), the judge's
+    // heartbeat lands here and re-creates its OWN room under the same code, so
+    // viewers reconnect instead of being kicked out of a live game. Only the
+    // room owner ever POSTs state, so re-creating here is safe.
+    room = { state: null, clients: new Set(), createdAt: Date.now(), touchedAt: Date.now() };
+    rooms.set(req.params.code, room);
+  }
   room.state = req.body;
   room.touchedAt = Date.now();
   const payload = `event: state\ndata: ${JSON.stringify(room.state)}\n\n`;

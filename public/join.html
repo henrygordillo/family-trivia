@@ -236,8 +236,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='1.6';
-const JOIN_BUILT_AT='2026-07-15T22:34:37Z';
+const JOIN_VERSION='1.7';
+const JOIN_BUILT_AT='2026-07-15T23:06:14Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -288,15 +288,37 @@ function listen(){
   ES=new EventSource(BACKEND+'/api/room/'+CODE+'/stream');
   ES.addEventListener('state', e => render(JSON.parse(e.data)));
   ES.addEventListener('waiting', ()=>{ waiting('Waiting for the judge', 'to start the game'); });
-  ES.addEventListener('closed', ()=>{
-    try{ ES.close(); }catch(e){} ES=null;
-    document.getElementById('game').style.display='none';
-    document.getElementById('who').style.display='none';
-    document.getElementById('join').style.display='flex';
-    document.getElementById('code').value='';
-    document.getElementById('err').textContent='The game ended.';
-    CODE=null; ME=null; _askedWho=false;
-  });
+  ES.addEventListener('closed', ()=>backToConnect('The game ended.'));
+  startHeartbeat();
+}
+
+// Return cleanly to the connect screen (game ended, or the room disappeared).
+function backToConnect(msg){
+  try{ if(ES) ES.close(); }catch(e){} ES=null;
+  if(_hbTimer){ clearInterval(_hbTimer); _hbTimer=null; }
+  document.getElementById('game').style.display='none';
+  document.getElementById('who').style.display='none';
+  document.getElementById('join').style.display='flex';
+  document.getElementById('code').value='';
+  document.getElementById('err').textContent=msg||'';
+  CODE=null; ME=null; _askedWho=false;
+}
+
+// Room heartbeat: the judge destroys the room on leaving, so the moment it's gone
+// we return to connect. A brief 404 (server restart) self-heals via the judge's
+// next push, so we only bail after it's been gone past that window (~12s).
+let _hbTimer=null, _roomGone=0;
+function startHeartbeat(){
+  if(_hbTimer) clearInterval(_hbTimer);
+  _roomGone=0;
+  _hbTimer=setInterval(async()=>{
+    if(!CODE) return;
+    try{
+      const r=await fetch(BACKEND+'/api/room/'+CODE);
+      if(r.ok) _roomGone=0;
+      else if(r.status===404 && ++_roomGone>=4) backToConnect('The game ended.');
+    }catch(e){}
+  }, 3000);
 }
 
 // ── Scan the code ─────────────────────────────────────────────────────────

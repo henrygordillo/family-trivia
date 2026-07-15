@@ -61,16 +61,17 @@ body{
 #connected .go{font-size:clamp(9px,1.2vw,26px);color:rgba(255,255,255,.45);margin-top:.8vh;letter-spacing:.1vw;text-transform:uppercase;}
 
 /* Late-join QR — stays on the game screen so newcomers can still hop in */
-#gameJoin{position:absolute;bottom:1.4vw;right:1.4vw;z-index:30;display:flex;align-items:center;gap:.8vw;
-  background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.18);border-radius:1vw;padding:.8vw 1vw;}
-#gameJoin .qrbox{background:#fff;padding:.45vw;border-radius:.5vw;}
-#gameJoin .qrbox img{display:block;width:clamp(52px,6vw,120px);height:clamp(52px,6vw,120px);}
-#gameJoin .gj-txt{font-size:clamp(8px,1.05vw,21px);color:rgba(255,255,255,.8);line-height:1.35;text-align:left;white-space:nowrap;}
-#gameJoin .gj-txt b{color:var(--gold-hi);font-size:clamp(11px,1.5vw,30px);letter-spacing:.15vw;}
+#gameJoin{display:flex;align-items:center;gap:.7vw;flex:0 0 auto;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:1vw;padding:.6vw .9vw;}
+#gameJoin .qrbox{background:#fff;padding:.4vw;border-radius:.5vw;}
+#gameJoin .qrbox img{display:block;width:clamp(46px,4.6vw,90px);height:clamp(46px,4.6vw,90px);}
+#gameJoin .gj-txt{font-size:clamp(8px,1vw,20px);color:rgba(255,255,255,.8);line-height:1.35;text-align:left;white-space:nowrap;}
+#gameJoin .gj-txt b{color:var(--gold-hi);font-size:clamp(11px,1.4vw,28px);letter-spacing:.15vw;}
 
 /* ── Game screen ─────────────────────────────────────────── */
 #game{display:none;height:95vh;flex-direction:column;}
-.scores{display:flex;gap:1.2vw;margin-bottom:1.6vh;}
+.topband{display:flex;gap:1.2vw;align-items:stretch;margin-bottom:1.6vh;}
+.scores{display:flex;gap:1.2vw;flex:1;min-width:0;}
 .pcard{flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
   border-radius:1vw;padding:1vh .8vw;text-align:center;transition:all .25s;}
 .pcard.active{background:rgba(212,168,67,.16);border-color:var(--gold);transform:translateY(-.4vh);}
@@ -363,11 +364,13 @@ body{
 </div>
 
 <div id="game" style="position:relative;">
-  <div id="gameJoin">
-    <div class="qrbox" id="qrGameJoin"></div>
-    <div class="gj-txt">Scan to join<br><b id="gjCode">····</b></div>
+  <div class="topband">
+    <div class="scores" id="scores"></div>
+    <div id="gameJoin">
+      <div class="qrbox" id="qrGameJoin"></div>
+      <div class="gj-txt">Scan to join<br><b id="gjCode">····</b></div>
+    </div>
   </div>
-  <div class="scores" id="scores"></div>
   <div id="roundEnd">
     <div id="roundVerdict" class="rv"></div>
     <div class="t"></div>
@@ -413,8 +416,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='4.3';
-const TV_BUILT_AT='2026-07-15T20:02:40Z';
+const TV_VERSION='4.5';
+const TV_BUILT_AT='2026-07-15T23:06:14Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -716,6 +719,20 @@ setInterval(()=>{
   const limit = _phoneVisible ? TIMEOUT_ACTIVE : TIMEOUT_HIDDEN;
   if(Date.now()-_lastHeard > limit) dropPhone();
 }, 5000);
+
+// Room heartbeat: the judge destroys the room when they leave, so the instant it's
+// gone we go back to a fresh code. A brief 404 (server restart) self-heals — the
+// judge re-creates its room on its next push — so we only bail after it's been gone
+// past that recovery window (~12s).
+let _roomGone=0;
+setInterval(async()=>{
+  if(!CODE) return;
+  try{
+    const r=await fetch(BACKEND+'/api/room/'+CODE);
+    if(r.ok) _roomGone=0;
+    else if(r.status===404 && ++_roomGone>=4) location.reload();
+  }catch(e){ /* network blip — not a real close */ }
+}, 3000);
 
 // Escape hatch: any remote/keyboard press on the TV resets it back to a fresh code.
 window.addEventListener('keydown', (e)=>{
