@@ -6,8 +6,8 @@ const path = require('path');
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
-const VERSION = '3.9';
-const BUILT_AT = '2026-07-13T22:19:11Z';
+const VERSION = '3.13';
+const BUILT_AT = '2026-07-15T18:09:39Z';
 
 const app = express();
 app.use(cors());
@@ -23,6 +23,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Big Screen: /tv is nicer to type on a TV remote than /tv.html
 app.get('/tv', (req, res) => res.sendFile(path.join(__dirname, 'public', 'tv.html')));
+// Player devices (phones, tablets) — they reach out to the judge's room themselves.
+app.get('/join', (req, res) => res.sendFile(path.join(__dirname, 'public', 'join.html')));   // ?code=1234 joins directly
+// Legacy alias: any old /play link or bookmark still lands on the join page.
+app.get('/play', (req, res) => res.redirect(301, '/join' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '')));
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -87,15 +91,27 @@ app.get('/api/room/:code/stream', (req, res) => {
   room.clients.add(res);
   room.touchedAt = Date.now();
 
-  // Send whatever we already have, so a TV joining mid-game isn't blank.
+  // Send whatever we already have, so a screen joining mid-game isn't blank.
   if (room.state) res.write(`event: state\ndata: ${JSON.stringify(room.state)}\n\n`);
   else            res.write(`event: waiting\ndata: {}\n\n`);
+
+  broadcastViewers(room);
 
   // Keep-alive: proxies drop idle connections, and Render is behind one.
   const ping = setInterval(() => { try { res.write(': ping\n\n'); } catch(e){} }, 25000);
 
-  req.on('close', () => { clearInterval(ping); room.clients.delete(res); });
+  req.on('close', () => {
+    clearInterval(ping);
+    room.clients.delete(res);
+    broadcastViewers(room);
+  });
 });
+
+// How many screens are watching this room right now.
+function broadcastViewers(room){
+  const msg = `event: viewers\ndata: ${JSON.stringify({ n: room.clients.size })}\n\n`;
+  room.clients.forEach(c => { try { c.write(msg); } catch(e){} });
+}
 
 // The phone pushes state here. Body IS the public snapshot — it must never
 // contain an answer; that's enforced on the client by publicState()'s allow-list.

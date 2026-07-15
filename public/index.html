@@ -418,7 +418,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button id="endGameBtnSetup" style="background:transparent;border:none;cursor:pointer;font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;padding:4px;opacity:.8;">End Game Session</button>
     </div>
     <div style="display:flex;justify-content:center;margin-top:4px;">
-      <button id="tvBtn" style="display:flex;align-items:center;gap:5px;background:transparent;border:none;cursor:pointer;color:var(--muted);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px;"><span style="font-size:14px;">📺</span> <span id="tvBtnLabel">Connect to TV</span></button>
+      <button id="tvBtn" style="display:flex;align-items:center;gap:5px;background:transparent;border:none;cursor:pointer;color:var(--muted);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px;"><span style="font-size:14px;">📺</span> <span id="tvBtnLabel">Show on a screen</span></button>
     </div>
     <div id="buildFooter" style="margin-top:10px;text-align:center;font-size:10px;line-height:1.5;color:var(--muted);opacity:.65;"></div>
 
@@ -426,17 +426,42 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 </div>
 
 <div class="modal-bg" id="tvModal" style="z-index:975;">
-  <div class="modal-box" style="max-width:330px;">
-    <div class="modal-title">Connect to TV</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5;">
-      On the TV, open <b style="color:var(--ink);">/tv</b> — it shows a 4-digit code. Enter it here.
+  <div class="modal-box" style="max-width:340px;">
+    <div class="modal-title">Screens</div>
+
+    <div id="tvSetup">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.5;">
+        Open <b style="color:var(--ink);">/tv</b> on the big screen — it shows a code and a QR.
+        Scan it, or type the code here.
+      </div>
+      <input id="tvCode" type="tel" inputmode="numeric" maxlength="4" placeholder="0000"
+        style="width:100%;padding:14px;border:2px solid var(--card3);border-radius:12px;font-family:'Playfair Display',serif;font-size:32px;font-weight:900;text-align:center;letter-spacing:8px;color:var(--ink);background:var(--card2);">
+      <button class="mbtn" id="tvScan" style="width:100%;margin-top:8px;background:var(--card2);border:1.5px solid var(--card3);color:var(--ink);display:flex;align-items:center;justify-content:center;gap:8px;">📷 Scan the TV's QR code</button>
+      <video id="tvVideo" playsinline muted style="display:none;width:100%;border-radius:12px;margin-top:10px;background:#000;"></video>
+      <div class="sep" style="margin:14px 0;"></div>
+      <button class="mbtn" id="tvNoTv" style="width:100%;background:transparent;border:1.5px dashed var(--card3);color:var(--muted);font-size:13px;">No TV? Start a room anyway</button>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center;line-height:1.4;">
+        Phones and tablets can still watch along
+      </div>
     </div>
-    <input id="tvCode" type="tel" inputmode="numeric" maxlength="4" placeholder="0000"
-      style="width:100%;padding:14px;border:2px solid var(--card3);border-radius:12px;font-family:'Playfair Display',serif;font-size:32px;font-weight:900;text-align:center;letter-spacing:8px;color:var(--ink);background:var(--card2);">
-    <div id="tvErr" style="font-size:12px;color:var(--red);margin-top:8px;min-height:16px;"></div>
-    <button class="mbtn" id="tvScan" style="width:100%;margin-top:6px;background:var(--card2);border:1.5px solid var(--card3);color:var(--ink);display:flex;align-items:center;justify-content:center;gap:8px;">📷 Scan the TV's QR code</button>
-    <video id="tvVideo" playsinline muted style="display:none;width:100%;border-radius:12px;margin-top:10px;background:#000;"></video>
-    <button class="mbtn mbtn-cancel" id="tvCancel" style="width:100%;margin-top:8px;">Cancel</button>
+
+    <div id="tvLive" style="display:none;">
+      <div style="background:var(--card2);border:2px solid var(--card3);border-radius:14px;padding:16px;text-align:center;">
+        <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);">Game code</div>
+        <div id="tvRoomCode" style="font-family:'Playfair Display',serif;font-size:40px;font-weight:900;color:var(--ink);letter-spacing:8px;line-height:1.2;">····</div>
+        <div class="sep" style="margin:10px 0;"></div>
+        <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Others watch here</div>
+        <div id="tvQr" style="display:flex;justify-content:center;"></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px;">Scan on a phone or tablet — or go to <b id="tvPlayUrl" style="color:var(--ink);"></b></div>
+      </div>
+      <div id="tvViewers" style="font-size:12px;color:var(--teal);font-weight:700;margin-top:10px;text-align:center;min-height:16px;"></div>
+    </div>
+
+    <div id="tvErr" style="font-size:12px;color:var(--red);margin-top:8px;min-height:14px;text-align:center;"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button class="mbtn mbtn-cancel" id="tvCancel" style="flex:1;">Done</button>
+      <button class="mbtn" id="tvStop" style="flex:1;display:none;background:transparent;border:1.5px solid var(--card3);color:var(--muted);">Stop sharing</button>
+    </div>
   </div>
 </div>
 
@@ -743,8 +768,8 @@ const BACKEND='https://family-trivia-y0om.onrender.com';
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.26';
-const APP_BUILT_AT='2026-07-14T02:00:43Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.29';
+const APP_BUILT_AT='2026-07-15T18:09:39Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1233,19 +1258,34 @@ function findStealIdx(S){
 // ═══════════════════════════════════════════════════════════════════════════
 let TV_CODE = null;
 
+// Open a room that screens can join. The judge's device is the authority, so the
+// room belongs to it — any number of TVs, tablets and phones then watch the same one.
+async function openRoom(){
+  if(TV_CODE) return {ok:true, code:TV_CODE};
+  try{
+    const r = await fetch(BACKEND+'/api/room/new',{method:'POST'});
+    if(!r.ok) return {ok:false, err:'Could not reach the server.'};
+    const d = await r.json();
+    TV_CODE = d.code;
+  }catch(e){ return {ok:false, err:'Could not reach the server.'}; }
+  try{ localStorage.setItem('ftn_tv', TV_CODE); }catch(e){}
+  armBack(BACK_BUFFER);
+  pushToTV();
+  return {ok:true, code:TV_CODE};
+}
+
+// Re-attach to a room we already own (used when resuming a game).
 async function connectTV(code){
   code = String(code||'').trim();
-  if(!/^\d{4}$/.test(code)) return {ok:false, err:'Enter the 4-digit code shown on the TV.'};
+  if(!/^\d{4}$/.test(code)) return {ok:false, err:'Bad code.'};
   try{
     const r = await fetch(BACKEND+'/api/room/'+code);
-    if(!r.ok) return {ok:false, err:'No TV found with that code. Check the number.'};
+    if(!r.ok) return {ok:false, err:'That room is gone.'};
   }catch(e){ return {ok:false, err:'Could not reach the server.'}; }
   TV_CODE = code;
   try{ localStorage.setItem('ftn_tv', code); }catch(e){}
-  // Arm a history entry so a back gesture reaches our popstate handler and we can
-  // tear the room down, instead of the page being bfcached with the TV still live.
   armBack(BACK_BUFFER);
-  pushToTV();                       // send the current state immediately
+  pushToTV();
   return {ok:true};
 }
 
@@ -1254,70 +1294,119 @@ function updateTVBadge(){
   const btn=document.getElementById('tvBtn');
   if(!lbl||!btn) return;
   if(TV_CODE){
-    lbl.textContent='TV '+TV_CODE+' \u2014 tap to disconnect';
+    lbl.textContent='Sharing \u2014 code '+TV_CODE;
     btn.style.color='var(--teal)';
   } else {
-    lbl.textContent='Connect to TV';
+    lbl.textContent='Show on a screen';
     btn.style.color='var(--muted)';
   }
 }
 
 function openTVModal(){
-  const m=document.getElementById('tvModal');
-  document.getElementById('tvCode').value='';
   document.getElementById('tvErr').textContent='';
-  m.classList.add('show');
-  setTimeout(()=>document.getElementById('tvCode').focus(),120);
+  document.getElementById('tvModal').classList.add('show');
+  if(TV_CODE) showLive(TV_CODE); else showSetup();
 }
-function closeTVModal(){ stopScan(); document.getElementById('tvModal').classList.remove('show'); }
+function showSetup(){
+  document.getElementById('tvSetup').style.display='block';
+  document.getElementById('tvLive').style.display='none';
+  document.getElementById('tvStop').style.display='none';
+  const i=document.getElementById('tvCode');
+  i.value=''; setTimeout(()=>i.focus(),120);
+}
+function showLive(code){
+  stopScan();
+  document.getElementById('tvSetup').style.display='none';
+  document.getElementById('tvLive').style.display='block';
+  document.getElementById('tvStop').style.display='block';
+  document.getElementById('tvRoomCode').textContent=code;
+  document.getElementById('tvPlayUrl').textContent=location.host+'/join';
 
-async function tvConnectFromModal(){
-  const code=document.getElementById('tvCode').value;
+  // A QR that drops any phone or tablet straight into the room as a viewer.
+  const url=location.origin+'/join?code='+code;
+  const box=document.getElementById('tvQr');
+  box.innerHTML='';
+  const img=document.createElement('img');
+  img.alt='Scan to watch';
+  img.style.cssText='width:120px;height:120px;background:#fff;padding:6px;border-radius:8px;display:block;';
+  img.src='https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=0&data='+encodeURIComponent(url);
+  img.onerror=()=>{ img.style.display='none'; };
+  box.appendChild(img);
+
+  updateTVBadge();
+  pollViewers();
+}
+
+let _viewerPoll=null;
+async function pollViewers(){
+  if(_viewerPoll) clearInterval(_viewerPoll);
+  const paint=async()=>{
+    if(!TV_CODE) return;
+    try{
+      const r=await fetch(BACKEND+'/api/room/'+TV_CODE);
+      if(!r.ok) return;
+      const d=await r.json();
+      const el=document.getElementById('tvViewers');
+      if(el) el.textContent = d.listeners>0
+        ? `\ud83d\udc40 ${d.listeners} screen${d.listeners===1?'':'s'} watching`
+        : 'No screens watching yet\u2026';
+    }catch(e){}
+  };
+  paint();
+  _viewerPoll=setInterval(paint, 3000);
+}
+
+function closeTVModal(){
+  stopScan();
+  if(_viewerPoll){ clearInterval(_viewerPoll); _viewerPoll=null; }
+  document.getElementById('tvModal').classList.remove('show');
+}
+
+async function tvJoin(code){
   const err=document.getElementById('tvErr');
   err.textContent='Connecting\u2026';
   const r=await connectTV(code);
-  if(r.ok){ stopScan(); closeTVModal(); updateTVBadge(); toast('\ud83d\udcfa Connected to TV '+code); }
-  else { err.textContent=r.err; }
+  if(r.ok){ err.textContent=''; showLive(code); toast('\ud83d\udcfa Connected to the screen'); }
+  else { err.textContent = 'No screen with that code. Check the TV.'; }
 }
 
-// ── QR scanning ────────────────────────────────────────────────────────────
-// The code is always 4 digits, so there's nothing to "submit" — connect as soon
-// as the 4th digit lands. And if the phone can read barcodes, skip typing entirely.
-let _scanStream=null, _scanTimer=null;
+async function tvStartWithoutTV(){
+  const err=document.getElementById('tvErr');
+  err.textContent='Starting\u2026';
+  const r=await openRoom();
+  if(r.ok){ err.textContent=''; showLive(r.code); toast('Room open \u2014 share the code'); }
+  else { err.textContent=r.err||'Could not start a room.'; }
+}
 
+// ── QR scanning (the judge scanning the TV's code) ─────────────────────────
+let _scanStream=null, _scanTimer=null;
 function stopScan(){
   if(_scanTimer){ clearInterval(_scanTimer); _scanTimer=null; }
   if(_scanStream){ _scanStream.getTracks().forEach(t=>t.stop()); _scanStream=null; }
   const v=document.getElementById('tvVideo');
   if(v){ v.style.display='none'; v.srcObject=null; }
 }
-
 async function startScan(){
   const err=document.getElementById('tvErr');
   const v=document.getElementById('tvVideo');
   if(!('BarcodeDetector' in window)){
-    err.textContent='This browser can\u2019t scan QR codes — use your camera app, or type the code.';
-    return;
+    err.textContent='This browser can\u2019t scan \u2014 type the code instead.'; return;
   }
   try{
     _scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
-  }catch(e){
-    err.textContent='Camera permission denied — type the code instead.';
-    return;
-  }
+  }catch(e){ err.textContent='Camera denied \u2014 type the code instead.'; return; }
   v.srcObject=_scanStream; v.style.display='block'; await v.play().catch(()=>{});
-  err.textContent='Point at the code on the TV\u2026';
+  err.textContent='Point at the QR on the TV\u2026';
   const det=new window.BarcodeDetector({formats:['qr_code']});
   _scanTimer=setInterval(async()=>{
     try{
       const codes=await det.detect(v);
       if(!codes.length) return;
-      // The TV's QR encodes  <origin>/?tv=1234
-      const m=String(codes[0].rawValue||'').match(/tv=(\d{4})/);
+      const m=String(codes[0].rawValue||'').match(/(?:tv|code)=(\d{4})/);
       if(!m) return;
       clearInterval(_scanTimer); _scanTimer=null;
-      document.getElementById('tvCode').value=m[1];
-      await tvConnectFromModal();
+      stopScan();
+      tvJoin(m[1]);
     }catch(e){}
   }, 350);
 }
@@ -3179,26 +3268,28 @@ function init(){
   pickMode(gameMode||'normal');
   // Big Screen
   const tvBtn=document.getElementById('tvBtn');
-  if(tvBtn) tvBtn.addEventListener('click',()=>{ TV_CODE ? disconnectTV() : openTVModal(); });
+  if(tvBtn) tvBtn.addEventListener('click',openTVModal);
   const tvCancel=document.getElementById('tvCancel');
-  if(tvCancel) tvCancel.addEventListener('click',()=>{ stopScan(); closeTVModal(); });
+  if(tvCancel) tvCancel.addEventListener('click',closeTVModal);
+  const tvStop=document.getElementById('tvStop');
+  if(tvStop) tvStop.addEventListener('click',()=>{ disconnectTV(); closeTVModal(); toast('Stopped sharing'); });
   const tvScan=document.getElementById('tvScan');
   if(tvScan) tvScan.addEventListener('click',startScan);
+  const tvNoTv=document.getElementById('tvNoTv');
+  if(tvNoTv) tvNoTv.addEventListener('click',tvStartWithoutTV);
   const tvInput=document.getElementById('tvCode');
   if(tvInput){
-    // 4 digits is the whole code — no reason to make anyone press a button.
     tvInput.addEventListener('input',()=>{
       const v=tvInput.value.replace(/\D/g,'').slice(0,4);
       tvInput.value=v;
-      if(v.length===4) tvConnectFromModal();
+      if(v.length===4) tvJoin(v);          // 4 digits is the whole code
     });
-    tvInput.addEventListener('keydown',e=>{ if(e.key==='Enter') tvConnectFromModal(); });
   }
-  // Scanned the TV's QR code? It lands here as ?tv=1234 — connect straight away.
+  // Scanned the TV's QR with the camera app? It lands as ?tv=1234 — join at once.
   try{
     const p=new URLSearchParams(location.search).get('tv');
     if(p && /^\d{4}$/.test(p)){
-      connectTV(p).then(r=>{ if(r.ok){ updateTVBadge(); toast('\ud83d\udcfa Connected to TV '+p); } });
+      connectTV(p).then(r=>{ if(r.ok){ updateTVBadge(); toast('\ud83d\udcfa Connected to the screen'); } });
       history.replaceState({}, '', location.pathname);
     }
   }catch(e){}

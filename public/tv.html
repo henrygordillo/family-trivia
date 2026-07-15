@@ -23,14 +23,14 @@ body{
 
 /* ── Join screen ─────────────────────────────────────────── */
 #join{display:flex;flex-direction:column;align-items:center;justify-content:center;height:95vh;text-align:center;}
-#join h1{font-family:'Playfair Display',serif;font-size:5.5vw;font-weight:900;color:var(--gold-hi);line-height:1;margin-bottom:1vh;}
-#join .sub{font-size:1.5vw;color:rgba(255,255,255,.55);letter-spacing:.25vw;text-transform:uppercase;margin-bottom:6vh;}
+#join h1{font-family:'Playfair Display',serif;font-size:clamp(23px,5.5vw,121px);font-weight:900;color:var(--gold-hi);line-height:1;margin-bottom:1vh;}
+#join .sub{font-size:clamp(9px,1.5vw,33px);color:rgba(255,255,255,.55);letter-spacing:.25vw;text-transform:uppercase;margin-bottom:6vh;}
 .codebox{background:rgba(255,255,255,.05);border:2px solid rgba(212,168,67,.4);border-radius:2vw;padding:3vh 5vw;display:flex;align-items:center;gap:4vw;}
-.codelabel{font-size:1.3vw;color:rgba(255,255,255,.5);letter-spacing:.2vw;text-transform:uppercase;margin-bottom:1vh;}
-.code{font-family:'Playfair Display',serif;font-size:9vw;font-weight:900;color:var(--gold-hi);letter-spacing:1vw;line-height:1;}
+.codelabel{font-size:clamp(9px,1.3vw,29px);color:rgba(255,255,255,.5);letter-spacing:.2vw;text-transform:uppercase;margin-bottom:1vh;}
+.code{font-family:'Playfair Display',serif;font-size:clamp(38px,9.0vw,198px);font-weight:900;color:var(--gold-hi);letter-spacing:1vw;line-height:1;}
 #qr{background:#fff;padding:1.2vw;border-radius:1vw;}
 #qr img{display:block;width:14vw;height:14vw;}
-#join .hint{margin-top:6vh;font-size:1.5vw;color:rgba(255,255,255,.45);}
+#join .hint{margin-top:6vh;font-size:clamp(9px,1.5vw,33px);color:rgba(255,255,255,.45);}
 #join .hint b{color:var(--gold);}
 .dot{display:inline-block;width:.9vw;height:.9vw;border-radius:50%;background:var(--teal-hi);margin-right:.6vw;animation:pulse 1.6s ease-in-out infinite;}
 @keyframes pulse{0%,100%{opacity:.25;}50%{opacity:1;}}
@@ -51,14 +51,14 @@ body{
 @keyframes landed{0%{transform:scale(.85);opacity:0;}60%{transform:scale(1.04);}100%{transform:scale(1);opacity:1;}}
 
 .tick{width:4.5vw;height:4.5vw;border-radius:50%;background:#2ecc71;color:#06240f;
-  display:flex;align-items:center;justify-content:center;font-size:2.8vw;font-weight:900;
+  display:flex;align-items:center;justify-content:center;font-size:clamp(12px,2.8vw,62px);font-weight:900;
   flex:0 0 auto;animation:beat 2.2s ease-in-out infinite;}
 @keyframes beat{0%,100%{box-shadow:0 0 0 0 rgba(46,204,113,.55);}
                 50%{box-shadow:0 0 0 1.6vw rgba(46,204,113,0);}}
 #connected .txt{text-align:left;}
-#connected .big{font-size:2.4vw;font-weight:800;color:#8ef0b4;line-height:1.15;}
-#connected .dev{font-size:1.4vw;color:rgba(255,255,255,.65);margin-top:.4vh;}
-#connected .go{font-size:1.2vw;color:rgba(255,255,255,.45);margin-top:.8vh;letter-spacing:.1vw;text-transform:uppercase;}
+#connected .big{font-size:clamp(10px,2.4vw,53px);font-weight:800;color:#8ef0b4;line-height:1.15;}
+#connected .dev{font-size:clamp(9px,1.4vw,31px);color:rgba(255,255,255,.65);margin-top:.4vh;}
+#connected .go{font-size:clamp(9px,1.2vw,26px);color:rgba(255,255,255,.45);margin-top:.8vh;letter-spacing:.1vw;text-transform:uppercase;}
 
 /* ── Game screen ─────────────────────────────────────────── */
 #game{display:none;height:95vh;flex-direction:column;}
@@ -68,18 +68,18 @@ body{
 .pcard.active{background:rgba(212,168,67,.16);border-color:var(--gold);transform:translateY(-.4vh);}
 .pcard.steal{background:rgba(124,58,237,.16);border-color:var(--purple-hi);}
 .pcard.ondeck{border-color:rgba(255,255,255,.22);}
-.pname{font-size:1.4vw;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pname{font-size:clamp(9px,1.4vw,31px);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .pnum{color:rgba(255,255,255,.25);font-weight:700;margin-right:.35vw;}
-.pscore{font-family:'Playfair Display',serif;font-size:2.6vw;font-weight:900;color:var(--gold-hi);line-height:1.15;}
+.pscore{font-family:'Playfair Display',serif;font-size:clamp(11px,2.6vw,57px);font-weight:900;color:var(--gold-hi);line-height:1.15;}
 /* Hit rate + whether they've picked this round — the phone shows both, so the TV must too */
 .pmeta{display:flex;align-items:center;justify-content:center;gap:.5vw;flex-wrap:wrap;
   height:1.8vw;white-space:nowrap;}
-.pmeta .chip{font-size:.8vw;font-weight:600;color:rgba(255,255,255,.45);
+.pmeta .chip{font-size:clamp(9px,0.8vw,18px);font-weight:600;color:rgba(255,255,255,.45);
   background:rgba(255,255,255,.06);border-radius:1vw;padding:.2vh .8vw;}
 .pmeta .chip.owed{color:var(--gold-hi);background:rgba(212,168,67,.14);}
 .pcard.missed{border-color:rgba(192,57,43,.7);background:rgba(192,57,43,.12);}
 .pstat.miss{color:#ff8b7d!important;}
-.pstat{font-size:.95vw;font-weight:700;letter-spacing:.1vw;text-transform:uppercase;height:1.5vw;
+.pstat{font-size:clamp(9px,0.95vw,21px);font-weight:700;letter-spacing:.1vw;text-transform:uppercase;height:1.5vw;
   color:transparent;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .pcard.active .pstat{color:var(--gold-hi);}
 .pcard.steal  .pstat{color:var(--purple-hi);}
@@ -91,31 +91,31 @@ body{
 .cat{background:rgba(255,255,255,.05);border:1px solid rgba(212,168,67,.35);border-radius:.7vw;
   display:flex;align-items:center;justify-content:center;text-align:center;padding:.5vh .4vw;
   font-family:'Playfair Display',serif;font-weight:700;color:var(--gold-hi);
-  font-size:1.4vw;line-height:1.15;text-transform:uppercase;}
+  font-size:clamp(9px,1.4vw,31px);line-height:1.15;text-transform:uppercase;}
 .tile{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:.7vw;
   display:flex;align-items:center;justify-content:center;
-  font-family:'Playfair Display',serif;font-weight:900;font-size:2.6vw;color:var(--gold);}
+  font-family:'Playfair Display',serif;font-weight:900;font-size:clamp(11px,2.6vw,57px);color:var(--gold);}
 .tile.used{opacity:.13;}
 .tile.blocked{background:rgba(124,58,237,.12);border:1px dashed rgba(167,139,250,.5);
   flex-direction:column;gap:.3vh;color:#b9a4f5;}
-.tile.blocked .star{font-size:2vw;line-height:1;}
-.tile.blocked .sc{font-size:.75vw;font-weight:700;letter-spacing:.05vw;text-transform:uppercase;opacity:.75;}
+.tile.blocked .star{font-size:clamp(9px,2.0vw,44px);line-height:1;}
+.tile.blocked .sc{font-size:clamp(9px,0.75vw,16px);font-weight:700;letter-spacing:.05vw;text-transform:uppercase;opacity:.75;}
 
 /* Question — occupies the board's slot. Scores stay visible above it. */
 #qscreen{display:none;position:relative;flex:1;min-height:0;flex-direction:column;align-items:center;justify-content:center;
   text-align:center;padding:2vh 6vw;border-radius:1.2vw;
   background:radial-gradient(ellipse at 50% 30%, rgba(60,48,130,.55) 0%, rgba(8,9,15,.2) 75%);}
-#qcat{font-size:1.4vw;letter-spacing:.35vw;text-transform:uppercase;color:var(--gold);}
-#qpts{font-family:'Playfair Display',serif;font-size:3.6vw;font-weight:900;color:var(--gold-hi);line-height:1.1;}
-#qtext{font-family:'Playfair Display',serif;font-size:3.2vw;font-weight:700;line-height:1.3;max-width:82vw;}
+#qcat{font-size:clamp(9px,1.4vw,31px);letter-spacing:.35vw;text-transform:uppercase;color:var(--gold);}
+#qpts{font-family:'Playfair Display',serif;font-size:clamp(15px,3.6vw,79px);font-weight:900;color:var(--gold-hi);line-height:1.1;}
+#qtext{font-family:'Playfair Display',serif;font-size:clamp(13px,3.2vw,70px);font-weight:700;line-height:1.3;max-width:82vw;}
 /* Sits with the category, points and timer — everything you need to know ABOUT
    the question, above the question itself. */
-#qwho{margin-top:.6vh;font-size:1.5vw;color:rgba(255,255,255,.55);min-height:1.8vw;}
+#qwho{margin-top:.6vh;font-size:clamp(9px,1.5vw,33px);color:rgba(255,255,255,.55);min-height:1.8vw;}
 #qwho b{color:var(--gold-hi);}
 #qans{margin-top:2.5vh;display:none;}
-#qans .lbl{display:block;font-size:1vw;letter-spacing:.25vw;text-transform:uppercase;color:rgba(255,255,255,.45);font-weight:600;margin-bottom:.6vh;}
-#qanstext{font-size:2.6vw;font-weight:800;color:var(--teal-hi);line-height:1.2;}
-#qexp{margin-top:1.4vh;font-size:1.25vw;line-height:1.5;color:rgba(255,255,255,.6);max-width:62vw;
+#qans .lbl{display:block;font-size:clamp(9px,1.0vw,22px);letter-spacing:.25vw;text-transform:uppercase;color:rgba(255,255,255,.45);font-weight:600;margin-bottom:.6vh;}
+#qanstext{font-size:clamp(11px,2.6vw,57px);font-weight:800;color:var(--teal-hi);line-height:1.2;}
+#qexp{margin-top:1.4vh;font-size:clamp(9px,1.25vw,28px);line-height:1.5;color:rgba(255,255,255,.6);max-width:62vw;
   margin-left:auto;margin-right:auto;display:none;font-weight:500;}
 
 /* Countdown — the phone starts it, the TV runs its own so it animates smoothly
@@ -131,19 +131,19 @@ body{
 #timerBar.urgent{stroke:var(--red);}
 #timerNum{position:absolute;left:0;top:0;width:5.5vw;height:5.5vw;text-align:center;
   display:flex;align-items:center;justify-content:center;
-  font-family:'Playfair Display',serif;font-size:2vw;font-weight:900;color:var(--gold-hi);
+  font-family:'Playfair Display',serif;font-size:clamp(9px,2.0vw,44px);font-weight:900;color:var(--gold-hi);
   pointer-events:none;}
 #timerNum.urgent{color:#ff8b7d;animation:tick .5s ease-in-out infinite;}
 @keyframes tick{0%,100%{transform:scale(1);}50%{transform:scale(1.12);}}
-#timerLbl{font-size:.85vw;letter-spacing:.15vw;text-transform:uppercase;color:rgba(255,255,255,.45);font-weight:700;}
+#timerLbl{font-size:clamp(9px,0.85vw,19px);letter-spacing:.15vw;text-transform:uppercase;color:rgba(255,255,255,.45);font-weight:700;}
 
 /* THE RESULT BEAT — a miss has to be impossible to miss. */
 #result{display:none;margin-top:2.5vh;padding:1.6vh 3vw;border-radius:1vw;
-  font-size:2.2vw;font-weight:800;letter-spacing:.05vw;animation:pop .35s ease-out;}
+  font-size:clamp(9px,2.2vw,48px);font-weight:800;letter-spacing:.05vw;animation:pop .35s ease-out;}
 #result.right{background:rgba(26,122,69,.25);border:2px solid #2ecc71;color:#7be8a5;}
 #result.wrong{background:rgba(192,57,43,.22);border:2px solid var(--red);color:#ff8b7d;}
 #result.stealing{background:rgba(124,58,237,.22);border:2px solid var(--purple-hi);color:#c9b6ff;}
-#result .sub{display:block;font-size:1.3vw;font-weight:600;opacity:.85;margin-top:.6vh;}
+#result .sub{display:block;font-size:clamp(9px,1.3vw,29px);font-weight:600;opacity:.85;margin-top:.6vh;}
 @keyframes pop{0%{transform:scale(.9);opacity:0;}60%{transform:scale(1.03);}100%{transform:scale(1);opacity:1;}}
 
 /* Flash the whole screen so a change is noticed from across the room */
@@ -154,9 +154,9 @@ body{
 
 /* Question is being written — tell the room what's happening, don't just sit there */
 #gen{display:none;flex:1;min-height:0;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
-#gen .who{font-size:2.6vw;font-weight:700;line-height:1.3;}
+#gen .who{font-size:clamp(11px,2.6vw,57px);font-weight:700;line-height:1.3;}
 #gen .who b{color:var(--gold-hi);}
-#gen .status{margin-top:3vh;font-size:1.4vw;color:rgba(255,255,255,.45);letter-spacing:.15vw;text-transform:uppercase;}
+#gen .status{margin-top:3vh;font-size:clamp(9px,1.4vw,31px);color:rgba(255,255,255,.45);letter-spacing:.15vw;text-transform:uppercase;}
 .spinner{width:4vw;height:4vw;margin:0 auto 3vh;border:.35vw solid rgba(212,168,67,.2);
   border-top-color:var(--gold);border-radius:50%;animation:spin 1s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
@@ -164,7 +164,7 @@ body{
 /* Audio is blocked until someone interacts with the page — and nobody touches a TV.
    One press of the remote unlocks it for the session. */
 #audioLock{position:fixed;bottom:3vh;left:50%;transform:translateX(-50%);z-index:30;
-  background:rgba(212,168,67,.92);color:#14120e;font-weight:800;font-size:1.1vw;
+  background:rgba(212,168,67,.92);color:#14120e;font-weight:800;font-size:clamp(9px,1.1vw,24px);
   padding:1.2vh 2.5vw;border-radius:2vw;border:none;cursor:pointer;display:none;
   animation:pulse 2s ease-in-out infinite;}
 
@@ -172,37 +172,145 @@ body{
    phone's callout shows: main vs steal, attempts, hit rate, points, total. */
 #roundEnd{display:none;flex:1;min-height:0;flex-direction:column;align-items:center;
   justify-content:center;padding:2vh 4vw;animation:pop .45s cubic-bezier(.2,.9,.3,1.2);}
-.rv{display:none;font-size:2.2vw;font-weight:800;padding:1.4vh 3vw;border-radius:1vw;
+.rv{display:none;font-size:clamp(9px,2.2vw,48px);font-weight:800;padding:1.4vh 3vw;border-radius:1vw;
   margin-bottom:2.5vh;text-align:center;}
 .rv.right{background:rgba(26,122,69,.25);border:2px solid #2ecc71;color:#7be8a5;}
 .rv.wrong{background:rgba(192,57,43,.22);border:2px solid var(--red);color:#ff8b7d;}
 .rv .pts{opacity:.85;}
-.rv .ans{font-size:1.3vw;font-weight:600;color:rgba(255,255,255,.65);margin-top:.6vh;}
+.rv .ans{font-size:clamp(9px,1.3vw,29px);font-weight:600;color:rgba(255,255,255,.65);margin-top:.6vh;}
 .rv .ans b{color:var(--teal-hi);}
-#roundEnd .t{font-family:'Playfair Display',serif;font-size:2.8vw;font-weight:900;
+#roundEnd .t{font-family:'Playfair Display',serif;font-size:clamp(12px,2.8vw,62px);font-weight:900;
   color:var(--gold-hi);line-height:1.1;margin-bottom:.4vh;}
-#roundEnd .s{font-size:1.5vw;color:rgba(255,255,255,.6);margin-bottom:2.5vh;}
+#roundEnd .s{font-size:clamp(9px,1.5vw,33px);color:rgba(255,255,255,.6);margin-bottom:2.5vh;}
 #roundEnd .s b{color:#fff;}
 .rtab{border-collapse:collapse;width:82vw;max-width:82vw;}
-.rtab th{font-size:.9vw;font-weight:700;letter-spacing:.1vw;text-transform:uppercase;
+.rtab th{font-size:clamp(9px,0.9vw,20px);font-weight:700;letter-spacing:.1vw;text-transform:uppercase;
   color:rgba(255,255,255,.4);padding:.6vh .8vw;}
 .rtab thead tr:first-child th{border-bottom:1px solid rgba(255,255,255,.15);}
 .rtab .grp{color:rgba(255,255,255,.55);}
 .rtab .grp.main{color:var(--gold);}
 .rtab .grp.steal{color:var(--purple-hi);}
-.rtab td{padding:1vh .8vw;text-align:center;font-size:1.4vw;font-weight:600;
+.rtab td{padding:1vh .8vw;text-align:center;font-size:clamp(9px,1.4vw,31px);font-weight:600;
   color:rgba(255,255,255,.75);border-top:1px solid rgba(255,255,255,.07);}
-.rtab td.nm{text-align:left;font-size:1.7vw;font-weight:700;color:#fff;white-space:nowrap;}
-.rtab td.tot{text-align:right;font-family:'Playfair Display',serif;font-size:2.2vw;
+.rtab td.nm{text-align:left;font-size:clamp(9px,1.7vw,37px);font-weight:700;color:#fff;white-space:nowrap;}
+.rtab td.tot{text-align:right;font-family:'Playfair Display',serif;font-size:clamp(9px,2.2vw,48px);
   font-weight:900;color:var(--gold-hi);}
 .rtab tr.lead td{background:rgba(212,168,67,.1);}
 .rtab tr.lead td.nm{color:var(--gold-hi);}
 .rtab .dim{color:rgba(255,255,255,.3);}
 .rtab .sep{border-left:1px solid rgba(255,255,255,.12);}
 
-.offline{position:fixed;bottom:2.5vh;left:0;right:0;text-align:center;font-size:1vw;color:var(--red);display:none;}
-.tag{position:fixed;bottom:1vh;left:0;right:0;text-align:center;font-size:.75vw;
+.offline{position:fixed;bottom:2.5vh;left:0;right:0;text-align:center;font-size:clamp(9px,1.0vw,22px);color:var(--red);display:none;}
+.tag{position:fixed;bottom:1vh;left:0;right:0;text-align:center;font-size:clamp(9px,0.75vw,16px);
   color:rgba(255,255,255,.25);letter-spacing:.03vw;z-index:20;}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ANY SCREEN — phone, tablet, laptop, TV.
+   The layout above is tuned for a big screen across a room. A phone held in the
+   hand is a different problem: less width, more height, and the reader is close.
+   So below ~900px we stop scaling with the viewport and use real sizes.
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 900px){
+  body{padding:10px 12px;overflow-y:auto;}
+
+  /* Join */
+  #join{height:auto;min-height:92vh;}
+  #join h1{font-size:34px;}
+  #join .sub{font-size:11px;letter-spacing:3px;margin-bottom:22px;}
+  .codebox{flex-direction:column;gap:14px;padding:18px 24px;border-radius:16px;}
+  .code{font-size:52px;letter-spacing:6px;}
+  #qr img{width:130px;height:130px;}
+  #join .hint{font-size:13px;margin-top:24px;line-height:1.5;}
+  .dot{width:8px;height:8px;margin-right:6px;}
+  #connected{gap:12px;padding:14px 18px;border-radius:14px;margin-top:22px;}
+  .tick{width:42px;height:42px;font-size:24px;}
+  #connected .big{font-size:17px;}
+  #connected .dev{font-size:12px;}
+  #connected .go{font-size:10px;}
+
+  /* Scores — a row of cards becomes a tight grid */
+  #game{height:auto;min-height:92vh;}
+  .scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-bottom:10px;}
+  .pcard{padding:7px 6px;border-radius:10px;}
+  .pname{font-size:13px;}
+  .pnum{margin-right:3px;}
+  .pscore{font-size:22px;}
+  .pmeta{height:auto;gap:3px;}
+  .pmeta .chip{font-size:9px;padding:1px 6px;}
+  .pstat{font-size:9px;height:12px;letter-spacing:.5px;}
+
+  /* Board */
+  #board{gap:5px;}
+  .cat{font-size:10px;padding:5px 3px;border-radius:7px;line-height:1.1;}
+  .tile{font-size:18px;border-radius:7px;}
+  .tile.blocked .star{font-size:14px;}
+  .tile.blocked .sc{font-size:6px;}
+
+  /* Question */
+  .qhead{gap:14px;margin-bottom:14px;}
+  #qcat{font-size:11px;letter-spacing:2px;}
+  #qpts{font-size:30px;}
+  #qwho{font-size:13px;min-height:16px;}
+  #qtext{font-size:22px;line-height:1.35;max-width:100%;}
+  #qans{margin-top:16px;}
+  #qans .lbl{font-size:9px;}
+  #qanstext{font-size:22px;}
+  #qexp{font-size:12px;max-width:100%;margin-top:10px;}
+  #timerRing{width:46px!important;height:46px!important;}
+  #timerNum{width:46px;height:46px;font-size:17px;}
+  #timerLbl{font-size:8px;}
+  #result{font-size:17px;padding:10px 18px;border-radius:12px;margin-top:16px;}
+  #result .sub{font-size:11px;}
+
+  /* Generating */
+  #gen .who{font-size:18px;}
+  #gen .status{font-size:11px;margin-top:14px;}
+  .spinner{width:36px;height:36px;border-width:3px;margin-bottom:16px;}
+
+  /* Round end — the wide table can't fit; drop to the essentials */
+  #roundEnd{padding:10px 4px;}
+  .rv{font-size:16px;padding:10px 14px;margin-bottom:14px;border-radius:12px;}
+  .rv .ans{font-size:12px;}
+  #roundEnd .t{font-size:22px;}
+  #roundEnd .s{font-size:13px;margin-bottom:14px;}
+  .rtab{width:100%;}
+  .rtab th{font-size:8px;padding:4px 3px;letter-spacing:.3px;}
+  .rtab td{font-size:12px;padding:7px 3px;}
+  .rtab td.nm{font-size:13px;}
+  .rtab td.tot{font-size:17px;}
+
+  .tag{font-size:8px;bottom:4px;}
+  #audioLock{font-size:12px;padding:9px 18px;border-radius:20px;}
+}
+
+/* Very narrow (a phone in portrait): the steal/own-picks split won't fit. */
+@media (max-width: 520px){
+  .rtab .hide-narrow{display:none;}
+  .pmeta .chip.hit{display:none;}     /* keep "yet to pick", drop the hit rate */
+}
+
+/* The TV is a noticeboard: one code, two ways in. Nobody types on it. */
+.joiners{display:flex;gap:4vw;margin-top:4vh;}
+.jcard{display:flex;flex-direction:column;align-items:center;gap:1vh;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+  border-radius:1.2vw;padding:2vh 2.5vw;}
+.jrole{font-size:clamp(11px,1.1vw,22px);font-weight:800;letter-spacing:.2vw;
+  text-transform:uppercase;color:var(--gold-hi);}
+.jrole.player{color:var(--teal-hi);}
+.qrbox{background:#fff;padding:.8vw;border-radius:.8vw;}
+.qrbox img{display:block;width:clamp(90px,10vw,190px);height:clamp(90px,10vw,190px);}
+.jhow{font-size:clamp(10px,1vw,19px);color:rgba(255,255,255,.5);text-align:center;line-height:1.4;}
+.jhow .url{color:rgba(255,255,255,.35);font-size:.85em;}
+#join.connected .joiners .jcard:first-child{opacity:.25;}
+#join.connected .codebox{opacity:.45;transform:scale(.9);}
+
+@media (max-width:900px){
+  .joiners{gap:14px;margin-top:16px;}
+  .jcard{padding:10px 12px;border-radius:12px;}
+  .jrole{font-size:10px;}
+  .qrbox img{width:88px;height:88px;}
+  .jhow{font-size:10px;}
+}
 </style>
 </head>
 <body>
@@ -210,23 +318,30 @@ body{
 <div id="join">
   <h1>Family Trivia</h1>
   <div class="sub">Big Screen</div>
+
   <div class="codebox">
     <div>
-      <div class="codelabel">Join code</div>
+      <div class="codelabel">Game code</div>
       <div class="code" id="code">····</div>
     </div>
-    <div id="qr"></div>
   </div>
-  <div class="hint" id="hint"><span class="dot"></span>On your phone, tap <b>Connect to TV</b> — enter this code, or scan the QR code</div>
 
-  <div id="connected">
-    <div class="tick">✓</div>
-    <div class="txt">
-      <div class="big">Judge device connected</div>
-      <div class="dev" id="devName"></div>
-      <div class="go">Start the game on that device</div>
+  <div class="joiners">
+    <div class="jcard">
+      <div class="jrole">Judge</div>
+      <div class="qrbox" id="qrJudge"></div>
+      <div class="jhow">Scan to run the game</div>
+    </div>
+    <div class="jcard">
+      <div class="jrole player">Everyone else</div>
+      <div class="qrbox" id="qrPlayer"></div>
+      <div class="jhow">Scan to watch along<br><span class="url" id="playUrl"></span></div>
     </div>
   </div>
+
+  <div class="hint" id="hint"><span class="dot"></span>Waiting for the judge to connect</div>
+</div>
+
 </div>
 
 <div id="game" style="position:relative;">
@@ -276,8 +391,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='3.17';
-const TV_BUILT_AT='2026-07-14T01:44:46Z';
+const TV_VERSION='4.2';
+const TV_BUILT_AT='2026-07-15T18:09:39Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -308,7 +423,11 @@ fetch(BACKEND+'/api/version').then(r=>r.json()).then(d=>{
   SRV_VER=d.version; SRV_BUILT=d.builtAt; paintTags();
 }).catch(()=>{ SRV_VER='unreachable'; paintTags(); });
 
-// ── Get a room, show the code + QR ────────────────────────────────────────
+// ── The big screen owns the room ──────────────────────────────────────────
+// A TV remote is a miserable keyboard, so this page never asks for input. It
+// creates the room, shows a code and a QR, and the JUDGE scans it. Player phones
+// and tablets then join the same room from their own devices — they have real
+// keyboards and cameras, so the effort belongs on them, not on the TV.
 async function init(){
   try{
     const r = await fetch(BACKEND+'/api/room/new', {method:'POST'});
@@ -316,22 +435,28 @@ async function init(){
     CODE = d.code;
   }catch(e){
     document.getElementById('code').textContent='···';
-    document.getElementById('offline').style.display='block';
-    document.getElementById('offline').textContent='Could not reach the server — reload this page';
+    const o=document.getElementById('offline');
+    o.style.display='block';
+    o.textContent='Could not reach the server — reload this page';
     return;
   }
   document.getElementById('code').textContent = CODE;
-
-  // QR points the phone straight at the app with the code prefilled.
-  const joinUrl = location.origin + '/?tv=' + CODE;
-  const qr = document.getElementById('qr');
-  const img = document.createElement('img');
-  img.alt = 'Scan to connect';
-  img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=0&data=' + encodeURIComponent(joinUrl);
-  img.onerror = () => { qr.style.display='none'; };   // no internet for the QR service? code still works
-  qr.appendChild(img);
-
+  qr('qrJudge',  location.origin + '/?tv='   + CODE);   // judge scans → connects
+  qr('qrPlayer', location.origin + '/join?code=' + CODE);   // players scan → watch
+  const pl=document.getElementById('playUrl');
+  if(pl) pl.textContent = location.host + '/join';
   listen();
+}
+
+function qr(id, url){
+  const box=document.getElementById(id);
+  if(!box) return;
+  const img=document.createElement('img');
+  img.alt='Scan to join';
+  img.src='https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=0&data='+encodeURIComponent(url);
+  img.onerror=()=>{ box.style.display='none'; };
+  box.innerHTML='';
+  box.appendChild(img);
 }
 
 // ── Paired / not paired ───────────────────────────────────────────────────
@@ -343,7 +468,14 @@ function setPaired(on, device){
   // The whole join screen changes state — the code fades back, a big green
   // confirmation comes forward. Readable from the sofa, unlike a coloured dot.
   document.getElementById('join').classList.toggle('connected', on);
-  document.getElementById('devName').textContent = dev || '';
+  const h=document.getElementById('hint');
+  if(on){
+    h.innerHTML='<span class="dot" style="background:#2ecc71;"></span>Judge connected'
+      + (dev ? ` \u2014 <b>${dev}</b>` : '')
+      + ' \u2014 start the game on that device';
+  } else {
+    h.innerHTML='<span class="dot"></span>Waiting for the judge to connect';
+  }
 }
 
 // ── Subscribe to the room's push stream ───────────────────────────────────
@@ -351,7 +483,7 @@ function listen(){
   ES = new EventSource(BACKEND+'/api/room/'+CODE+'/stream');
   ES.addEventListener('state',   e => render(JSON.parse(e.data)));
   ES.addEventListener('waiting', () => { setPaired(false, ''); });   // no phone yet
-  ES.addEventListener('closed',  () => { location.reload(); });  // phone left — fresh code
+  ES.addEventListener('closed',  () => { location.reload(); });   // game over → fresh code
   ES.onerror = () => { document.getElementById('offline').style.display='block'; };
   ES.onopen  = () => { document.getElementById('offline').style.display='none'; };
 }
@@ -442,6 +574,8 @@ function unlockAudio(){
   if(_pendingSpeak){ const t=_pendingSpeak; _pendingSpeak=null; sayIt(t); }
 }
 document.getElementById('audioLock').addEventListener('click', unlockAudio);
+
+
 // Any remote press works — a TV remote's OK usually lands as a keydown.
 window.addEventListener('keydown', ()=>{ if(!_audioReady) unlockAudio(); });
 
@@ -649,7 +783,7 @@ function render(S){
     const mine=(S.attempts||[]).filter(a=>a.player===p);
     const ok=mine.filter(a=>a.correct).length;
     const hit = mine.length
-      ? `<span class="chip">${Math.round(ok/mine.length*100)}% correct</span>`
+      ? `<span class="chip hit">${Math.round(ok/mine.length*100)}% correct</span>`
       : '';
 
     // Whether they still owe a pick this round. Spelled out — "✓" and "to pick"

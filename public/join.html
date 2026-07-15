@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#08090f">
+<title>Family Trivia — Watch</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --night:#08090f; --card:#f7f2e8; --card2:#ede7d5; --card3:#e2dbc7;
+  --gold:#d4a843; --gold-hi:#f0c855; --gold-lo:#a07828;
+  --teal:#1fada0; --teal-hi:#3dd5c8; --red:#c0392b; --green:#1a7a45;
+  --purple:#7c3aed; --purple-hi:#a78bfa; --ink:#14120e; --muted:#6b6560;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{
+  background:radial-gradient(ellipse at 50% 0%, #1a1636 0%, var(--night) 70%);
+  color:#fff; font-family:'Outfit',system-ui,sans-serif;
+  min-height:100dvh; padding:14px 14px calc(14px + env(safe-area-inset-bottom));
+}
+
+/* ── Join ─────────────────────────────────────────────── */
+#join{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:calc(100dvh - 30px);text-align:center;}
+#join h1{font-family:'Playfair Display',serif;font-size:34px;font-weight:900;color:var(--gold-hi);line-height:1.05;}
+#join .sub{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.45);margin:6px 0 30px;}
+.lbl{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:10px;}
+#code{width:min(280px,80vw);padding:14px;border:2px solid rgba(212,168,67,.45);border-radius:14px;
+  background:rgba(255,255,255,.05);color:var(--gold-hi);font-family:'Playfair Display',serif;
+  font-size:42px;font-weight:900;text-align:center;letter-spacing:10px;outline:none;}
+#code:focus{border-color:var(--gold);}
+#err{margin-top:12px;font-size:13px;color:#ff8b7d;min-height:18px;}
+#join .note{margin-top:26px;font-size:13px;color:rgba(255,255,255,.4);line-height:1.6;max-width:300px;}
+#join .note b{color:var(--gold);}
+
+/* ── Who are you? ─────────────────────────────────────── */
+#who{display:none;flex-direction:column;align-items:center;justify-content:center;
+  min-height:calc(100dvh - 30px);text-align:center;}
+#who h2{font-family:'Playfair Display',serif;font-size:26px;font-weight:900;color:var(--gold-hi);margin-bottom:6px;}
+#who .sub2{font-size:13px;color:rgba(255,255,255,.45);margin-bottom:24px;}
+#whoList{display:flex;flex-direction:column;gap:10px;width:min(320px,86vw);}
+.wbtn{padding:15px;border-radius:14px;border:1.5px solid rgba(255,255,255,.15);
+  background:rgba(255,255,255,.05);color:#fff;font-family:inherit;font-size:17px;font-weight:700;cursor:pointer;}
+.wbtn:active{background:rgba(212,168,67,.2);border-color:var(--gold);}
+.wbtn.skip{border-style:dashed;color:rgba(255,255,255,.5);font-weight:600;font-size:14px;}
+
+/* ── Game ─────────────────────────────────────────────── */
+#game{display:none;flex-direction:column;gap:12px;min-height:calc(100dvh - 30px);}
+
+/* You */
+#me{border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:12px;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);transition:all .3s;}
+#me.up{background:rgba(212,168,67,.18);border-color:var(--gold);}
+#me.steal{background:rgba(124,58,237,.18);border-color:var(--purple-hi);}
+#me .mname{font-size:15px;font-weight:800;}
+#me .mscore{font-family:'Playfair Display',serif;font-size:30px;font-weight:900;color:var(--gold-hi);line-height:1;}
+#me .mstat{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+  color:rgba(255,255,255,.45);margin-top:2px;min-height:14px;}
+#me.up .mstat{color:var(--gold-hi);}
+#me.steal .mstat{color:var(--purple-hi);}
+#me .mright{margin-left:auto;text-align:right;}
+
+/* Question */
+#q{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:16px 6px;border-radius:16px;
+  background:radial-gradient(ellipse at 50% 30%, rgba(60,48,130,.5) 0%, rgba(8,9,15,.15) 75%);}
+#qhead{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:14px;}
+#qcat{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);}
+#qpts{font-family:'Playfair Display',serif;font-size:30px;font-weight:900;color:var(--gold-hi);line-height:1.1;}
+#qwho{font-size:13px;color:rgba(255,255,255,.55);margin-top:2px;min-height:16px;}
+#qwho b{color:var(--gold-hi);}
+#qtext{font-family:'Playfair Display',serif;font-size:23px;font-weight:700;line-height:1.35;}
+#qans{display:none;margin-top:18px;}
+#qans .l{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.4);font-weight:600;}
+#qanstext{font-size:22px;font-weight:800;color:var(--teal-hi);margin-top:4px;}
+#qexp{display:none;font-size:12px;line-height:1.5;color:rgba(255,255,255,.55);margin-top:10px;}
+#res{display:none;margin-top:16px;padding:11px 18px;border-radius:12px;font-size:16px;font-weight:800;}
+#res.right{background:rgba(26,122,69,.25);border:2px solid #2ecc71;color:#7be8a5;}
+#res.wrong{background:rgba(192,57,43,.22);border:2px solid var(--red);color:#ff8b7d;}
+#res.stealing{background:rgba(124,58,237,.22);border:2px solid var(--purple-hi);color:#c9b6ff;}
+#res .s{display:block;font-size:11px;font-weight:600;opacity:.85;margin-top:3px;}
+
+/* Timer */
+#timer{display:none;flex-direction:column;align-items:center;gap:2px;}
+#tnum{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:'Playfair Display',serif;font-size:17px;font-weight:900;color:var(--gold-hi);}
+#tnum.urgent{color:#ff8b7d;}
+#tbar{fill:none;stroke:var(--gold);stroke-width:6;stroke-linecap:round;transition:stroke-dashoffset 1s linear,stroke .4s;}
+#tbar.urgent{stroke:var(--red);}
+#tlbl{font-size:8px;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.4);font-weight:700;}
+
+/* Everyone */
+#board{display:none;}
+#others{display:flex;flex-direction:column;gap:5px;}
+.orow{display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:10px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);font-size:14px;}
+.orow.up{background:rgba(212,168,67,.12);border-color:rgba(212,168,67,.5);}
+.orow.me{border-color:rgba(31,173,160,.5);}
+.orow .on{color:rgba(255,255,255,.3);font-weight:700;min-width:14px;}
+.orow .oname{font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.orow .ostat{font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--gold-hi);font-weight:700;}
+.orow .osc{font-family:'Playfair Display',serif;font-size:19px;font-weight:900;color:var(--gold-hi);}
+
+/* Waiting / generating */
+#wait{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;}
+#wait .spin{width:34px;height:34px;border:3px solid rgba(212,168,67,.2);border-top-color:var(--gold);
+  border-radius:50%;animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#wait .msg{font-size:16px;font-weight:700;line-height:1.4;}
+#wait .msg b{color:var(--gold-hi);}
+#wait .sub3{font-size:12px;color:rgba(255,255,255,.4);letter-spacing:1px;text-transform:uppercase;}
+
+/* Round end */
+#rend{display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;}
+#rend .rt{font-family:'Playfair Display',serif;font-size:24px;font-weight:900;color:var(--gold-hi);}
+#rend .rs{font-size:13px;color:rgba(255,255,255,.55);margin-bottom:12px;}
+#rend .rs b{color:#fff;}
+#rtable{width:100%;}
+.rrow{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:10px;
+  background:rgba(255,255,255,.04);margin-bottom:5px;font-size:14px;}
+.rrow.lead{background:rgba(212,168,67,.14);}
+.rrow .rn{flex:1;font-weight:700;text-align:left;}
+.rrow .rd{font-size:11px;color:rgba(255,255,255,.45);}
+.rrow .rp{font-family:'Playfair Display',serif;font-size:19px;font-weight:900;color:var(--gold-hi);}
+
+.tag{text-align:center;font-size:9px;color:rgba(255,255,255,.2);padding-top:6px;}
+</style>
+</head>
+<body>
+
+<div id="join">
+  <h1>Family Trivia</h1>
+  <div class="sub">Watch along</div>
+  <div class="lbl">Game code</div>
+  <input id="code" type="tel" inputmode="numeric" maxlength="4" placeholder="0000" autocomplete="off">
+  <div id="err"></div>
+  <div class="note">The code is on the big screen — or on the judge's phone under <b>Show on a screen</b>.</div>
+</div>
+
+<div id="who">
+  <h2>Who's holding this?</h2>
+  <div class="sub2">So we can show you your turn</div>
+  <div id="whoList"></div>
+</div>
+
+<div id="game">
+  <div id="me">
+    <div>
+      <div class="mname" id="meName"></div>
+      <div class="mstat" id="meStat"></div>
+    </div>
+    <div class="mright">
+      <div class="mscore" id="meScore">0</div>
+    </div>
+  </div>
+
+  <div id="q">
+    <div id="qhead">
+      <div>
+        <div id="qcat"></div>
+        <div id="qpts"></div>
+        <div id="qwho"></div>
+      </div>
+      <div id="timer">
+        <div style="position:relative;width:46px;height:46px;">
+          <svg viewBox="0 0 72 72" style="width:46px;height:46px;transform:rotate(-90deg);">
+            <circle cx="36" cy="36" r="30" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="6"/>
+            <circle id="tbar" cx="36" cy="36" r="30"/>
+          </svg>
+          <div id="tnum">30</div>
+        </div>
+        <div id="tlbl"></div>
+      </div>
+    </div>
+    <div id="qtext"></div>
+    <div id="qans"><div class="l">Answer</div><div id="qanstext"></div><div id="qexp"></div></div>
+    <div id="res"></div>
+  </div>
+
+  <div id="wait">
+    <div class="spin"></div>
+    <div class="msg" id="waitMsg"></div>
+    <div class="sub3" id="waitSub"></div>
+  </div>
+
+  <div id="rend">
+    <div class="rt"></div>
+    <div class="rs"></div>
+    <div id="rtable"></div>
+  </div>
+
+  <div id="others"></div>
+</div>
+
+<div class="tag" id="tag"></div>
+
+<script>
+const JOIN_VERSION='1.1';
+const JOIN_BUILT_AT='2026-07-15T18:09:39Z';
+const BACKEND='';
+const PTS=[100,200,300,400,500];
+
+let CODE=null, ES=null, ME=null;        // ME = the player index this device belongs to
+let _seq=0, _lastHeard=0, _phoneVisible=true;
+
+function fmt(iso){
+  try{
+    const d=new Date(iso); if(isNaN(d)) return '';
+    const p={};
+    new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',day:'2-digit',
+      hour:'2-digit',minute:'2-digit',hour12:true}).formatToParts(d).forEach(x=>p[x.type]=x.value);
+    return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} ${(p.dayPeriod||'').replace(/\./g,'').toUpperCase()}`;
+  }catch(e){ return ''; }
+}
+document.getElementById('tag').textContent = `Join ${JOIN_VERSION} · ${fmt(JOIN_BUILT_AT)}`;
+
+// ── Join ──────────────────────────────────────────────────────────────────
+// The device reaches out to the judge's room. Nobody has to do anything on the
+// judge's side — which is the whole point of doing it this way round.
+(function(){
+  const url=new URLSearchParams(location.search);
+  const c=(url.get('code')||'').trim();
+  if(/^\d{4}$/.test(c)){ join(c); return; }
+  const inp=document.getElementById('code');
+  inp.addEventListener('input',()=>{
+    const v=inp.value.replace(/\D/g,'').slice(0,4);
+    inp.value=v;
+    if(v.length===4) join(v);        // 4 digits is the whole code
+  });
+  setTimeout(()=>inp.focus(),300);
+})();
+
+async function join(code){
+  const err=document.getElementById('err');
+  err.textContent='Connecting…';
+  try{
+    const r=await fetch(BACKEND+'/api/room/'+code);
+    if(!r.ok){ err.textContent='No game with that code.'; return; }
+  }catch(e){ err.textContent='Could not reach the server.'; return; }
+  CODE=code;
+  err.textContent='';
+  document.getElementById('join').style.display='none';
+  listen();
+}
+
+function listen(){
+  ES=new EventSource(BACKEND+'/api/room/'+CODE+'/stream');
+  ES.addEventListener('state', e => render(JSON.parse(e.data)));
+  ES.addEventListener('waiting', ()=>{ waiting('Waiting for the judge', 'to start the game'); });
+  ES.addEventListener('closed', ()=>{ location.reload(); });
+}
+
+// ── Who is holding this device? ───────────────────────────────────────────
+// A TV is impersonal — it shows everyone equally. A phone is in someone's HAND,
+// so it should know whose. This is also the identity we'd need for buzz-in later.
+let _askedWho=false;
+function askWho(players){
+  if(_askedWho) return;
+  _askedWho=true;
+  const saved=(()=>{ try{ return localStorage.getItem('ftn_me_'+CODE); }catch(e){ return null; } })();
+  if(saved!==null && players[+saved]!==undefined){ ME=+saved; return; }
+
+  document.getElementById('game').style.display='none';
+  const w=document.getElementById('who');
+  w.style.display='flex';
+  const list=document.getElementById('whoList');
+  list.innerHTML='';
+  players.forEach((p,i)=>{
+    const b=document.createElement('button');
+    b.className='wbtn'; b.textContent=p;
+    b.onclick=()=>{ ME=i; try{ localStorage.setItem('ftn_me_'+CODE, String(i)); }catch(e){}
+      w.style.display='none'; document.getElementById('game').style.display='flex'; };
+    list.appendChild(b);
+  });
+  const s=document.createElement('button');
+  s.className='wbtn skip'; s.textContent="I'm just watching";
+  s.onclick=()=>{ ME=-1; try{ localStorage.setItem('ftn_me_'+CODE,'-1'); }catch(e){}
+    w.style.display='none'; document.getElementById('game').style.display='flex'; };
+  list.appendChild(s);
+}
+
+// ── Countdown ─────────────────────────────────────────────────────────────
+const CIRC=2*Math.PI*30;
+let _tid=null, _tint=null;
+function stopTimer(){ if(_tint){clearInterval(_tint);_tint=null;} _tid=null;
+  document.getElementById('timer').style.display='none'; }
+function runTimer(t){
+  if(!t){ stopTimer(); return; }
+  if(t.id===_tid) return;
+  if(_tint) clearInterval(_tint);
+  _tid=t.id;
+  const bar=document.getElementById('tbar'), num=document.getElementById('tnum');
+  document.getElementById('tlbl').textContent=t.label||'';
+  bar.style.strokeDasharray=CIRC;
+  document.getElementById('timer').style.display='flex';
+  let left=t.remaining; const total=t.total||30;
+  const paint=()=>{
+    num.textContent=left<0?0:left;
+    const pct=Math.max(0,left/total);
+    bar.style.strokeDashoffset=CIRC*(1-pct);
+    const u=pct<=.33;
+    bar.classList.toggle('urgent',u); num.classList.toggle('urgent',u);
+  };
+  paint();
+  _tint=setInterval(()=>{ left--; paint(); if(left<=0){clearInterval(_tint);_tint=null;} },1000);
+}
+
+function waiting(msg, sub){
+  document.getElementById('game').style.display='flex';
+  ['q','rend'].forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById('wait').style.display='flex';
+  document.getElementById('waitMsg').innerHTML=msg;
+  document.getElementById('waitSub').textContent=sub||'';
+}
+
+// ── Helpers mirroring the phone's own logic ───────────────────────────────
+function nextInOrder(S,f){ const o=S.turnOrder||[],n=o.length,p=o.indexOf(f);
+  return (p<0||n<2)?-1:o[(p+1)%n]; }
+function nextEligible(S,f){ const o=S.turnOrder||[],n=o.length,p=o.indexOf(f);
+  for(let i=1;i<=n;i++){ const x=o[(p+i)%n];
+    if((S.wrongPlayers||[]).includes(x)) continue; return x; } return -1; }
+
+// ── Render ────────────────────────────────────────────────────────────────
+function render(S){
+  if(!S) return;
+  if(S.seq!=null){ if(S.seq<_seq) return; _seq=S.seq; }
+  _lastHeard=Date.now();
+
+  if(!S.active || !S.players || !S.players.length){
+    document.getElementById('game').style.display='flex';
+    waiting('Waiting for the judge', 'to start the game');
+    document.getElementById('others').innerHTML='';
+    document.getElementById('me').style.display='none';
+    return;
+  }
+
+  askWho(S.players);
+  if(ME===null) return;                  // still choosing
+
+  document.getElementById('game').style.display='flex';
+  document.getElementById('me').style.display = (ME>=0) ? 'flex' : 'none';
+
+  const ph=S.phase;
+  const q=S.currentQuestion;
+  const questionOpen=!!(q && q.text);
+  const generating=!!S.generating;
+  const roundOver=!!S.roundEnded && ph==='reveal';
+
+  // Statuses, phase-driven (same rules the phone uses)
+  let statusOf=()=>'';
+  if(ph==='reading'){ const nx=nextInOrder(S,S.answererIdx);
+    statusOf=i=> i===S.answererIdx?'Reading' : i===nx?'On deck':''; }
+  else if(ph==='answering'){ const st=S.stealMode?-1:nextEligible(S,S.answererIdx);
+    statusOf=i=> i===S.answererIdx?(S.stealMode?'Stealing':'Answering') : i===st?'Ready to steal!':''; }
+  else if(ph==='steal-offer'){
+    statusOf=i=> i===S.answererIdx?'Missed' : i===S.pendingStealIdx?'Ready to steal!':''; }
+  else if(ph==='reveal'){ statusOf=i=> i===S.nextPickerIdx?'Picks next':''; }
+  else { const nx=nextInOrder(S,S.nextPickerIdx);
+    statusOf=i=> i===S.nextPickerIdx?'Picking' : i===nx?'On deck':''; }
+
+  // ── You ──
+  if(ME>=0){
+    const meEl=document.getElementById('me');
+    const stat=statusOf(ME);
+    document.getElementById('meName').textContent=S.players[ME];
+    document.getElementById('meScore').textContent=S.scores[ME];
+    document.getElementById('meStat').textContent=stat||'';
+    meEl.className='';
+    if(stat==='Answering'||stat==='Reading'||stat==='Picking') meEl.className='up';
+    else if(stat==='Stealing'||stat==='Ready to steal!') meEl.className='steal';
+  }
+
+  // ── Everyone else ──
+  document.getElementById('others').innerHTML = S.players.map((p,i)=>{
+    const stat=statusOf(i);
+    const st=(S.streak||[])[i]||0;
+    const badge = st>=2?` 🔥${st}` : (st<=-2?` 🧊${-st}` : '');
+    const max=Math.max(...S.scores);
+    const crown=(max>0 && S.scores.filter(x=>x===max).length===1 && S.scores[i]===max)?'👑 ':'';
+    let cls='orow';
+    if(stat && stat!=='On deck') cls+=' up';
+    if(i===ME) cls+=' me';
+    return `<div class="${cls}"><span class="on">${i+1}</span>`
+      + `<span class="oname">${crown}${p}${badge}</span>`
+      + (stat?`<span class="ostat">${stat}</span>`:'')
+      + `<span class="osc">${S.scores[i]}</span></div>`;
+  }).join('');
+
+  // ── Round end ──
+  if(roundOver){
+    ['q','wait'].forEach(id=>document.getElementById(id).style.display='none');
+    const r=document.getElementById('rend');
+    r.style.display='flex';
+    const rows=S.players.map((p,i)=>({name:p, score:S.scores[i]})).sort((a,b)=>b.score-a.score);
+    const lead=rows[0];
+    const tied=rows.filter(x=>x.score===lead.score).length>1;
+    r.querySelector('.rt').textContent=`End of Round ${S.roundEnded.round}`;
+    r.querySelector('.rs').innerHTML = lead.score>0
+      ? (tied?`Tied at <b>${lead.score}</b>`:`<b>${lead.name}</b> leads with <b>${lead.score}</b>`)
+      : 'Still all square';
+    const v=S.lastResult;
+    let h = v
+      ? `<div class="rrow ${v.correct?'lead':''}" style="justify-content:center;">`
+        + `<span class="rn" style="text-align:center;">${v.correct
+            ? `✓ ${v.player} got it${v.steal?' — stolen!':''} (+${v.pts})`
+            : '✗ Nobody got it'}</span></div>`
+      : '';
+    h += rows.map((x,i)=>`<div class="rrow ${i===0&&x.score>0?'lead':''}">`
+      + `<span class="rn">${i===0&&x.score>0&&!tied?'👑 ':''}${x.name}</span>`
+      + `<span class="rp">${x.score}</span></div>`).join('');
+    document.getElementById('rtable').innerHTML=h;
+    stopTimer();
+    return;
+  }
+  document.getElementById('rend').style.display='none';
+
+  // ── Generating ──
+  if(generating){
+    const g=S.generating;
+    waiting(`<b>${g.player||'Someone'}</b> picked <b>${g.category||''}</b>${g.pts?` for <b>${g.pts}</b>`:''}`,
+            'Writing the question…');
+    stopTimer();
+    return;
+  }
+
+  // ── No question open — waiting for a pick ──
+  if(!questionOpen){
+    const picker=S.players[S.nextPickerIdx];
+    waiting(ME===S.nextPickerIdx ? `Your turn — <b>pick a tile</b>` : `<b>${picker}</b> is picking`,
+            ME===S.nextPickerIdx ? 'on the judge\u2019s phone' : 'watch the big screen');
+    stopTimer();
+    return;
+  }
+
+  // ── Question ──
+  document.getElementById('wait').style.display='none';
+  document.getElementById('q').style.display='flex';
+  document.getElementById('qcat').textContent=(S.categories||[])[S.curCat]||'';
+  document.getElementById('qpts').textContent=S.curPts||'';
+  document.getElementById('qtext').textContent=q.text;
+
+  const who=S.players[S.answererIdx];
+  let w='';
+  if(who && !S.lastResult){
+    const mine = (S.answererIdx===ME);
+    if(ph==='reading')        w = mine ? `Get ready, <b>you're up</b>` : `Get ready, <b>${who}</b>`;
+    else if(ph==='answering') w = S.stealMode
+      ? (mine?`<b>Steal it!</b>`:`<b>${who}</b> is stealing`)
+      : (mine?`<b>Your answer!</b>`:`<b>${who}</b> is answering`);
+  }
+  document.getElementById('qwho').innerHTML=w;
+
+  const ans=document.getElementById('qans'), exp=document.getElementById('qexp');
+  if(S.revealedAnswer){
+    document.getElementById('qanstext').textContent=S.revealedAnswer;
+    if(S.revealedExplanation){ exp.textContent=S.revealedExplanation; exp.style.display='block'; }
+    else exp.style.display='none';
+    ans.style.display='block';
+  } else { ans.style.display='none'; exp.style.display='none'; }
+
+  runTimer(S.timer);
+
+  // ── Verdict ──
+  const res=document.getElementById('res');
+  const r=S.lastResult;
+  if(!r){ res.style.display='none'; }
+  else{
+    let cls, html;
+    if(ph==='steal-offer' && S.pendingStealIdx!=null){
+      cls='wrong';
+      const stealer=S.players[S.pendingStealIdx];
+      html=`✗ ${r.player} missed<span class="s">${S.pendingStealIdx===ME?'You can steal it!':stealer+' can steal it'}</span>`;
+    } else if(ph==='answering' && S.stealMode){
+      cls='stealing';
+      html=`⚡ ${S.answererIdx===ME?'You are':S.players[S.answererIdx]+' is'} stealing<span class="s">half points</span>`;
+    } else if(ph==='reveal'){
+      if(r.correct){ cls='right';
+        html=`✓ ${r.player} got it${r.steal?' — stolen!':''}<span class="s">+${r.pts} points</span>`; }
+      else { cls='wrong'; html=`✗ Nobody got it<span class="s">No points this time</span>`; }
+    } else { cls='wrong'; html=`✗ ${r.player} missed`; }
+    res.className=cls; res.innerHTML=html; res.style.display='block';
+  }
+}
+
+// The judge went quiet — say so rather than freezing on a stale board.
+setInterval(()=>{
+  if(!_lastHeard) return;
+  if(Date.now()-_lastHeard > 120000){
+    _lastHeard=0;
+    waiting('Lost the judge\u2019s device', 'reconnecting…');
+  }
+}, 10000);
+</script>
+</body>
+</html>
