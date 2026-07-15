@@ -418,7 +418,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button id="endGameBtnSetup" style="background:transparent;border:none;cursor:pointer;font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;padding:4px;opacity:.8;">End Game Session</button>
     </div>
     <div style="display:flex;justify-content:center;margin-top:4px;">
-      <button id="tvBtn" style="display:flex;align-items:center;gap:5px;background:transparent;border:none;cursor:pointer;color:var(--muted);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px;"><span style="font-size:14px;">📺</span> <span id="tvBtnLabel">Show on a screen</span></button>
+      <button id="tvBtn" style="display:flex;align-items:center;gap:5px;background:transparent;border:none;cursor:pointer;color:var(--muted);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px;"><span style="font-size:14px;">📲</span> <span id="tvBtnLabel">Join</span></button>
     </div>
     <div id="buildFooter" style="margin-top:10px;text-align:center;font-size:10px;line-height:1.5;color:var(--muted);opacity:.65;"></div>
 
@@ -455,6 +455,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <div style="font-size:11px;color:var(--muted);margin-top:8px;">Scan on a phone or tablet — or go to <b id="tvPlayUrl" style="color:var(--ink);"></b></div>
       </div>
       <div id="tvViewers" style="font-size:12px;color:var(--teal);font-weight:700;margin-top:10px;text-align:center;min-height:16px;"></div>
+      <button class="mbtn" id="tvAddScreen" style="width:100%;margin-top:10px;background:transparent;border:1.5px dashed var(--card3);color:var(--muted);font-size:13px;">📺 Add a big screen</button>
     </div>
 
     <div id="tvErr" style="font-size:12px;color:var(--red);margin-top:8px;min-height:14px;text-align:center;"></div>
@@ -511,6 +512,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <div class="progress-wrap"><div class="progress-fill" id="progressFill"></div></div>
   <div class="grid-scroll"><div class="cat-grid" id="catGrid"></div></div>
   <div style="display:flex;gap:8px;padding:10px 0 4px;">
+    <button class="new-game-btn" id="joinBtnBoard" style="flex:0 0 auto;padding:8px 12px;background:rgba(31,173,160,.15);border-color:rgba(31,173,160,.4);color:#3dd5c8;">📲 Join</button>
     <button class="new-game-btn" id="statsBtn" style="flex:1;background:rgba(31,173,160,.2);border-color:rgba(31,173,160,.5);color:#3dd5c8;padding:8px;">📊 Stats</button>
     <button class="new-game-btn" id="newGameBtn" style="flex:1;padding:8px;">⟳ New Game</button>
     <button class="new-game-btn" id="endGameBtnBoard" style="flex:1;padding:8px;background:rgba(192,57,43,.2);border-color:rgba(192,57,43,.5);color:#ff8a80;">✕ End</button>
@@ -768,8 +770,8 @@ const BACKEND='https://family-trivia-y0om.onrender.com';
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.29';
-const APP_BUILT_AT='2026-07-15T18:09:39Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.30';
+const APP_BUILT_AT='2026-07-15T21:08:10Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1294,10 +1296,10 @@ function updateTVBadge(){
   const btn=document.getElementById('tvBtn');
   if(!lbl||!btn) return;
   if(TV_CODE){
-    lbl.textContent='Sharing \u2014 code '+TV_CODE;
+    lbl.textContent='Join \u00b7 '+TV_CODE;
     btn.style.color='var(--teal)';
   } else {
-    lbl.textContent='Show on a screen';
+    lbl.textContent='Join';
     btn.style.color='var(--muted)';
   }
 }
@@ -1306,6 +1308,25 @@ function openTVModal(){
   document.getElementById('tvErr').textContent='';
   document.getElementById('tvModal').classList.add('show');
   if(TV_CODE) showLive(TV_CODE); else showSetup();
+}
+
+// The Join sheet is the one way in for players — always the code + QR. It opens a
+// room on the spot if none exists yet, so Join works from any screen at any time.
+async function openJoinSheet(){
+  const err=document.getElementById('tvErr');
+  err.textContent='';
+  document.getElementById('tvModal').classList.add('show');
+  if(!TV_CODE){
+    err.textContent='Opening a room\u2026';
+    const r=await openRoom();
+    if(!r.ok){ err.textContent=r.err||'Could not open a room.'; return; }
+    err.textContent='';
+  }
+  showLive(TV_CODE);
+}
+function syncJoinBtns(){
+  const jb=document.getElementById('joinBtnBoard');
+  if(jb) jb.textContent = TV_CODE ? ('\ud83d\udcf2 Join \u00b7 '+TV_CODE) : '\ud83d\udcf2 Join';
 }
 function showSetup(){
   document.getElementById('tvSetup').style.display='block';
@@ -1334,6 +1355,7 @@ function showLive(code){
   box.appendChild(img);
 
   updateTVBadge();
+  syncJoinBtns();
   pollViewers();
 }
 
@@ -1944,6 +1966,11 @@ async function startGame(){
   // Trap the phone/browser back gesture so an accidental back doesn't kill the game
   armBack(BACK_BUFFER);
   const names=selectedPlayers.map(p=>p.nickname);
+
+  // A game is always live in a room, so latecomers can still join from the TV or
+  // the judge's Join button even if sharing was never opened beforehand.
+  if(!TV_CODE){ try{ await openRoom(); }catch(e){} }
+  syncJoinBtns();
 
   // Build playerProfiles map: nickname -> player object (with id for DB)
   G.playerProfiles={};
@@ -3268,7 +3295,7 @@ function init(){
   pickMode(gameMode||'normal');
   // Big Screen
   const tvBtn=document.getElementById('tvBtn');
-  if(tvBtn) tvBtn.addEventListener('click',openTVModal);
+  if(tvBtn) tvBtn.addEventListener('click',openJoinSheet);
   const tvCancel=document.getElementById('tvCancel');
   if(tvCancel) tvCancel.addEventListener('click',closeTVModal);
   const tvStop=document.getElementById('tvStop');
@@ -3356,6 +3383,8 @@ function init(){
   document.getElementById('againBtn').addEventListener('click',doRestart);
   document.getElementById('endGameBtnSetup').addEventListener('click',endGame);
   document.getElementById('endGameBtnBoard').addEventListener('click',endGame);
+  document.getElementById('joinBtnBoard').addEventListener('click',openJoinSheet);
+  const _asb=document.getElementById('tvAddScreen'); if(_asb) _asb.addEventListener('click',showSetup);
 
   // Guard accidental exit: intercept the back gesture during a game
   window.addEventListener('popstate',()=>{
