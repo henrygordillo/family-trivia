@@ -68,6 +68,16 @@ body{
 /* ── Game ─────────────────────────────────────────────── */
 #game{display:none;flex-direction:column;gap:12px;min-height:calc(100dvh - 30px);}
 
+/* Board — mirrors the TV, display-only (the judge still drives every pick) */
+#pboard{display:none;gap:5px;}
+.pcat{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:rgba(255,255,255,.55);
+  text-align:center;padding:3px 2px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ptile{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;aspect-ratio:1;
+  font-family:'Playfair Display',serif;font-weight:900;font-size:15px;color:var(--gold-hi);}
+.ptile.used{opacity:.13;}
+.ptile.blocked{background:rgba(124,58,237,.12);border:1px dashed rgba(167,139,250,.5);color:var(--purple-hi);font-size:15px;}
+
 /* You */
 #me{border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:12px;
   background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);transition:all .3s;}
@@ -183,6 +193,8 @@ body{
     </div>
   </div>
 
+  <div id="pboard"></div>
+
   <div id="q">
     <div id="qhead">
       <div>
@@ -224,8 +236,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='1.3';
-const JOIN_BUILT_AT='2026-07-15T18:40:03Z';
+const JOIN_VERSION='1.4';
+const JOIN_BUILT_AT='2026-07-15T20:39:16Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -438,6 +450,23 @@ function nextEligible(S,f){ const o=S.turnOrder||[],n=o.length,p=o.indexOf(f);
     if((S.wrongPlayers||[]).includes(x)) continue; return x; } return -1; }
 
 // ── Render ────────────────────────────────────────────────────────────────
+const BPTS=[100,200,300,400,500];
+function drawBoard(S){
+  const b=document.getElementById('pboard');
+  b.style.gridTemplateColumns=`repeat(${S.numCats},1fr)`;
+  let h='';
+  (S.categories||[]).forEach(c=>{ h+=`<div class="pcat">${c}</div>`; });
+  for(let qi=0; qi<S.numQ; qi++){
+    for(let ci=0; ci<S.numCats; ci++){
+      const key=`${ci}-${qi}`;
+      if((S.blocked||{})[key])   h+='<div class="ptile blocked">★</div>';
+      else if((S.used||{})[key]) h+='<div class="ptile used"></div>';
+      else                       h+=`<div class="ptile">${BPTS[qi]}</div>`;
+    }
+  }
+  b.innerHTML=h;
+}
+
 function render(S){
   if(!S) return;
   if(S.seq!=null){ if(S.seq<_seq) return; _seq=S.seq; }
@@ -448,6 +477,7 @@ function render(S){
     waiting('Waiting for the judge', 'to start the game');
     document.getElementById('others').innerHTML='';
     document.getElementById('me').style.display='none';
+    document.getElementById('pboard').style.display='none';
     return;
   }
 
@@ -456,6 +486,7 @@ function render(S){
 
   document.getElementById('game').style.display='flex';
   document.getElementById('me').style.display = (ME>=0) ? 'flex' : 'none';
+  document.getElementById('pboard').style.display='none';
 
   const ph=S.phase;
   const q=S.currentQuestion;
@@ -540,11 +571,13 @@ function render(S){
     return;
   }
 
-  // ── No question open — waiting for a pick ──
+  // ── No question open — the board is up for the pick (display-only, like the TV) ──
   if(!questionOpen){
-    const picker=S.players[S.nextPickerIdx];
-    waiting(ME===S.nextPickerIdx ? `Your turn — <b>pick a tile</b>` : `<b>${picker}</b> is picking`,
-            ME===S.nextPickerIdx ? 'on the judge\u2019s phone' : 'watch the big screen');
+    document.getElementById('q').style.display='none';
+    document.getElementById('wait').style.display='none';
+    document.getElementById('rend').style.display='none';
+    drawBoard(S);
+    document.getElementById('pboard').style.display='grid';
     stopTimer();
     return;
   }
