@@ -60,6 +60,14 @@ body{
 #connected .dev{font-size:clamp(9px,1.4vw,31px);color:rgba(255,255,255,.65);margin-top:.4vh;}
 #connected .go{font-size:clamp(9px,1.2vw,26px);color:rgba(255,255,255,.45);margin-top:.8vh;letter-spacing:.1vw;text-transform:uppercase;}
 
+/* Late-join QR — stays on the game screen so newcomers can still hop in */
+#gameJoin{position:absolute;bottom:1.4vw;right:1.4vw;z-index:30;display:flex;align-items:center;gap:.8vw;
+  background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.18);border-radius:1vw;padding:.8vw 1vw;}
+#gameJoin .qrbox{background:#fff;padding:.45vw;border-radius:.5vw;}
+#gameJoin .qrbox img{display:block;width:clamp(52px,6vw,120px);height:clamp(52px,6vw,120px);}
+#gameJoin .gj-txt{font-size:clamp(8px,1.05vw,21px);color:rgba(255,255,255,.8);line-height:1.35;text-align:left;white-space:nowrap;}
+#gameJoin .gj-txt b{color:var(--gold-hi);font-size:clamp(11px,1.5vw,30px);letter-spacing:.15vw;}
+
 /* ── Game screen ─────────────────────────────────────────── */
 #game{display:none;height:95vh;flex-direction:column;}
 .scores{display:flex;gap:1.2vw;margin-bottom:1.6vh;}
@@ -290,7 +298,7 @@ body{
 }
 
 /* The TV is a noticeboard: one code, two ways in. Nobody types on it. */
-.joiners{display:flex;gap:4vw;margin-top:4vh;}
+.joiners{display:flex;gap:4vw;margin-top:4vh;align-items:center;justify-content:center;}
 .jcard{display:flex;flex-direction:column;align-items:center;gap:1vh;
   background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
   border-radius:1.2vw;padding:2vh 2.5vw;}
@@ -319,23 +327,33 @@ body{
   <h1>Family Trivia</h1>
   <div class="sub">Big Screen</div>
 
-  <div class="codebox">
-    <div>
-      <div class="codelabel">Game code</div>
-      <div class="code" id="code">····</div>
-    </div>
-  </div>
-
   <div class="joiners">
     <div class="jcard">
       <div class="jrole">Judge</div>
       <div class="qrbox" id="qrJudge"></div>
       <div class="jhow">Scan to run the game</div>
     </div>
+
+    <div class="codebox">
+      <div>
+        <div class="codelabel">Game code</div>
+        <div class="code" id="code">····</div>
+      </div>
+    </div>
+
     <div class="jcard">
       <div class="jrole player">Everyone else</div>
       <div class="qrbox" id="qrPlayer"></div>
       <div class="jhow">Scan to watch along<br><span class="url" id="playUrl"></span></div>
+    </div>
+  </div>
+
+  <div id="connected">
+    <div class="tick">✓</div>
+    <div class="txt">
+      <div class="big">Judge connected</div>
+      <div class="dev" id="connDev"></div>
+      <div class="go">Start the game on that device</div>
     </div>
   </div>
 
@@ -345,6 +363,10 @@ body{
 </div>
 
 <div id="game" style="position:relative;">
+  <div id="gameJoin">
+    <div class="qrbox" id="qrGameJoin"></div>
+    <div class="gj-txt">Scan to join<br><b id="gjCode">····</b></div>
+  </div>
   <div class="scores" id="scores"></div>
   <div id="roundEnd">
     <div id="roundVerdict" class="rv"></div>
@@ -391,8 +413,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='4.2';
-const TV_BUILT_AT='2026-07-15T18:09:39Z';
+const TV_VERSION='4.3';
+const TV_BUILT_AT='2026-07-15T20:02:40Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -443,6 +465,8 @@ async function init(){
   document.getElementById('code').textContent = CODE;
   qr('qrJudge',  location.origin + '/?tv='   + CODE);   // judge scans → connects
   qr('qrPlayer', location.origin + '/join?code=' + CODE);   // players scan → watch
+  qr('qrGameJoin', location.origin + '/join?code=' + CODE); // same link, lives on the game screen for latecomers
+  const gj=document.getElementById('gjCode'); if(gj) gj.textContent = CODE;
   const pl=document.getElementById('playUrl');
   if(pl) pl.textContent = location.host + '/join';
   listen();
@@ -470,9 +494,9 @@ function setPaired(on, device){
   document.getElementById('join').classList.toggle('connected', on);
   const h=document.getElementById('hint');
   if(on){
-    h.innerHTML='<span class="dot" style="background:#2ecc71;"></span>Judge connected'
-      + (dev ? ` \u2014 <b>${dev}</b>` : '')
-      + ' \u2014 start the game on that device';
+    const cd=document.getElementById('connDev');
+    if(cd) cd.textContent = dev || '';
+    h.innerHTML='<span class="dot" style="background:#2ecc71;"></span>Judge connected';
   } else {
     h.innerHTML='<span class="dot"></span>Waiting for the judge to connect';
   }
