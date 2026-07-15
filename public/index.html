@@ -770,8 +770,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.33';
-const APP_BUILT_AT='2026-07-15T22:20:40Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.34';
+const APP_BUILT_AT='2026-07-15T22:34:37Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -2923,13 +2923,15 @@ function endGame(){
     : 'End the session? The game will close.';
   if(!confirm(msg)) return;
   _inGame=false;
+  _backDepth=0;                                  // release the back-trap
+  show('setup');                                 // switch first, so the exit feels instant
+  toast('Session ended');
+  // Teardown AFTER the screen has already changed, so a slow room-close network
+  // call can never make the exit feel laggy.
   try{ window.speechSynthesis?.cancel(); }catch(e){}
   try{ if(G.recording) stopMic(); }catch(e){}
-  try{ if(TV_CODE) disconnectTV(); }catch(e){}   // tear down the room with the game
-  clearSave();                                   // discard the save so it won't offer to resume
-  _backDepth=0;                                  // release the back-trap (matches the back-gesture exit)
-  show('setup');                                 // fully exit to the clean start screen
-  toast('Session ended');
+  try{ if(TV_CODE) disconnectTV(); }catch(e){}
+  clearSave();
 }
 
 function openRestart(){ document.getElementById('restartModal').classList.add('show'); }

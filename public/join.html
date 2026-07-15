@@ -236,8 +236,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='1.5';
-const JOIN_BUILT_AT='2026-07-15T22:09:35Z';
+const JOIN_VERSION='1.6';
+const JOIN_BUILT_AT='2026-07-15T22:34:37Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -288,7 +288,15 @@ function listen(){
   ES=new EventSource(BACKEND+'/api/room/'+CODE+'/stream');
   ES.addEventListener('state', e => render(JSON.parse(e.data)));
   ES.addEventListener('waiting', ()=>{ waiting('Waiting for the judge', 'to start the game'); });
-  ES.addEventListener('closed', ()=>{ location.reload(); });
+  ES.addEventListener('closed', ()=>{
+    try{ ES.close(); }catch(e){} ES=null;
+    document.getElementById('game').style.display='none';
+    document.getElementById('who').style.display='none';
+    document.getElementById('join').style.display='flex';
+    document.getElementById('code').value='';
+    document.getElementById('err').textContent='The game ended.';
+    CODE=null; ME=null; _askedWho=false;
+  });
 }
 
 // ── Scan the code ─────────────────────────────────────────────────────────
@@ -453,8 +461,8 @@ function nextEligible(S,f){ const o=S.turnOrder||[],n=o.length,p=o.indexOf(f);
 const BPTS=[100,200,300,400,500];
 function drawBoard(S){
   const b=document.getElementById('pboard');
-  b.style.gridTemplateColumns=`repeat(${S.numCats},1fr)`;
-  b.style.gridTemplateRows=`auto repeat(${S.numQ},1fr)`;
+  b.style.gridTemplateColumns=`repeat(${S.numCats},minmax(0,1fr))`;
+  b.style.gridTemplateRows=`auto repeat(${S.numQ},minmax(0,1fr))`;
   let h='';
   (S.categories||[]).forEach(c=>{ h+=`<div class="pcat">${c}</div>`; });
   for(let qi=0; qi<S.numQ; qi++){

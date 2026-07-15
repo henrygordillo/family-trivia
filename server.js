@@ -6,8 +6,8 @@ const path = require('path');
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
-const VERSION = '3.13';
-const BUILT_AT = '2026-07-15T18:09:39Z';
+const VERSION = '3.14';
+const BUILT_AT = '2026-07-15T22:34:37Z';
 
 const app = express();
 app.use(cors());
@@ -19,12 +19,17 @@ app.get('/api/version', (req, res) => {
 });
 
 // Serve the game HTML file
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  // Never let the browser cache the app HTML — otherwise a fresh deploy keeps
+  // running the old UI. QR images and fonts come from a CDN, so this is HTML-only.
+  setHeaders: (res, fp) => { if (fp.endsWith('.html')) res.set('Cache-Control', 'no-cache, must-revalidate'); }
+}));
+const HTML_NOCACHE = { headers: { 'Cache-Control': 'no-cache, must-revalidate' } };
 
 // Big Screen: /tv is nicer to type on a TV remote than /tv.html
-app.get('/tv', (req, res) => res.sendFile(path.join(__dirname, 'public', 'tv.html')));
+app.get('/tv', (req, res) => res.sendFile(path.join(__dirname, 'public', 'tv.html'), HTML_NOCACHE));
 // Player devices (phones, tablets) — they reach out to the judge's room themselves.
-app.get('/join', (req, res) => res.sendFile(path.join(__dirname, 'public', 'join.html')));   // ?code=1234 joins directly
+app.get('/join', (req, res) => res.sendFile(path.join(__dirname, 'public', 'join.html'), HTML_NOCACHE));   // ?code=1234 joins directly
 // Legacy alias: any old /play link or bookmark still lands on the join page.
 app.get('/play', (req, res) => res.redirect(301, '/join' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '')));
 
@@ -430,7 +435,7 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 // ── Fallback to game ──────────────────────────────────────────────────────────
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'public', 'index.html'), HTML_NOCACHE);
 });
 
 const PORT = process.env.PORT || 3000;
