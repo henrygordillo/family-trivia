@@ -69,12 +69,12 @@ body{
 #game{display:none;flex-direction:column;gap:12px;min-height:calc(100dvh - 30px);}
 
 /* Board — mirrors the TV, display-only (the judge still drives every pick) */
-#pboard{display:none;gap:5px;}
+#pboard{display:none;gap:5px;flex:1;min-height:0;}
 .pcat{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:rgba(255,255,255,.55);
   text-align:center;padding:3px 2px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .ptile{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;
-  display:flex;align-items:center;justify-content:center;aspect-ratio:1;
-  font-family:'Playfair Display',serif;font-weight:900;font-size:15px;color:var(--gold-hi);}
+  display:flex;align-items:center;justify-content:center;min-height:0;
+  font-family:'Playfair Display',serif;font-weight:900;font-size:clamp(11px,4vw,22px);color:var(--gold-hi);}
 .ptile.used{opacity:.13;}
 .ptile.blocked{background:rgba(124,58,237,.12);border:1px dashed rgba(167,139,250,.5);color:var(--purple-hi);font-size:15px;}
 
@@ -236,8 +236,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='1.4';
-const JOIN_BUILT_AT='2026-07-15T20:39:16Z';
+const JOIN_VERSION='1.5';
+const JOIN_BUILT_AT='2026-07-15T22:09:35Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -454,6 +454,7 @@ const BPTS=[100,200,300,400,500];
 function drawBoard(S){
   const b=document.getElementById('pboard');
   b.style.gridTemplateColumns=`repeat(${S.numCats},1fr)`;
+  b.style.gridTemplateRows=`auto repeat(${S.numQ},1fr)`;
   let h='';
   (S.categories||[]).forEach(c=>{ h+=`<div class="pcat">${c}</div>`; });
   for(let qi=0; qi<S.numQ; qi++){

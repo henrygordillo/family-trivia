@@ -507,12 +507,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <div class="board-title-row">
     <div class="game-title">Family Trivia Night</div>
     <div class="judge-indicator" id="boardJudgeIndicator"></div>
+    <button class="new-game-btn" id="joinBtnBoard" style="flex:0 0 auto;margin-left:auto;padding:6px 12px;font-size:12px;background:rgba(31,173,160,.15);border-color:rgba(31,173,160,.4);color:#3dd5c8;">📲 Join</button>
   </div>
   <table class="ptable" id="ptable"></table>
   <div class="progress-wrap"><div class="progress-fill" id="progressFill"></div></div>
   <div class="grid-scroll"><div class="cat-grid" id="catGrid"></div></div>
   <div style="display:flex;gap:8px;padding:10px 0 4px;">
-    <button class="new-game-btn" id="joinBtnBoard" style="flex:0 0 auto;padding:8px 12px;background:rgba(31,173,160,.15);border-color:rgba(31,173,160,.4);color:#3dd5c8;">📲 Join</button>
     <button class="new-game-btn" id="statsBtn" style="flex:1;background:rgba(31,173,160,.2);border-color:rgba(31,173,160,.5);color:#3dd5c8;padding:8px;">📊 Stats</button>
     <button class="new-game-btn" id="newGameBtn" style="flex:1;padding:8px;">⟳ New Game</button>
     <button class="new-game-btn" id="endGameBtnBoard" style="flex:1;padding:8px;background:rgba(192,57,43,.2);border-color:rgba(192,57,43,.5);color:#ff8a80;">✕ End</button>
@@ -770,8 +770,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.31';
-const APP_BUILT_AT='2026-07-15T21:53:43Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.32';
+const APP_BUILT_AT='2026-07-15T22:09:15Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -2926,9 +2926,11 @@ function endGame(){
   _inGame=false;
   window.speechSynthesis?.cancel();
   if(G.recording) stopMic();
-  window.close();
-  // Fallback if window.close() is blocked
-  document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#08090f;font-family:Outfit,sans-serif;color:rgba(255,255,255,.4);font-size:14px;letter-spacing:2px;text-transform:uppercase;">Session Ended</div>';
+  // window.close() only works for script-opened windows, so a normal tab would
+  // dead-end on a "Session Ended" page. Instead, fully exit to a clean setup screen.
+  try{ localStorage.removeItem(SAVE_KEY); }catch(e){}   // an ended session shouldn't offer to resume
+  show('setup');
+  toast('Session ended');
 }
 
 function openRestart(){ document.getElementById('restartModal').classList.add('show'); }
