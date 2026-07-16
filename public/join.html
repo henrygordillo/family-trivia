@@ -236,8 +236,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='1.7';
-const JOIN_BUILT_AT='2026-07-15T23:06:14Z';
+const JOIN_VERSION='1.8';
+const JOIN_BUILT_AT='2026-07-16T14:40:10Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -412,7 +412,7 @@ document.getElementById('scanCancel').addEventListener('click', stopScan);
 // ── Who is holding this device? ───────────────────────────────────────────
 // A TV is impersonal — it shows everyone equally. A phone is in someone's HAND,
 // so it should know whose. This is also the identity we'd need for buzz-in later.
-let _askedWho=false;
+let _askedWho=false, _lastS=null;
 function askWho(players){
   if(_askedWho) return;
   _askedWho=true;
@@ -428,13 +428,13 @@ function askWho(players){
     const b=document.createElement('button');
     b.className='wbtn'; b.textContent=p;
     b.onclick=()=>{ ME=i; try{ localStorage.setItem('ftn_me_'+CODE, String(i)); }catch(e){}
-      w.style.display='none'; document.getElementById('game').style.display='flex'; };
+      w.style.display='none'; if(_lastS) render(_lastS); };
     list.appendChild(b);
   });
   const s=document.createElement('button');
   s.className='wbtn skip'; s.textContent="I'm just watching";
   s.onclick=()=>{ ME=-1; try{ localStorage.setItem('ftn_me_'+CODE,'-1'); }catch(e){}
-    w.style.display='none'; document.getElementById('game').style.display='flex'; };
+    w.style.display='none'; if(_lastS) render(_lastS); };
   list.appendChild(s);
 }
 
@@ -502,6 +502,7 @@ function render(S){
   if(!S) return;
   if(S.seq!=null){ if(S.seq<_seq) return; _seq=S.seq; }
   _lastHeard=Date.now();
+  _lastS=S;
 
   if(!S.active || !S.players || !S.players.length){
     document.getElementById('game').style.display='flex';
