@@ -6,8 +6,8 @@ const path = require('path');
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
-const VERSION = '3.16';
-const BUILT_AT = '2026-07-16T14:05:31Z';
+const VERSION = '3.17';
+const BUILT_AT = '2026-07-16T15:58:22Z';
 
 const app = express();
 app.use(cors());
@@ -59,11 +59,15 @@ const ROOM_TTL_MS = 4 * 60 * 60 * 1000;   // reap rooms idle for 4h
 // when BACKGROUNDED (screen off / app switch — alive, just throttled).
 const JUDGE_GONE_ACTIVE =  30 * 1000;
 const JUDGE_GONE_HIDDEN = 180 * 1000;
+const LOBBY_GRACE       = 15 * 60 * 1000;   // pre-game: a waiting device is patient, so don't kick it for a slow host
 function reapRooms(){
   const now = Date.now();
   for (const [code, room] of rooms) {
     const idle  = now - room.touchedAt;
-    const limit = room.judgeVisible === false ? JUDGE_GONE_HIDDEN : JUDGE_GONE_ACTIVE;
+    // Before a game starts there's nothing to protect and viewers happily wait,
+    // so be generous. Once a game is live, the tight fuse detects a judge who left.
+    const limit = !room.lastActive ? LOBBY_GRACE
+                : (room.judgeVisible === false ? JUDGE_GONE_HIDDEN : JUDGE_GONE_ACTIVE);
     if (idle > limit || now - room.createdAt > ROOM_TTL_MS) {
       const bye = `event: closed\ndata: {}\n\n`;   // let any viewers exit at once
       room.clients.forEach(res => { try { res.write(bye); res.end(); } catch(e){} });
@@ -143,6 +147,7 @@ app.post('/api/room/:code/state', (req, res) => {
   room.state = req.body;
   room.touchedAt = Date.now();
   room.judgeVisible = !(req.body && req.body.visible === false);   // false only when the judge backgrounded
+  room.lastActive   =  !!(req.body && req.body.active  === true);   // is a game actually in progress?
   const payload = `event: state\ndata: ${JSON.stringify(room.state)}\n\n`;
   room.clients.forEach(c => { try { c.write(payload); } catch(e){} });
   res.json({ ok: true, listeners: room.clients.size });
