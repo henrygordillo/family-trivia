@@ -770,8 +770,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.34';
-const APP_BUILT_AT='2026-07-15T22:34:37Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.36';
+const APP_BUILT_AT='2026-07-16T14:05:31Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1464,8 +1464,20 @@ setInterval(()=>{ if(TV_CODE) pushToTV(); }, 8000);
 // ...but a BACKGROUND tab has its timers throttled to roughly once a minute, so
 // that heartbeat goes quiet whenever this tab isn't in front. Push the moment we
 // come back, so the TV never mistakes "not in focus" for "gone".
+// Reliably tell the server our visibility even as the page hides (sendBeacon
+// survives the transition; a normal fetch/timer would be paused/killed). This is
+// what lets the server use a long fuse for a backgrounded judge instead of reaping.
+function beaconState(){
+  if(!TV_CODE || !navigator.sendBeacon) return;
+  try{
+    const body = new Blob([JSON.stringify(publicState())], {type:'application/json'});
+    navigator.sendBeacon(BACKEND+'/api/room/'+TV_CODE+'/state', body);
+  }catch(e){}
+}
 document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState==='visible' && TV_CODE) pushToTV();
+  if(!TV_CODE) return;
+  if(document.visibilityState==='visible') pushToTV();
+  else beaconState();   // we're backgrounding → server records visible:false, waits patiently
 });
 
 let _subscribers = [];
@@ -2917,7 +2929,7 @@ function buildEnd(){
 // ═══════════════════════════════════════════════════════════════════
 // NEW GAME / RESTART
 // ═══════════════════════════════════════════════════════════════════
-function endGame(){
+async function endGame(){
   const msg = TV_CODE
     ? 'End the session? The game will close and the TV will disconnect.'
     : 'End the session? The game will close.';
@@ -2926,11 +2938,16 @@ function endGame(){
   _backDepth=0;                                  // release the back-trap
   show('setup');                                 // switch first, so the exit feels instant
   toast('Session ended');
-  // Teardown AFTER the screen has already changed, so a slow room-close network
-  // call can never make the exit feel laggy.
   try{ window.speechSynthesis?.cancel(); }catch(e){}
   try{ if(G.recording) stopMic(); }catch(e){}
-  try{ if(TV_CODE) disconnectTV(); }catch(e){}
+  // Tell every screen the game is over (active=false) so the TV and phones reset
+  // instantly — THEN close the room. Awaiting the push guarantees "over" lands
+  // before "closed"; otherwise the TV sits out its ~30s silence-timeout and the
+  // phones never leave the board.
+  if(TV_CODE){
+    try{ await pushToTV(); }catch(e){}
+    try{ disconnectTV(); }catch(e){}
+  }
   clearSave();
 }
 

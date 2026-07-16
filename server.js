@@ -6,8 +6,8 @@ const path = require('path');
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
-const VERSION = '3.15';
-const BUILT_AT = '2026-07-15T23:06:14Z';
+const VERSION = '3.16';
+const BUILT_AT = '2026-07-16T14:05:31Z';
 
 const app = express();
 app.use(cors());
@@ -53,16 +53,25 @@ const supabase = createClient(
 const rooms = new Map();          // code -> { state, clients:Set<res>, createdAt, touchedAt }
 const ROOM_TTL_MS = 4 * 60 * 60 * 1000;   // reap rooms idle for 4h
 
+// The judge's state pushes are the room's pulse. If they stop, the judge is gone —
+// back-gesture, crashed tab, dead wifi — even when no client-side close ever fired.
+// Short fuse when the judge was last in the FOREGROUND (silence = gone); long fuse
+// when BACKGROUNDED (screen off / app switch — alive, just throttled).
+const JUDGE_GONE_ACTIVE =  30 * 1000;
+const JUDGE_GONE_HIDDEN = 180 * 1000;
 function reapRooms(){
   const now = Date.now();
   for (const [code, room] of rooms) {
-    if (now - room.touchedAt > ROOM_TTL_MS) {
-      room.clients.forEach(res => { try { res.end(); } catch(e){} });
+    const idle  = now - room.touchedAt;
+    const limit = room.judgeVisible === false ? JUDGE_GONE_HIDDEN : JUDGE_GONE_ACTIVE;
+    if (idle > limit || now - room.createdAt > ROOM_TTL_MS) {
+      const bye = `event: closed\ndata: {}\n\n`;   // let any viewers exit at once
+      room.clients.forEach(res => { try { res.write(bye); res.end(); } catch(e){} });
       rooms.delete(code);
     }
   }
 }
-setInterval(reapRooms, 10 * 60 * 1000).unref?.();
+setInterval(reapRooms, 10 * 1000).unref?.();
 
 function newCode(){
   // 4 digits, avoiding codes already in use. Short enough to type on a phone.
@@ -94,7 +103,8 @@ app.get('/api/room/:code/stream', (req, res) => {
   res.flushHeaders?.();
 
   room.clients.add(res);
-  room.touchedAt = Date.now();
+  // NOTE: viewers deliberately do NOT refresh touchedAt — only the JUDGE's state
+  // pushes keep a room alive, so a room dies when the judge leaves, not the viewers.
 
   // Send whatever we already have, so a screen joining mid-game isn't blank.
   if (room.state) res.write(`event: state\ndata: ${JSON.stringify(room.state)}\n\n`);
@@ -132,6 +142,7 @@ app.post('/api/room/:code/state', (req, res) => {
   }
   room.state = req.body;
   room.touchedAt = Date.now();
+  room.judgeVisible = !(req.body && req.body.visible === false);   // false only when the judge backgrounded
   const payload = `event: state\ndata: ${JSON.stringify(room.state)}\n\n`;
   room.clients.forEach(c => { try { c.write(payload); } catch(e){} });
   res.json({ ok: true, listeners: room.clients.size });
