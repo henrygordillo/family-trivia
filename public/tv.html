@@ -436,8 +436,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='5.7';
-const TV_BUILT_AT='2026-07-18T16:21:34Z';
+const TV_VERSION='5.8';
+const TV_BUILT_AT='2026-07-18T17:43:17Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -510,7 +510,7 @@ let _paired=false, _device='';
 // This screen always talks to whoever has to act NEXT: the judge until they pair,
 // then everyone else. Identity ("Shared Screen") never changes; the audience does.
 function purpose(h){ const e=document.getElementById('purposeLine'); if(e) e.innerHTML=h; }
-const ASK_JUDGE = 'The whole room follows the game here.<span class="howto">Add it on the judge\u2019s device under <b>Connect Players \u2192 Add Shared Screen</b>, by:</span>';
+const ASK_JUDGE = 'The whole room follows the game here.<span class="howto">Add it on the judge\u2019s device under <b>Add Shared Screen</b>, by:</span>';
 const ASK_PLAYERS = () => 'Follow along on your own personal screen at <b>'+location.host+'/join</b>, by:';
 
 function setPaired(on, device){

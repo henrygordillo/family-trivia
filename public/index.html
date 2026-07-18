@@ -379,6 +379,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div class="sec" style="background:var(--card2);border:2px solid var(--card3);border-radius:14px;padding:16px;">
       <span class="slabel" style="color:var(--ink);font-weight:800;">Players</span>
       <div id="selectedSummary" style="display:flex;flex-direction:column;gap:5px;margin:8px 0;"></div>
+      <div id="playerLockNote" style="display:none;font-size:12px;color:var(--muted);line-height:1.45;margin-bottom:8px;">Players are fixed while screens are connected — end the session to change them.</div>
       <button class="add-p" id="openPickerBtn" style="color:var(--ink);border-color:var(--card3);background:var(--card);">Select Players</button>
     </div>
     <div class="sep"></div>
@@ -524,16 +525,31 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <div class="board-title-row">
     <div class="game-title">Trivia Night</div>
     <div class="judge-indicator" id="boardJudgeIndicator"></div>
-    <button class="new-game-btn" id="joinBtnBoard" style="flex:0 0 auto;margin-left:auto;padding:6px 12px;font-size:12px;background:rgba(31,173,160,.15);border-color:rgba(31,173,160,.4);color:#3dd5c8;">📲 Connect Players</button>
   </div>
   <table class="ptable" id="ptable"></table>
   <div class="progress-wrap"><div class="progress-fill" id="progressFill"></div></div>
   <div class="grid-scroll"><div class="cat-grid" id="catGrid"></div></div>
   <div style="display:flex;gap:8px;padding:10px 0 4px;">
     <button class="new-game-btn" id="statsBtn" style="flex:1;background:rgba(31,173,160,.2);border-color:rgba(31,173,160,.5);color:#3dd5c8;padding:8px;">📊 Stats</button>
-    <button class="new-game-btn" id="newGameBtn" style="flex:1;padding:8px;">⟳ New Game</button>
-    <button class="new-game-btn" id="endGameBtnBoard" style="flex:1;padding:8px;background:rgba(192,57,43,.2);border-color:rgba(192,57,43,.5);color:#ff8a80;">✕ End</button>
+    <button class="new-game-btn" id="gameMenuBtn" style="flex:2;padding:8px;">⟳ Restart, change or end game</button>
     <button class="new-game-btn" id="dedupBtn" style="flex:0 0 auto;padding:8px 12px;background:rgba(124,58,237,.2);border-color:rgba(124,58,237,.5);color:#a78bfa;display:none;">🐛</button>
+  </div>
+
+  <!-- Latecomers need this mid-game, so it lives under the board rather than as a
+       chip in the title bar. Same two doors as everywhere else. -->
+  <button id="joinBtnBoard" style="width:100%;margin-top:6px;display:flex;align-items:center;gap:12px;
+    background:var(--card2);border:1.5px solid var(--card3);border-radius:12px;cursor:pointer;
+    padding:9px 12px;text-align:left;font-family:'Outfit',sans-serif;">
+    <span id="joinQrBoard" style="flex:0 0 auto;display:flex;"></span>
+    <span style="flex:1;min-width:0;">
+      <span style="display:block;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;">Connect a personal screen</span>
+      <span id="joinCodeBoard" style="display:block;font-family:'Playfair Display',serif;font-size:26px;font-weight:900;color:var(--ink);letter-spacing:4px;line-height:1.15;">····</span>
+      <span id="joinUrlBoard" style="display:block;font-size:10px;color:var(--muted);line-height:1.35;"></span>
+    </span>
+  </button>
+
+  <div style="display:flex;justify-content:center;margin-top:6px;">
+    <button id="addScreenBtnBoard" style="display:flex;align-items:center;gap:5px;background:transparent;border:none;cursor:pointer;color:var(--muted);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px;"><span style="font-size:14px;">📺</span> Add a shared screen</button>
   </div>
 </div>
 
@@ -760,6 +776,25 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 </div>
 
 <!-- RESTART MODAL -->
+<div class="modal-bg" id="gameMenuModal" style="z-index:985;">
+  <div class="modal-box">
+    <div class="modal-title">Restart, change or end</div>
+    <div class="modal-body">The same players stay in — unless you end the session.</div>
+    <div class="modal-btns" style="flex-direction:column;">
+      <button class="mbtn" id="gmRestart" style="background:var(--card2);border:1.5px solid var(--card3);color:var(--ink);text-align:left;">
+        <b>New game — same setup</b><br><span style="font-weight:600;font-size:12px;color:var(--muted);">Same players and setup, fresh categories. Screens stay connected.</span>
+      </button>
+      <button class="mbtn" id="gmChange" style="background:var(--card2);border:1.5px solid var(--card3);color:var(--ink);text-align:left;">
+        <b>New game — change setup</b><br><span style="font-weight:600;font-size:12px;color:var(--muted);">New categories, difficulty or judge mode. Same players, screens stay connected.</span>
+      </button>
+      <button class="mbtn mbtn-confirm" id="gmEnd" style="text-align:left;">
+        <b>End session</b><br><span style="font-weight:600;font-size:12px;opacity:.85;">Resets everything. All connected screens disconnect.</span>
+      </button>
+      <button class="mbtn mbtn-cancel" id="gmCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="askModal" style="z-index:990;">
   <div class="modal-box">
     <div class="modal-title" id="askTitle"></div>
@@ -798,8 +833,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.52';
-const APP_BUILT_AT='2026-07-18T17:08:44Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.56';
+const APP_BUILT_AT='2026-07-18T17:44:51Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1369,8 +1404,6 @@ async function openJoinSheet(){
   showLive(TV_CODE);
 }
 function syncJoinBtns(){
-  const jb=document.getElementById('joinBtnBoard');
-  if(jb) jb.textContent = TV_CODE ? ('\ud83d\udcf2 Join \u00b7 '+TV_CODE) : '\ud83d\udcf2 Join';
 
   // The setup strip is a DISPLAY: hold the phone out and people scan it. No tap
   // needed for the common case; tapping just opens the bigger version.
@@ -1381,19 +1414,28 @@ function syncJoinBtns(){
   if(url) url.textContent = TV_CODE
     ? ('Scan the QR, or enter the code at '+location.host+'/join')
     : 'Opening a room\u2026';
-  if(box){
-    if(!TV_CODE){ box.innerHTML=''; return; }
-    if(box.dataset.code===TV_CODE) return;      // already drawn for this room
-    box.dataset.code=TV_CODE;
-    box.innerHTML='';
+  // The board carries the same strip, so a latecomer can join mid-game.
+  const lblB=document.getElementById('joinCodeBoard');
+  const urlB=document.getElementById('joinUrlBoard');
+  if(lblB) lblB.textContent = TV_CODE || '\u00b7\u00b7\u00b7\u00b7';
+  if(urlB) urlB.textContent = TV_CODE
+    ? ('Scan the QR, or enter the code at '+location.host+'/join')
+    : 'Opening a room\u2026';
+
+  [box, document.getElementById('joinQrBoard')].forEach(b=>{
+    if(!b) return;
+    if(!TV_CODE){ b.innerHTML=''; b.dataset.code=''; return; }
+    if(b.dataset.code===TV_CODE) return;        // already drawn for this room
+    b.dataset.code=TV_CODE;
+    b.innerHTML='';
     const img=document.createElement('img');
     img.alt='Scan to join';
     img.style.cssText='width:58px;height:58px;background:#fff;padding:4px;border-radius:7px;display:block;';
     img.src='https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=0&data='+
             encodeURIComponent(location.origin+'/join?code='+TV_CODE);
     img.onerror=()=>{ img.style.display='none'; };
-    box.appendChild(img);
-  }
+    b.appendChild(img);
+  });
 }
 function showSetup(){
   const t=document.getElementById('tvModalTitle'); if(t) t.textContent='Add a shared screen';
@@ -1858,7 +1900,7 @@ function renderSelectedSummary(){
     return `
     <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(31,173,160,.12);border:1px solid var(--teal);border-radius:8px;padding:5px 10px;">
       <span style="font-size:14px;font-weight:700;color:var(--ink);"><span style="color:var(--muted);font-weight:600;margin-right:6px;">${i+1}.</span>${p.nickname}${lt?` <span style="font-size:11px;font-weight:700;color:var(--gold-lo);margin-left:4px;">${lt}</span>`:''}</span>
-      <button onclick="togglePlayerSelect('${p.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--muted);padding:0 4px;line-height:1;">\u2715</button>
+      ${_playersLocked?'':`<button onclick="togglePlayerSelect('${p.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--muted);padding:0 4px;line-height:1;">\u2715</button>`}
     </div>`;}).join('');
   updateSetupHelper();
 }
@@ -2047,6 +2089,7 @@ async function startGame(){
   }
   // Trap the phone/browser back gesture so an accidental back doesn't kill the game
   armBack(BACK_BUFFER);
+  _playersLocked=false;              // board dealt — setup is free again next time
   const names=selectedPlayers.map(p=>p.nickname);
 
   // A game is always live in a room, so latecomers can still join from the TV or
@@ -3022,7 +3065,8 @@ async function endGame(){
   // Ending is a full reset — setup should look the way it does on a fresh launch,
   // otherwise it's indistinguishable from Restart.
   selectedPlayers=[];
-  try{ renderRoster(); renderSelectedSummary(); }catch(e){}
+  _playersLocked=false;
+  try{ renderRoster(); applyPlayerLock(); }catch(e){}
   openRoom(true);   // a fresh code on the button, ready to go again
 }
 
@@ -3172,6 +3216,39 @@ function doRestart(){
   }
   renderPlayers();
   show('setup');
+}
+
+// Restart and Change both keep the room, so connected screens neither disconnect
+// nor forget who they are. That only holds while the player list can't change —
+// which is why changing players is only possible by ending the session.
+let _playersLocked=false;
+function openGameMenu(){ document.getElementById('gameMenuModal').classList.add('show'); }
+function closeGameMenu(){ document.getElementById('gameMenuModal').classList.remove('show'); }
+
+function _leaveBoard(){
+  clearSave();
+  _inGame=false;
+  try{ window.speechSynthesis?.cancel(); }catch(e){}
+  try{ if(G.recording) stopMic(); }catch(e){}
+  tvGameEnded();
+}
+// startGame() reshuffles the categories itself, so a restart never replays the
+// same board.
+async function gmRestartGame(){ closeGameMenu(); _leaveBoard(); await startGame(); }
+function gmChangeSetup(){
+  closeGameMenu(); _leaveBoard();
+  _playersLocked=true; applyPlayerLock(); show('setup');
+}
+function applyPlayerLock(){
+  const btn=document.getElementById('openPickerBtn');
+  const note=document.getElementById('playerLockNote');
+  if(btn){
+    btn.disabled=_playersLocked;
+    btn.style.opacity=_playersLocked?'.45':'';
+    btn.style.pointerEvents=_playersLocked?'none':'';
+  }
+  if(note) note.style.display=_playersLocked?'block':'none';
+  try{ renderSelectedSummary(); }catch(e){}
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -3447,7 +3524,11 @@ function init(){
   renderPlayers();
 
   // Board
-  document.getElementById('newGameBtn').addEventListener('click',openRestart);
+  document.getElementById('gameMenuBtn').addEventListener('click',openGameMenu);
+  document.getElementById('gmCancel').addEventListener('click',closeGameMenu);
+  document.getElementById('gmRestart').addEventListener('click',gmRestartGame);
+  document.getElementById('gmChange').addEventListener('click',gmChangeSetup);
+  document.getElementById('gmEnd').addEventListener('click',()=>{ closeGameMenu(); endGame(); });
   document.getElementById('statsBtn').addEventListener('click',openStats);
   const dbgBtn=document.getElementById('dedupBtn');
   if(dbgBtn){ dbgBtn.style.display=DEBUG_DEDUP?'':'none'; dbgBtn.addEventListener('click',openDedupLog); }
@@ -3497,15 +3578,17 @@ function init(){
   // End
   document.getElementById('againBtn').addEventListener('click',doRestart);
   document.getElementById('endGameBtnSetup').addEventListener('click',endGame);
-  document.getElementById('endGameBtnBoard').addEventListener('click',endGame);
   document.getElementById('joinBtnBoard').addEventListener('click',openJoinSheet);
   const _asb=document.getElementById('tvAddScreen'); if(_asb) _asb.addEventListener('click',showSetup);
-  const _asb2=document.getElementById('addScreenBtn');
-  if(_asb2) _asb2.addEventListener('click', ()=>{        // an action, not a display
+  const openAddScreen = ()=>{                            // an action, not a display
     document.getElementById('tvErr').textContent='';
     document.getElementById('tvModal').classList.add('show');
     showSetup();
-  });
+  };
+  const _asb2=document.getElementById('addScreenBtn');
+  if(_asb2) _asb2.addEventListener('click', openAddScreen);
+  const _asb3=document.getElementById('addScreenBtnBoard');
+  if(_asb3) _asb3.addEventListener('click', openAddScreen);   // same option mid-game
 
   // Guard accidental exit: intercept the back gesture during a game
   window.addEventListener('popstate', async ()=>{
