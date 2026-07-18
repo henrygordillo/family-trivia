@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#08090f">
-<title>Family Trivia — Join</title>
+<title>Trivia Night — Personal Screen</title>
 <link rel="manifest" href="/join-manifest.json">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Family Trivia">
+<meta name="apple-mobile-web-app-title" content="Trivia Night">
 <link rel="apple-touch-icon" href="/icons/icon-180.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -221,13 +221,13 @@ body{
 <body>
 
 <div id="join">
-  <h1>Family Trivia</h1>
+  <h1>Trivia Night</h1>
   <div class="sub">Personal Screen</div>
-  <div class="purpose">Follow the game on your own, by:</div>
-  <button id="scanBtn" class="scanbtn">📷 Scanning this QR</button>
+  <div class="purpose">Follow the game on your own</div>
+  <button id="scanBtn" class="scanbtn">📷 Scan game QR code</button>
   <div class="orsep">or</div>
   <div class="codebox">
-    <div class="codelabel">Entering this code</div>
+    <div class="codelabel">Enter game code</div>
     <input id="code" type="tel" inputmode="numeric" maxlength="4" placeholder="0000" autocomplete="off">
   </div>
   <div id="err"></div>
@@ -305,7 +305,7 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='3.1';
+const JOIN_VERSION='3.3';
 const JOIN_BUILT_AT='2026-07-18T14:41:48Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];

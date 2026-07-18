@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Family Trivia Night</title>
+<title>Trivia Night</title>
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#08090f">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Family Trivia">
+<meta name="apple-mobile-web-app-title" content="Trivia Night">
 <link rel="apple-touch-icon" href="/icons/icon-180.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -374,7 +374,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 <!-- SETUP -->
 <div id="setup" class="screen active">
-  <div class="logo"><h1>Trivia<br>Night</h1><p>AI-Powered · No Prep · En Español También</p></div>
+  <div class="logo"><h1>Trivia<br>Night</h1></div>
   <div class="setup-card">
     <div class="sec" style="background:var(--card2);border:2px solid var(--card3);border-radius:14px;padding:16px;">
       <span class="slabel" style="color:var(--ink);font-weight:800;">Players</span>
@@ -412,7 +412,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div id="judgeDesc" style="font-size:12px;color:var(--muted);margin-top:12px;line-height:1.5;text-align:center;"></div>
     </div>
     <div class="sep"></div>
-    <button class="go" id="startBtn" style="padding:13px;">Let's Play →</button>
+    <button class="go" id="startBtn" style="padding:9px;">Let's Play →</button>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;">
       <button id="openSettingsBtn" aria-label="Settings" style="display:flex;align-items:center;gap:5px;background:transparent;border:none;cursor:pointer;color:var(--gold-lo);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px;"><span style="font-size:16px;">⚙</span> Settings</button>
       <button id="endGameBtnSetup" style="background:transparent;border:none;cursor:pointer;font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;padding:4px;opacity:.8;">End Game Session</button>
@@ -426,11 +426,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <span id="joinQr" style="flex:0 0 auto;display:flex;"></span>
       <span style="flex:1;min-width:0;">
         <span style="display:block;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;">To follow on a personal screen</span>
-        <span style="display:flex;align-items:baseline;gap:6px;">
-          <span style="font-size:10px;color:var(--muted);">scan, or enter</span>
-          <span id="tvBtnLabel" style="font-family:'Playfair Display',serif;font-size:26px;font-weight:900;color:var(--ink);letter-spacing:4px;line-height:1.15;">····</span>
-        </span>
-        <span id="joinUrl" style="display:block;font-size:10px;color:var(--muted);"></span>
+        <span id="tvBtnLabel" style="display:block;font-family:'Playfair Display',serif;font-size:26px;font-weight:900;color:var(--ink);letter-spacing:4px;line-height:1.15;">····</span>
+        <span id="joinUrl" style="display:block;font-size:10px;color:var(--muted);line-height:1.35;"></span>
       </span>
     </button>
 
@@ -444,41 +441,43 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 <div class="modal-bg" id="tvModal" style="z-index:975;">
   <div class="modal-box" style="max-width:340px;">
-    <div class="modal-title">Screens</div>
+    <div class="modal-title" id="tvModalTitle">Add a shared screen</div>
 
+    <!-- This panel sits on a DARK modal, so it needs dark-surface colours. It used
+         to borrow the light card's --muted/--ink/--card2, which is why the text was
+         all but invisible against #1c1c28. -->
     <div id="tvSetup">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.5;">
-        Open <b style="color:var(--ink);">/tv</b> on the shared screen — it shows a code and a QR.
-        Scan it, or type the code here.
+      <div style="font-size:14px;color:rgba(255,255,255,.65);margin-bottom:14px;line-height:1.55;">
+        Open <b style="color:var(--gold-hi);">/tv</b> on the screen everyone will watch.
+        It shows a code and a QR \u2014 scan it, or enter the code here.
       </div>
-      <input id="tvCode" type="tel" inputmode="numeric" maxlength="4" placeholder="0000"
-        style="width:100%;padding:14px;border:2px solid var(--card3);border-radius:12px;font-family:'Playfair Display',serif;font-size:32px;font-weight:900;text-align:center;letter-spacing:8px;color:var(--ink);background:var(--card2);">
-      <button class="mbtn" id="tvScan" style="width:100%;margin-top:8px;background:var(--card2);border:1.5px solid var(--card3);color:var(--ink);display:flex;align-items:center;justify-content:center;gap:8px;">📷 Scan the TV's QR code</button>
+      <button class="mbtn" id="tvScan" style="width:100%;background:rgba(212,168,67,.12);border:1.5px solid rgba(212,168,67,.45);color:var(--gold-hi);display:flex;align-items:center;justify-content:center;gap:8px;">\ud83d\udcf7 Scan the shared screen's QR</button>
       <video id="tvVideo" playsinline muted style="display:none;width:100%;border-radius:12px;margin-top:10px;background:#000;"></video>
-      <div class="sep" style="margin:14px 0;"></div>
-      <button class="mbtn" id="tvNoTv" style="width:100%;background:transparent;border:1.5px dashed var(--card3);color:var(--muted);font-size:13px;">No TV? Start a room anyway</button>
-      <div style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center;line-height:1.4;">
-        Phones and tablets can still watch along
+      <div style="margin:12px 0 10px;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.3);">or</div>
+      <div style="border:2px solid rgba(212,168,67,.45);border-radius:12px;background:rgba(255,255,255,.05);padding:9px 12px 12px;">
+        <div style="font-size:13px;color:rgba(255,255,255,.6);margin-bottom:2px;">Enter the screen's code</div>
+        <input id="tvCode" type="tel" inputmode="numeric" maxlength="4" placeholder="0000"
+          style="width:100%;padding:0;border:none;background:transparent;font-family:'Playfair Display',serif;font-size:34px;font-weight:900;text-align:center;letter-spacing:8px;color:var(--gold-hi);outline:none;">
       </div>
     </div>
 
     <div id="tvLive" style="display:none;">
-      <div style="background:var(--card2);border:2px solid var(--card3);border-radius:14px;padding:16px;text-align:center;">
-        <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);">Game code</div>
-        <div id="tvRoomCode" style="font-family:'Playfair Display',serif;font-size:40px;font-weight:900;color:var(--ink);letter-spacing:8px;line-height:1.2;">····</div>
-        <div class="sep" style="margin:10px 0;"></div>
-        <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Others watch here</div>
+      <div style="background:rgba(255,255,255,.05);border:2px solid rgba(212,168,67,.45);border-radius:14px;padding:16px;text-align:center;">
+        <div style="font-size:13px;color:rgba(255,255,255,.6);">Game code</div>
+        <div id="tvRoomCode" style="font-family:'Playfair Display',serif;font-size:40px;font-weight:900;color:var(--gold-hi);letter-spacing:8px;line-height:1.2;">····</div>
+        <div style="height:1px;background:rgba(255,255,255,.12);margin:12px 0;"></div>
+        <div style="font-size:13px;color:rgba(255,255,255,.6);margin-bottom:8px;">Or scan to follow on a personal screen</div>
         <div id="tvQr" style="display:flex;justify-content:center;"></div>
-        <div style="font-size:11px;color:var(--muted);margin-top:8px;">Scan on a phone or tablet — or go to <b id="tvPlayUrl" style="color:var(--ink);"></b></div>
+        <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:10px;line-height:1.45;">or go to <b id="tvPlayUrl" style="color:var(--gold-hi);"></b></div>
       </div>
       <div id="tvViewers" style="font-size:12px;color:var(--teal);font-weight:700;margin-top:10px;text-align:center;min-height:16px;"></div>
-      <button class="mbtn" id="tvAddScreen" style="width:100%;margin-top:10px;background:transparent;border:1.5px dashed var(--card3);color:var(--muted);font-size:13px;">📺 Add a shared screen</button>
+      <button class="mbtn" id="tvAddScreen" style="width:100%;margin-top:10px;background:transparent;border:1.5px dashed rgba(255,255,255,.25);color:rgba(255,255,255,.7);font-size:13px;">📺 Add a shared screen</button>
     </div>
 
     <div id="tvErr" style="font-size:12px;color:var(--red);margin-top:8px;min-height:14px;text-align:center;"></div>
     <div style="display:flex;gap:8px;margin-top:12px;">
       <button class="mbtn mbtn-cancel" id="tvCancel" style="flex:1;">Done</button>
-      <button class="mbtn" id="tvStop" style="flex:1;display:none;background:transparent;border:1.5px solid var(--card3);color:var(--muted);">Stop sharing</button>
+      <button class="mbtn" id="tvStop" style="flex:1;display:none;background:transparent;border:1.5px solid rgba(255,255,255,.25);color:rgba(255,255,255,.7);">Stop sharing</button>
     </div>
   </div>
 </div>
@@ -522,7 +521,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <!-- BOARD -->
 <div id="board" class="screen">
   <div class="board-title-row">
-    <div class="game-title">Family Trivia Night</div>
+    <div class="game-title">Trivia Night</div>
     <div class="judge-indicator" id="boardJudgeIndicator"></div>
     <button class="new-game-btn" id="joinBtnBoard" style="flex:0 0 auto;margin-left:auto;padding:6px 12px;font-size:12px;background:rgba(31,173,160,.15);border-color:rgba(31,173,160,.4);color:#3dd5c8;">📲 Connect Players</button>
   </div>
@@ -540,7 +539,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <!-- QUESTION SCREEN -->
 <div id="qscreen" class="screen">
   <div class="q-hd">
-    <div class="game-title">Family Trivia Night</div>
+    <div class="game-title">Trivia Night</div>
     <div class="judge-indicator" id="qJudgeIndicator"></div>
   </div>
   <table class="ptable" id="qptable"></table>
@@ -787,7 +786,7 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.44';
+const APP_VERSION='3.46';
 const APP_BUILT_AT='2026-07-18T14:47:52Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
@@ -1364,7 +1363,9 @@ function syncJoinBtns(){
   const url=document.getElementById('joinUrl');
   const box=document.getElementById('joinQr');
   if(lbl) lbl.textContent = TV_CODE || '\u00b7\u00b7\u00b7\u00b7';
-  if(url) url.textContent = TV_CODE ? ('at '+location.host+'/join') : 'Opening a room\u2026';
+  if(url) url.textContent = TV_CODE
+    ? ('Scan the QR, or enter the code at '+location.host+'/join')
+    : 'Opening a room\u2026';
   if(box){
     if(!TV_CODE){ box.innerHTML=''; return; }
     if(box.dataset.code===TV_CODE) return;      // already drawn for this room
@@ -1380,6 +1381,7 @@ function syncJoinBtns(){
   }
 }
 function showSetup(){
+  const t=document.getElementById('tvModalTitle'); if(t) t.textContent='Add a shared screen';
   document.getElementById('tvSetup').style.display='block';
   document.getElementById('tvLive').style.display='none';
   document.getElementById('tvStop').style.display='none';
@@ -1388,6 +1390,7 @@ function showSetup(){
 }
 function showLive(code){
   stopScan();
+  const t=document.getElementById('tvModalTitle'); if(t) t.textContent='Everyone else follows';
   document.getElementById('tvSetup').style.display='none';
   document.getElementById('tvLive').style.display='block';
   document.getElementById('tvStop').style.display='block';
@@ -1441,14 +1444,6 @@ async function tvJoin(code){
   const r=await connectTV(code);
   if(r.ok){ err.textContent=''; showLive(code); toast('\ud83d\udcfa Connected to the screen'); }
   else { err.textContent = 'No screen with that code. Check the TV.'; }
-}
-
-async function tvStartWithoutTV(){
-  const err=document.getElementById('tvErr');
-  err.textContent='Starting\u2026';
-  const r=await openRoom();
-  if(r.ok){ err.textContent=''; showLive(r.code); toast('Room open \u2014 share the code'); }
-  else { err.textContent=r.err||'Could not start a room.'; }
 }
 
 // ── QR scanning (the judge scanning the TV's code) ─────────────────────────
@@ -1990,7 +1985,7 @@ function updateSetupHelper(){
   const tiles=n*5;
   const judgeTxt=(G.judgeMode==='ai')
     ? 'The app checks your answer — in English, Spanish, or Spanglish.'
-    : 'Whoever holds the phone reveals the answer and rules.';
+    : 'Whoever holds the phone reveals and rules.';
   const modeTxt=gameMode==='easy'
     ? 'Easier — questions eased below the usual bar.'
     : gameMode==='hard'
@@ -3382,8 +3377,6 @@ function init(){
   if(tvStop) tvStop.addEventListener('click',()=>{ disconnectTV(); closeTVModal(); toast('Stopped sharing'); });
   const tvScan=document.getElementById('tvScan');
   if(tvScan) tvScan.addEventListener('click',startScan);
-  const tvNoTv=document.getElementById('tvNoTv');
-  if(tvNoTv) tvNoTv.addEventListener('click',tvStartWithoutTV);
   const tvInput=document.getElementById('tvCode');
   if(tvInput){
     tvInput.addEventListener('input',()=>{

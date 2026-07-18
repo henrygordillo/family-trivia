@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Family Trivia — Shared Screen</title>
+<title>Trivia Night — Shared Screen</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -342,7 +342,7 @@ body{
 <body>
 
 <div id="join">
-  <h1>Family Trivia</h1>
+  <h1>Trivia Night</h1>
   <div class="sub">Shared Screen</div>
   <div class="purpose" id="purposeLine"></div>
 
@@ -371,7 +371,6 @@ body{
     <div class="tick">✓</div>
     <div class="txt">
       <div class="big">Shared screen added</div>
-      <div class="dev" id="connDev"></div>
       <div class="go">Waiting for the judge to start the game</div>
     </div>
   </div>
@@ -434,7 +433,7 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='5.3';
+const TV_VERSION='5.5';
 const TV_BUILT_AT='2026-07-18T14:41:25Z';
 const BACKEND='';   // same origin
 
@@ -457,8 +456,11 @@ let SRV_VER='…', SRV_BUILT=null;
 function paintTags(){
   // A version number without a timestamp doesn't tell you whether a push landed.
   const bit=(name,v,t)=> `${name} ${v||'—'}${t?' · '+fmt(t):''}`;
+  // The app build rides in on the judge's state, so before pairing we genuinely
+  // don't know it — say why, instead of showing a bare dash.
+  const appBit = _appVer ? bit('App',_appVer,_appBuilt) : 'App — awaiting judge';
   document.getElementById('tag').textContent =
-    [bit('TV',TV_VERSION,TV_BUILT_AT), bit('App',_appVer,_appBuilt), bit('Server',SRV_VER,SRV_BUILT)]
+    [bit('TV',TV_VERSION,TV_BUILT_AT), appBit, bit('Server',SRV_VER,SRV_BUILT)]
     .join('     |     ');
 }
 paintTags();
@@ -515,7 +517,7 @@ let _paired=false, _device='';
 // This screen always talks to whoever has to act NEXT: the judge until they pair,
 // then everyone else. Identity ("Shared Screen") never changes; the audience does.
 function purpose(h){ const e=document.getElementById('purposeLine'); if(e) e.innerHTML=h; }
-const ASK_JUDGE = 'The whole room follows the game here. Add it on the judge\u2019s device under <b>Connect Players \u2192 Add Shared Screen</b>, by:';
+const ASK_JUDGE = 'The whole room follows the game here.<br>Add it on the judge\u2019s device under <b>Connect Players \u2192 Add Shared Screen</b>, by:';
 const ASK_PLAYERS = () => 'Follow along on your own personal screen at <b>'+location.host+'/join</b>, by:';
 
 function setPaired(on, device){
@@ -527,8 +529,6 @@ function setPaired(on, device){
   document.getElementById('join').classList.toggle('connected', on);
   const h=document.getElementById('hint');
   if(on){
-    const cd=document.getElementById('connDev');
-    if(cd) cd.textContent = dev || '';
     h.innerHTML='<span class="dot" style="background:#2ecc71;"></span>Judge connected';
     // The code has changed hands — it now belongs to the players, so say so.
     purpose(ASK_PLAYERS());
