@@ -267,8 +267,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='2.3';
-const JOIN_BUILT_AT='2026-07-18T12:14:21Z';
+const JOIN_VERSION='2.4';
+const JOIN_BUILT_AT='2026-07-18T12:45:03Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -577,6 +577,11 @@ function drawBoard(S){
   b.innerHTML=h;
 }
 
+// This device belongs to someone, so speak to them directly — "You got it!" not
+// "Papa got it". Same beat and styling as the big screen, just in second person.
+let _meName=null;
+const mine = n => !!n && n===_meName;
+
 function render(S){
   if(!S) return;
   if(S.seq!=null){ if(S.seq<_seq) return; _seq=S.seq; }
@@ -597,6 +602,7 @@ function render(S){
   if(ME===null) return;                  // still choosing
 
   document.getElementById('game').style.display='flex';
+  _meName = (ME>=0 && S.players) ? S.players[ME] : null;
   document.getElementById('me').style.display = (ME>=0) ? 'flex' : 'none';
   document.getElementById('pboard').style.display='none';
 
@@ -664,8 +670,10 @@ function render(S){
     let h = '';
     if(v){
       h += `<div class="rv2 ${v.correct?'right':'wrong'}" style="display:block;">`
-         + (v.correct ? `✓ ${v.player} got it${v.steal?' — STOLEN!':''} +${v.pts}`
-                      : '✗ Nobody got it')
+         + (v.correct
+             ? (mine(v.player) ? `✓ You got it!${v.steal?' — STOLEN!':''} +${v.pts}`
+                               : `✓ ${v.player} got it${v.steal?' — STOLEN!':''} +${v.pts}`)
+             : '✗ Nobody got it')
          + (S.revealedAnswer ? `<span class="ans">Answer: <b>${S.revealedAnswer}</b></span>` : '')
          + `</div>`;
     }
@@ -761,9 +769,14 @@ function render(S){
       html=`⚡ ${S.answererIdx===ME?'You are':S.players[S.answererIdx]+' is'} stealing<span class="s">half points</span>`;
     } else if(ph==='reveal'){
       if(r.correct){ cls='right';
-        html=`✓ ${r.player} got it${r.steal?' — stolen!':''}<span class="s">+${r.pts} points</span>`; }
+        html = mine(r.player)
+          ? `✓ You got it!${r.steal?' — STOLEN!':''}<span class="s">+${r.pts} points</span>`
+          : `✓ ${r.player} got it${r.steal?' — stolen!':''}<span class="s">+${r.pts} points</span>`; }
       else { cls='wrong'; html=`✗ Nobody got it<span class="s">No points this time</span>`; }
-    } else { cls='wrong'; html=`✗ ${r.player} missed`; }
+    } else {
+      cls='wrong';
+      html = mine(r.player) ? `✗ You missed` : `✗ ${r.player} missed`;
+    }
     res.className=cls; res.innerHTML=html; res.style.display='block';
     // Flash the screen on a settled result — the same beat the TV plays.
     if(ph==='reveal' && r && _flashed!==S.seq){

@@ -770,8 +770,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.39';
-const APP_BUILT_AT='2026-07-18T12:04:23Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.40';
+const APP_BUILT_AT='2026-07-18T12:45:03Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -2970,6 +2970,7 @@ async function endGame(){
     try{ disconnectTV(); }catch(e){}
   }
   clearSave();
+  openRoom(true);   // back at setup with a fresh code on the button, ready to go again
 }
 
 function openRestart(){ document.getElementById('restartModal').classList.add('show'); }
@@ -3459,6 +3460,7 @@ function init(){
       clearSave();                         // an intentional exit really does discard it
       if(TV_CODE) disconnectTV();          // never leave the TV on a dead game
       show('setup');
+      openRoom(true);                      // a fresh room, so setup shows a code again
       _backDepth=0;                        // trap released — a further back exits
     } else {
       armBack(BACK_BUFFER);                // staying — keep the trap deep

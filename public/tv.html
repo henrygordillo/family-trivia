@@ -311,6 +311,11 @@ body{
 .jhow{font-size:clamp(10px,1vw,19px);color:rgba(255,255,255,.5);text-align:center;line-height:1.4;}
 .jhow .url{color:rgba(255,255,255,.35);font-size:.85em;}
 #join.connected .joiners .jcard:first-child{opacity:.25;}
+/* Until the judge pairs, this room's code isn't final — the judge may bring its
+   own room and we adopt that instead. Scanning now would hand out a dead code, so
+   the player QR stays hidden until pairing. visibility (not display) keeps the
+   code centred between the two cards. */
+#join:not(.connected) .joiners .jcard:last-child{visibility:hidden;}
 #join.connected .codebox{opacity:.45;transform:scale(.9);}
 
 @media (max-width:900px){
@@ -416,8 +421,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='4.6';
-const TV_BUILT_AT='2026-07-18T11:37:16Z';
+const TV_VERSION='4.7';
+const TV_BUILT_AT='2026-07-18T12:45:03Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
