@@ -439,8 +439,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='6.0';
-const TV_BUILT_AT='2026-07-18T18:22:58Z';
+const TV_VERSION='6.1';
+const TV_BUILT_AT='2026-07-18T18:44:40Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -469,7 +469,30 @@ paintTags();
 // creates the room, shows a code and a QR, and the JUDGE scans it. Player phones
 // and tablets then join the same room from their own devices — they have real
 // keyboards and cameras, so the effort belongs on them, not on the TV.
+// Remember the room across reloads. If the judge's app died and they resume,
+// they reclaim the SAME code — so a screen that reloaded in the meantime should
+// try its old room before taking a new one, instead of stranding itself.
+const LAST_CODE_KEY='ftn_tv_code';
+function rememberCode(c){ try{ localStorage.setItem(LAST_CODE_KEY,c); }catch(e){} }
+function lastCode(){ try{ return localStorage.getItem(LAST_CODE_KEY); }catch(e){ return null; } }
+
 async function init(){
+  const prev=lastCode();
+  if(prev){
+    // Give the judge a moment to come back before we give up on their room.
+    useCode(prev);
+    purpose(ASK_JUDGE);
+    const o=document.getElementById('offline');
+    o.textContent='Reconnecting to the last game\u2026'; o.style.display='block';
+    for(let i=0;i<8;i++){                       // ~12s of asking
+      try{
+        const r=await fetch(BACKEND+'/api/room/'+prev);
+        if(r.ok){ o.style.display='none'; CODE=prev; listen(); return; }
+      }catch(e){}
+      await new Promise(res=>setTimeout(res,1500));
+    }
+    o.style.display='none';
+  }
   try{
     const r = await fetch(BACKEND+'/api/room/new', {method:'POST'});
     const d = await r.json();
@@ -490,6 +513,7 @@ async function init(){
 // hands us its own room (see the 'adopt' event below).
 function useCode(code){
   CODE = code;
+  rememberCode(code);
   document.getElementById('code').textContent = CODE;
   qr('qrJudge',  location.origin + '/?tv='   + CODE);   // judge scans → connects
   qr('qrPlayer', location.origin + '/join?code=' + CODE);   // players scan → watch

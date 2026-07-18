@@ -297,8 +297,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='3.8';
-const JOIN_BUILT_AT='2026-07-18T18:31:15Z';
+const JOIN_VERSION='3.9';
+const JOIN_BUILT_AT='2026-07-18T18:44:40Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -323,6 +323,10 @@ document.getElementById('tag').textContent = `Join ${JOIN_VERSION} · ${fmt(JOIN
   const url=new URLSearchParams(location.search);
   const c=(url.get('code')||'').trim();
   if(/^\d{4}$/.test(c)){ join(c); return; }
+  // No code in the link — but if this device was in a game, the judge may have
+  // resumed it under the same code. Try to walk straight back in.
+  const prev=(()=>{ try{ return localStorage.getItem('ftn_last_code'); }catch(e){ return null; } })();
+  if(prev && /^\d{4}$/.test(prev)){ join(prev); return; }
   const inp=document.getElementById('code');
   inp.addEventListener('input',()=>{
     const v=inp.value.replace(/\D/g,'').slice(0,4);
@@ -340,6 +344,7 @@ async function join(code){
     if(!r.ok){ err.textContent='No game with that code.'; return; }
   }catch(e){ err.textContent='Could not reach the server.'; return; }
   CODE=code;
+  try{ localStorage.setItem('ftn_last_code', code); }catch(e){}
   err.textContent='';
   document.getElementById('join').style.display='none';
   listen();
