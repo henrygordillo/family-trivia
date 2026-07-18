@@ -416,7 +416,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <button class="go" id="startBtn" style="padding:9px;">Let's Play →</button>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;">
       <button id="openSettingsBtn" aria-label="Settings" style="display:flex;align-items:center;gap:5px;background:transparent;border:none;cursor:pointer;color:var(--gold-lo);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px;"><span style="font-size:16px;">⚙</span> Settings</button>
-      <button id="endGameBtnSetup" style="background:transparent;border:none;cursor:pointer;font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;padding:4px;opacity:.8;">End Game Session</button>
+      <button id="endGameBtnSetup" style="background:transparent;border:none;cursor:pointer;font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;padding:4px;opacity:.8;">Exit app</button>
     </div>
     <!-- Two different operations, so two different controls. Joining is something
          this phone DISPLAYS (others scan it). A shared screen is something this
@@ -848,8 +848,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.65';
-const APP_BUILT_AT='2026-07-18T22:55:59Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.66';
+const APP_BUILT_AT='2026-07-18T23:11:10Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -3701,7 +3701,7 @@ function init(){
   document.getElementById('againBtn').addEventListener('click',doRestart);
   document.getElementById('exitAppBtn').addEventListener('click',exitApp);
   document.getElementById('byeStartBtn').addEventListener('click',startNewNight);
-  document.getElementById('endGameBtnSetup').addEventListener('click',endGame);
+  document.getElementById('endGameBtnSetup').addEventListener('click',exitApp);   // same routine as the results screen
   document.getElementById('joinBtnBoard').addEventListener('click',openJoinSheet);
   const _asb=document.getElementById('tvAddScreen'); if(_asb) _asb.addEventListener('click',showSetup);
   const openAddScreen = ()=>{                            // an action, not a display
