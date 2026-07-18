@@ -770,8 +770,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.38';
-const APP_BUILT_AT='2026-07-18T11:37:16Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.39';
+const APP_BUILT_AT='2026-07-18T12:04:23Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1262,7 +1262,7 @@ let TV_CODE = null;
 
 // Open a room that screens can join. The judge's device is the authority, so the
 // room belongs to it — any number of TVs, tablets and phones then watch the same one.
-async function openRoom(){
+async function openRoom(quiet){
   if(TV_CODE) return {ok:true, code:TV_CODE};
   try{
     const r = await fetch(BACKEND+'/api/room/new',{method:'POST'});
@@ -1271,7 +1271,8 @@ async function openRoom(){
     TV_CODE = d.code;
   }catch(e){ return {ok:false, err:'Could not reach the server.'}; }
   try{ localStorage.setItem('ftn_tv', TV_CODE); }catch(e){}
-  armBack(BACK_BUFFER);
+  if(!quiet) armBack(BACK_BUFFER);   // quiet = opened on the setup screen; nothing to trap yet
+  updateTVBadge(); syncJoinBtns();
   pushToTV();
   return {ok:true, code:TV_CODE};
 }
@@ -3473,6 +3474,10 @@ function init(){
   // Modals
   document.getElementById('restartCancelBtn').addEventListener('click',closeRestart);
   document.getElementById('restartConfirmBtn').addEventListener('click',doRestart);
+
+  // Open the room up front so the join code is on the button from the start —
+  // no need to dive into the sheet just to find out the number.
+  openRoom(true);
 }
 
 init();

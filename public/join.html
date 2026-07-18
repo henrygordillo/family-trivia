@@ -29,7 +29,7 @@ body{
 
 /* ── Join ─────────────────────────────────────────────── */
 #join{display:flex;flex-direction:column;align-items:center;justify-content:center;
-  min-height:calc(100dvh - 30px);text-align:center;}
+  min-height:calc(100dvh - 46px);text-align:center;}
 #join h1{font-family:'Playfair Display',serif;font-size:34px;font-weight:900;color:var(--gold-hi);line-height:1.05;}
 #join .sub{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.45);margin:6px 0 30px;}
 .lbl{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:10px;}
@@ -105,11 +105,20 @@ body{
 #qans .l{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.4);font-weight:600;}
 #qanstext{font-size:22px;font-weight:800;color:var(--teal-hi);margin-top:4px;}
 #qexp{display:none;font-size:12px;line-height:1.5;color:rgba(255,255,255,.55);margin-top:10px;}
-#res{display:none;margin-top:16px;padding:11px 18px;border-radius:12px;font-size:16px;font-weight:800;}
+/* THE RESULT BEAT — the phone is in your hand, so this should land harder here
+   than on the TV, not softer. Same colours as the big screen, same motion. */
+#res{display:none;margin-top:16px;padding:15px 20px;border-radius:12px;font-size:20px;
+  font-weight:800;letter-spacing:.2px;animation:pop .35s ease-out;}
+@keyframes pop{0%{transform:scale(.9);opacity:0;}60%{transform:scale(1.03);}100%{transform:scale(1);opacity:1;}}
+/* Wash the whole screen on a result, exactly like the TV does. */
+.flash-right{animation:fr .7s ease-out;}
+.flash-wrong{animation:fw .7s ease-out;}
+@keyframes fr{0%{box-shadow:inset 0 0 0 0 rgba(46,204,113,0);}25%{box-shadow:inset 0 0 120px 0 rgba(46,204,113,.35);}100%{box-shadow:inset 0 0 0 0 rgba(46,204,113,0);}}
+@keyframes fw{0%{box-shadow:inset 0 0 0 0 rgba(192,57,43,0);}25%{box-shadow:inset 0 0 120px 0 rgba(192,57,43,.38);}100%{box-shadow:inset 0 0 0 0 rgba(192,57,43,0);}}
 #res.right{background:rgba(26,122,69,.25);border:2px solid #2ecc71;color:#7be8a5;}
 #res.wrong{background:rgba(192,57,43,.22);border:2px solid var(--red);color:#ff8b7d;}
 #res.stealing{background:rgba(124,58,237,.22);border:2px solid var(--purple-hi);color:#c9b6ff;}
-#res .s{display:block;font-size:11px;font-weight:600;opacity:.85;margin-top:3px;}
+#res .s{display:block;font-size:13px;font-weight:600;opacity:.85;margin-top:5px;}
 
 /* Timer */
 #timer{display:none;flex-direction:column;align-items:center;gap:2px;}
@@ -146,6 +155,27 @@ body{
 #rend .rt{font-family:'Playfair Display',serif;font-size:24px;font-weight:900;color:var(--gold-hi);}
 #rend .rs{font-size:13px;color:rgba(255,255,255,.55);margin-bottom:12px;}
 #rend .rs b{color:#fff;}
+#rend{overflow-y:auto;}
+#rtable{width:100%;display:flex;flex-direction:column;gap:7px;}
+.rv2{display:none;font-size:16px;font-weight:800;padding:10px 14px;border-radius:10px;margin-bottom:4px;width:100%;}
+.rv2.right{background:rgba(26,122,69,.25);border:2px solid #2ecc71;color:#7be8a5;}
+.rv2.wrong{background:rgba(192,57,43,.22);border:2px solid var(--red);color:#ff8b7d;}
+.rv2 .ans{display:block;font-size:12px;font-weight:600;color:rgba(255,255,255,.65);margin-top:4px;}
+.rv2 .ans b{color:var(--teal-hi);}
+/* Same six numbers the TV shows, stacked so they read at arm's length in portrait. */
+.rcard{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);
+  border-radius:10px;padding:9px 12px;text-align:left;}
+.rcard.lead{background:rgba(212,168,67,.1);border-color:rgba(212,168,67,.35);}
+.rcard .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+.rcard .nm{font-size:15px;font-weight:700;color:#fff;}
+.rcard.lead .nm{color:var(--gold-hi);}
+.rcard .tot{font-family:'Playfair Display',serif;font-size:21px;font-weight:900;color:var(--gold-hi);}
+.rcard .grp{display:flex;align-items:baseline;gap:8px;font-size:12px;margin-top:3px;}
+.rcard .grp .k{font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;width:42px;flex:0 0 42px;}
+.rcard .grp.main .k{color:var(--gold);}
+.rcard .grp.steal .k{color:var(--purple-hi);}
+.rcard .grp .v{color:rgba(255,255,255,.8);font-weight:600;}
+.rcard .grp .v.dim{color:rgba(255,255,255,.28);}
 #rtable{width:100%;}
 .rrow{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:10px;
   background:rgba(255,255,255,.04);margin-bottom:5px;font-size:14px;}
@@ -154,7 +184,8 @@ body{
 .rrow .rd{font-size:11px;color:rgba(255,255,255,.45);}
 .rrow .rp{font-family:'Playfair Display',serif;font-size:19px;font-weight:900;color:var(--gold-hi);}
 
-.tag{text-align:center;font-size:9px;color:rgba(255,255,255,.2);padding-top:6px;}
+.tag{position:fixed;left:0;right:0;bottom:calc(4px + env(safe-area-inset-bottom));
+  text-align:center;font-size:9px;color:rgba(255,255,255,.25);pointer-events:none;z-index:5;}
 </style>
 </head>
 <body>
@@ -236,8 +267,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='2.1';
-const JOIN_BUILT_AT='2026-07-18T11:16:41Z';
+const JOIN_VERSION='2.3';
+const JOIN_BUILT_AT='2026-07-18T12:14:21Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -322,7 +353,7 @@ function backToConnect(msg){
 const TICK_MS      = 3000;
 const STALE_AFTER  = 30000;   // awake and unheard this long → show "reconnecting"
 const GONE_STRIKES = 4;       // ~12s of confirmed 404 → the room is genuinely gone
-let _clock=null, _strikes=0, _stale=false, _lastStream=0;
+let _clock=null, _strikes=0, _stale=false, _lastStream=0, _flashed=null;
 
 function startClock(){ stopClock(); _strikes=0; _stale=false; _lastStream=Date.now(); _clock=setInterval(tick, TICK_MS); }
 function stopClock(){ if(_clock){ clearInterval(_clock); _clock=null; } }
@@ -627,16 +658,40 @@ function render(S){
     r.querySelector('.rs').innerHTML = lead.score>0
       ? (tied?`Tied at <b>${lead.score}</b>`:`<b>${lead.name}</b> leads with <b>${lead.score}</b>`)
       : 'Still all square';
+    // The verdict for the question that just closed the round — otherwise the last
+    // player of a round never sees their result.
     const v=S.lastResult;
-    let h = v
-      ? `<div class="rrow ${v.correct?'lead':''}" style="justify-content:center;">`
-        + `<span class="rn" style="text-align:center;">${v.correct
-            ? `✓ ${v.player} got it${v.steal?' — stolen!':''} (+${v.pts})`
-            : '✗ Nobody got it'}</span></div>`
-      : '';
-    h += rows.map((x,i)=>`<div class="rrow ${i===0&&x.score>0?'lead':''}">`
-      + `<span class="rn">${i===0&&x.score>0&&!tied?'👑 ':''}${x.name}</span>`
-      + `<span class="rp">${x.score}</span></div>`).join('');
+    let h = '';
+    if(v){
+      h += `<div class="rv2 ${v.correct?'right':'wrong'}" style="display:block;">`
+         + (v.correct ? `✓ ${v.player} got it${v.steal?' — STOLEN!':''} +${v.pts}`
+                      : '✗ Nobody got it')
+         + (S.revealedAnswer ? `<span class="ans">Answer: <b>${S.revealedAnswer}</b></span>` : '')
+         + `</div>`;
+    }
+    // Same tally the big screen runs: own picks vs steals, hit rate, points, total.
+    const tally=arr=>{
+      const ok=arr.filter(a=>a.correct).length;
+      const pts=arr.filter(a=>a.correct).reduce((s,a)=>s+(a.pts||0),0);
+      return { n:arr.length, ok, pct: arr.length?Math.round(ok/arr.length*100):null, pts };
+    };
+    const stats=S.players.map((p,i)=>{
+      const att=(S.attempts||[]).filter(a=>a.player===p);
+      return { name:p, score:S.scores[i],
+               main:tally(att.filter(a=>a.type==='main')),
+               steal:tally(att.filter(a=>a.type==='steal')) };
+    }).sort((a,b)=>b.score-a.score);
+    const line=(t)=> t.n ? `<span class="v">${t.ok}/${t.n} · ${t.pct}% · ${t.pts}</span>`
+                         : `<span class="v dim">—</span>`;
+    h += stats.map((x,i)=>{
+      const isLead = i===0 && x.score>0;
+      return `<div class="rcard ${isLead?'lead':''}">`
+        + `<div class="top"><span class="nm">${isLead&&!tied?'👑 ':''}${x.name}</span>`
+        + `<span class="tot">${x.score}</span></div>`
+        + `<div class="grp main"><span class="k">Own</span>${line(x.main)}</div>`
+        + `<div class="grp steal"><span class="k">Steals</span>${line(x.steal)}</div>`
+        + `</div>`;
+    }).join('');
     document.getElementById('rtable').innerHTML=h;
     stopTimer();
     return;
@@ -710,6 +765,15 @@ function render(S){
       else { cls='wrong'; html=`✗ Nobody got it<span class="s">No points this time</span>`; }
     } else { cls='wrong'; html=`✗ ${r.player} missed`; }
     res.className=cls; res.innerHTML=html; res.style.display='block';
+    // Flash the screen on a settled result — the same beat the TV plays.
+    if(ph==='reveal' && r && _flashed!==S.seq){
+      _flashed=S.seq;
+      const b=document.body;
+      b.classList.remove('flash-right','flash-wrong');
+      void b.offsetWidth;                       // restart the animation
+      b.classList.add(r.correct?'flash-right':'flash-wrong');
+      setTimeout(()=>b.classList.remove('flash-right','flash-wrong'), 800);
+    }
   }
 }
 
