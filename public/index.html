@@ -833,8 +833,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.61';
-const APP_BUILT_AT='2026-07-18T21:21:30Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.62';
+const APP_BUILT_AT='2026-07-18T21:31:10Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -3316,7 +3316,7 @@ async function dbRecordGame(categories, ruleset, numPlayers){
 async function dbGetRecentGameCategories(){
   try{
     const r=await fetch(BACKEND+'/api/games/recent?limit=4');
-    if(!r.ok){ dbFail('reading past games', r.status); return []; }
+    if(!r.ok){ dbFail('reading past games', await errText(r)); return []; }
     const d=await r.json();
     if(!Array.isArray(d)){ dbFail('reading past games', d && d.error); return []; }
     return [...new Set(d.flatMap(g=>Array.isArray(g.categories)?g.categories:[]))];
@@ -3362,10 +3362,7 @@ async function dbRecordQuestion(category, tier, fingerprint, answer){
     });
     // A failed write is the quiet killer: nothing is stored, so every future
     // lookup finds nothing, so every question looks new.
-    if(!r.ok){
-      let msg=r.status; try{ msg=(await r.json()).error||r.status; }catch(e){}
-      dbFail('saving questions', msg);
-    }
+    if(!r.ok) dbFail('saving questions', await errText(r));
   }catch(e){ dbFail('saving questions', e.message); }
 }
 
@@ -3386,16 +3383,20 @@ function dbFail(where, detail){
 async function showDbTrouble(){
   if(!DB_TROUBLE) return;
   await ask('Dedup offline',
-    'Failed while '+DB_TROUBLE+'.\n\nThe database said: '+DB_DETAIL+
-    '\n\nRepeated questions and categories are expected until this is fixed.',
+    'Failed while '+DB_TROUBLE+'.\n\n\u201c'+DB_DETAIL+'\u201d\n\n'+
+    'Repeated questions and categories are expected until this is fixed.',
     'OK', 'Close');
 }
 function dbOK(){ return DB_TROUBLE===null; }
+async function errText(r){
+  try{ const j=await r.json(); return j.error || j.message || ('HTTP '+r.status); }
+  catch(e){ return 'HTTP '+r.status; }
+}
 
 async function dbGetRecentQuestions(category){
   try{
     const r=await fetch(BACKEND+'/api/questions/recent/'+encodeURIComponent(category));
-    if(!r.ok){ dbFail('reading past questions', r.status); return []; }
+    if(!r.ok){ dbFail('reading past questions', await errText(r)); return []; }
     const d=await r.json();
     if(!Array.isArray(d)){ dbFail('reading past questions', d && d.error); return []; }
     return d;
