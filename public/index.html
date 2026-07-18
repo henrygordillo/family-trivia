@@ -787,8 +787,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.48';
-const APP_BUILT_AT='2026-07-18T14:47:52Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.49';
+const APP_BUILT_AT='2026-07-18T16:21:34Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -803,20 +803,12 @@ function fmtBuildTime(iso){
     return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} ${ap}`;
   }catch(e){ return '\u2014'; }
 }
-async function renderBuildFooter(){
+// Each screen reports its OWN build and nothing else — you're looking at this
+// file, so this file's version is the one that answers "did my push land?".
+function renderBuildFooter(){
   const el=document.getElementById('buildFooter');
   if(!el) return;
-  const appLine=`App ${APP_VERSION} · ${fmtBuildTime(APP_BUILT_AT)}`;
-  el.innerHTML=`${appLine}<br>Server …`;
-  let srv='Server — unreachable';
-  try{
-    const r=await fetch(BACKEND+'/api/version');
-    if(r.ok){
-      const d=await r.json();
-      srv=`Server ${d.version} · ${fmtBuildTime(d.builtAt)}`;
-    }
-  }catch(e){}
-  el.innerHTML=`${appLine}<br>${srv}`;
+  el.textContent=`App ${APP_VERSION} · ${fmtBuildTime(APP_BUILT_AT)}`;
 }
 const DEBUG_DEDUP=true;  // shows the 🐛 Dedup Log button + collision toasts; set false for real play
 let _dedupLog=[];        // per-session dedup activity (one entry per question generated)
@@ -1987,7 +1979,7 @@ function updateSetupHelper(){
   const tiles=n*5;
   const judgeTxt=(G.judgeMode==='ai')
     ? 'The app checks your answer — in English, Spanish, or Spanglish.'
-    : 'Whoever holds the phone manages and judges the game.';
+    : 'This device sets up and runs the game.';
   const modeTxt=gameMode==='easy'
     ? 'Easier — questions eased below the usual bar.'
     : gameMode==='hard'

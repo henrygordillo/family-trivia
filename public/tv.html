@@ -436,8 +436,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='5.6';
-const TV_BUILT_AT='2026-07-18T14:41:25Z';
+const TV_VERSION='5.7';
+const TV_BUILT_AT='2026-07-18T16:21:34Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -453,23 +453,13 @@ function fmt(iso){
     return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} ${ap}`;
   }catch(e){ return ''; }
 }
-// All three builds on one line, so a file that didn't get pushed is obvious.
-let _appVer=null, _appBuilt=null;
-let SRV_VER='…', SRV_BUILT=null;
 function paintTags(){
-  // A version number without a timestamp doesn't tell you whether a push landed.
-  const bit=(name,v,t)=> `${name} ${v||'—'}${t?' · '+fmt(t):''}`;
-  // The app build rides in on the judge's state, so before pairing we genuinely
-  // don't know it — say why, instead of showing a bare dash.
-  const appBit = _appVer ? bit('App',_appVer,_appBuilt) : 'App — awaiting judge';
-  document.getElementById('tag').textContent =
-    [bit('TV',TV_VERSION,TV_BUILT_AT), appBit, bit('Server',SRV_VER,SRV_BUILT)]
-    .join('     |     ');
+  // This screen reports its OWN build only. The judge's and the server's builds
+  // are visible on their own screens; crowding them in here just made this line
+  // long and, before pairing, half unknown.
+  document.getElementById('tag').textContent = `TV ${TV_VERSION} · ${fmt(TV_BUILT_AT)}`;
 }
 paintTags();
-fetch(BACKEND+'/api/version').then(r=>r.json()).then(d=>{
-  SRV_VER=d.version; SRV_BUILT=d.builtAt; paintTags();
-}).catch(()=>{ SRV_VER='unreachable'; paintTags(); });
 
 // ── The shared screen owns the room ──────────────────────────────────────────
 // A TV remote is a miserable keyboard, so this page never asks for input. It
@@ -799,9 +789,6 @@ function render(S){
 
   // A phone has pushed something — so we're paired, whatever it says.
   setPaired(true, S.device);
-  if(S.appVersion && S.appVersion !== _appVer){
-    _appVer=S.appVersion; _appBuilt=S.appBuiltAt || null; paintTags();
-  }
 
   // NO GAME RUNNING → go back to the join screen. Without this the TV kept
   // rendering the LAST game's board after the phone backed out to setup.

@@ -618,8 +618,8 @@ document.getElementById('detailsBtn').addEventListener('click',()=>{
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live.
-const ADMIN_VERSION='3.13';
-const ADMIN_BUILT_AT='2026-07-13T20:10:05Z';   // UTC; shown in the device's local time
+const ADMIN_VERSION='3.14';
+const ADMIN_BUILT_AT='2026-07-18T16:21:34Z';   // UTC; shown in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -634,17 +634,12 @@ function fmtBuildTime(iso){
     return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} ${ap}`;
   }catch(e){ return '\u2014'; }
 }
-async function renderBuildFooter(){
+// Each screen reports its OWN build and nothing else — you're looking at this
+// file, so this file's version is what answers "did my push land?".
+function renderBuildFooter(){
   const el=document.getElementById('buildFooter');
   if(!el) return;
-  const adminLine=`Admin ${ADMIN_VERSION} · ${fmtBuildTime(ADMIN_BUILT_AT)}`;
-  el.innerHTML=`${adminLine}<br>Server …`;
-  let srv='Server — unreachable';
-  try{
-    const d=await api('/api/version');
-    srv=`Server ${d.version} · ${fmtBuildTime(d.builtAt)}`;
-  }catch(e){}
-  el.innerHTML=`${adminLine}<br>${srv}`;
+  el.textContent=`Admin ${ADMIN_VERSION} · ${fmtBuildTime(ADMIN_BUILT_AT)}`;
 }
 
 (async function init(){
