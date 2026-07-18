@@ -680,6 +680,21 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <div class="final-list" id="finalList"></div>
   <div id="endStats" style="width:100%;max-width:480px;margin-top:8px;"></div>
   <button class="again-btn" id="againBtn">Play Again</button>
+  <button id="exitAppBtn" style="margin-top:10px;background:transparent;border:none;cursor:pointer;
+    font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;
+    text-transform:uppercase;color:var(--muted);padding:8px;">Exit app</button>
+</div>
+
+<!-- The only screen where nothing is running: no room, no code, nobody connected.
+     Reached on purpose, and the one place the app stops asking anything of you. -->
+<div id="bye" class="screen">
+  <div class="end-title">Good<br>night!</div>
+  <div class="end-sub" id="byeLine">Thanks for playing</div>
+  <div style="font-size:13px;color:var(--muted);line-height:1.6;max-width:280px;text-align:center;margin-top:18px;">
+    Everything is closed. Any shared or personal screens have been disconnected.<br><br>
+    You can close the app now.
+  </div>
+  <button class="again-btn" id="byeStartBtn" style="margin-top:24px;">Start a new night</button>
 </div>
 
 <!-- CHANGE JUDGE MODAL -->
@@ -833,8 +848,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.64';
-const APP_BUILT_AT='2026-07-18T22:29:56Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.65';
+const APP_BUILT_AT='2026-07-18T22:55:59Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -3263,6 +3278,41 @@ function renderSetupLine(){
   el.onclick      = DB_TROUBLE ? showDbTrouble : null;
 }
 
+// Finish for the night: the same teardown as ending a session, except we do NOT
+// open a fresh room afterwards. This is the one state where nothing is running —
+// which is exactly what makes it an ending rather than a restart.
+async function exitApp(){
+  const ok = await ask('Finish for tonight?',
+    'Everything closes and any connected screens disconnect.\n\nYou can start again any time.',
+    'Finish up', 'Cancel');
+  if(!ok) return;
+
+  const line=document.getElementById('byeLine');
+  if(line && G.players && G.players.length){
+    const best=G.players.map((p,i)=>({p,s:G.scores[i]})).sort((a,b)=>b.s-a.s)[0];
+    if(best && best.s>0) line.textContent=`${best.p} won with ${best.s}`;
+  }
+
+  _inGame=false; _backDepth=0;
+  try{ window.speechSynthesis?.cancel(); }catch(e){}
+  try{ if(G.recording) stopMic(); }catch(e){}
+  if(TV_CODE){
+    try{ await pushToTV(); }catch(e){}   // tell the screens the game is over first
+    try{ disconnectTV(); }catch(e){}
+  }
+  clearSave();
+  selectedPlayers=[];
+  _playersLocked=false;
+  try{ renderRoster(); applyPlayerLock(); }catch(e){}
+  show('bye');                            // deliberately no openRoom() — nothing is running
+}
+
+// Leaving the goodbye screen is what starts things up again.
+function startNewNight(){
+  show('setup');
+  openRoom(true);
+}
+
 function applyPlayerLock(){
   const btn=document.getElementById('openPickerBtn');
   const note=document.getElementById('playerLockNote');
@@ -3649,6 +3699,8 @@ function init(){
 
   // End
   document.getElementById('againBtn').addEventListener('click',doRestart);
+  document.getElementById('exitAppBtn').addEventListener('click',exitApp);
+  document.getElementById('byeStartBtn').addEventListener('click',startNewNight);
   document.getElementById('endGameBtnSetup').addEventListener('click',endGame);
   document.getElementById('joinBtnBoard').addEventListener('click',openJoinSheet);
   const _asb=document.getElementById('tvAddScreen'); if(_asb) _asb.addEventListener('click',showSetup);
