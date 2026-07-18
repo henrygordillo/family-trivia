@@ -6,8 +6,8 @@ const path = require('path');
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
-const VERSION = '3.18';
-const BUILT_AT = '2026-07-18T11:16:41Z';
+const VERSION = '3.19';
+const BUILT_AT = '2026-07-18T11:37:16Z';
 
 const app = express();
 app.use(cors());
@@ -91,6 +91,19 @@ app.post('/api/room/new', (req, res) => {
   const code = newCode();
   rooms.set(code, { state: null, clients: new Set(), createdAt: Date.now(), touchedAt: Date.now() });
   res.json({ code });
+});
+
+// The judge already had a room (players may be in it) and has just paired a TV
+// that made its own. Rather than abandon those players, the judge tells the TV to
+// come over to the judge's room. The TV is a viewer; the judge owns the room.
+app.post('/api/room/:code/adopt', (req, res) => {
+  const room = rooms.get(req.params.code);
+  const target = String((req.body && req.body.target) || '');
+  if (!room) return res.status(404).json({ error: 'no such room' });
+  if (!/^\d{4}$/.test(target)) return res.status(400).json({ error: 'bad target' });
+  const msg = `event: adopt\ndata: ${JSON.stringify({ code: target })}\n\n`;
+  room.clients.forEach(c => { try { c.write(msg); } catch(e){} });
+  res.json({ ok: true, told: room.clients.size });
 });
 
 // The TV subscribes here. Stays open; the server pushes every state change.

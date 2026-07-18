@@ -770,8 +770,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.37';
-const APP_BUILT_AT='2026-07-16T14:40:10Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.38';
+const APP_BUILT_AT='2026-07-18T11:37:16Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1284,6 +1284,18 @@ async function connectTV(code){
     const r = await fetch(BACKEND+'/api/room/'+code);
     if(!r.ok) return {ok:false, err:'That room is gone.'};
   }catch(e){ return {ok:false, err:'Could not reach the server.'}; }
+  // If we already run a room, players may be in it — switching to the TV's code
+  // would strand them somewhere nobody pushes to. Keep ours; the TV comes to us.
+  if(TV_CODE && TV_CODE !== code){
+    try{
+      await fetch(BACKEND+'/api/room/'+code+'/adopt',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({target:TV_CODE})
+      });
+    }catch(e){}
+    pushToTV();
+    return {ok:true};
+  }
   TV_CODE = code;
   try{ localStorage.setItem('ftn_tv', code); }catch(e){}
   armBack(BACK_BUFFER);
