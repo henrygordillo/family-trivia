@@ -448,14 +448,15 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
          all but invisible against #1c1c28. -->
     <div id="tvSetup">
       <div style="font-size:14px;color:rgba(255,255,255,.65);margin-bottom:14px;line-height:1.55;">
-        Open <b style="color:var(--gold-hi);">/tv</b> on the screen everyone will watch.
-        It shows a code and a QR \u2014 scan it, or enter the code here.
+        On the screen everyone will watch, open<br>
+        <b id="tvOpenUrl" style="color:var(--gold-hi);font-size:15px;">…</b><br>
+        Then add it here by:
       </div>
-      <button class="mbtn" id="tvScan" style="width:100%;background:rgba(212,168,67,.12);border:1.5px solid rgba(212,168,67,.45);color:var(--gold-hi);display:flex;align-items:center;justify-content:center;gap:8px;">\ud83d\udcf7 Scan the shared screen's QR</button>
+      <button class="mbtn" id="tvScan" style="width:100%;background:rgba(212,168,67,.12);border:1.5px solid rgba(212,168,67,.45);color:var(--gold-hi);display:flex;align-items:center;justify-content:center;gap:8px;">📷 Scanning its QR</button>
       <video id="tvVideo" playsinline muted style="display:none;width:100%;border-radius:12px;margin-top:10px;background:#000;"></video>
       <div style="margin:12px 0 10px;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.3);">or</div>
       <div style="border:2px solid rgba(212,168,67,.45);border-radius:12px;background:rgba(255,255,255,.05);padding:9px 12px 12px;">
-        <div style="font-size:13px;color:rgba(255,255,255,.6);margin-bottom:2px;">Enter the screen's code</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.6);margin-bottom:2px;">Entering its code</div>
         <input id="tvCode" type="tel" inputmode="numeric" maxlength="4" placeholder="0000"
           style="width:100%;padding:0;border:none;background:transparent;font-family:'Playfair Display',serif;font-size:34px;font-weight:900;text-align:center;letter-spacing:8px;color:var(--gold-hi);outline:none;">
       </div>
@@ -786,7 +787,7 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.46';
+const APP_VERSION='3.48';
 const APP_BUILT_AT='2026-07-18T14:47:52Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
@@ -1382,6 +1383,7 @@ function syncJoinBtns(){
 }
 function showSetup(){
   const t=document.getElementById('tvModalTitle'); if(t) t.textContent='Add a shared screen';
+  const u=document.getElementById('tvOpenUrl'); if(u) u.textContent=location.host+'/tv';
   document.getElementById('tvSetup').style.display='block';
   document.getElementById('tvLive').style.display='none';
   document.getElementById('tvStop').style.display='none';
@@ -1985,7 +1987,7 @@ function updateSetupHelper(){
   const tiles=n*5;
   const judgeTxt=(G.judgeMode==='ai')
     ? 'The app checks your answer — in English, Spanish, or Spanglish.'
-    : 'Whoever holds the phone reveals and rules.';
+    : 'Whoever holds the phone manages and judges the game.';
   const modeTxt=gameMode==='easy'
     ? 'Easier — questions eased below the usual bar.'
     : gameMode==='hard'

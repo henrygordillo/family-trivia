@@ -90,8 +90,6 @@ body{
   #game{flex-direction:row;align-items:stretch;gap:12px;min-height:calc(100dvh - 46px);}
   .jleft{width:32%;max-width:340px;min-width:180px;flex:0 0 auto;overflow-y:auto;}
   .jright{flex:1;min-width:0;}
-  #me{padding:8px 11px;}
-  .mname{font-size:15px;} .mscore{font-size:24px;}
   .orow{padding:6px 9px;font-size:13px;}
   .orow .osc{font-size:16px;}
   #rend{overflow-y:auto;}
@@ -108,17 +106,6 @@ body{
 .ptile.blocked{background:rgba(124,58,237,.12);border:1px dashed rgba(167,139,250,.5);color:var(--purple-hi);font-size:15px;}
 
 /* You */
-#me{border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:12px;
-  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);transition:all .3s;}
-#me.up{background:rgba(212,168,67,.18);border-color:var(--gold);}
-#me.steal{background:rgba(124,58,237,.18);border-color:var(--purple-hi);}
-#me .mname{font-size:15px;font-weight:800;}
-#me .mscore{font-family:'Playfair Display',serif;font-size:30px;font-weight:900;color:var(--gold-hi);line-height:1;}
-#me .mstat{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
-  color:rgba(255,255,255,.45);margin-top:2px;min-height:14px;}
-#me.up .mstat{color:var(--gold-hi);}
-#me.steal .mstat{color:var(--purple-hi);}
-#me .mright{margin-left:auto;text-align:right;}
 
 /* Question */
 #q{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -164,7 +151,8 @@ body{
 .orow{display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:10px;
   background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);font-size:14px;}
 .orow.up{background:rgba(212,168,67,.12);border-color:rgba(212,168,67,.5);}
-.orow.me{border-color:rgba(31,173,160,.5);}
+.orow.me{border-color:rgba(31,173,160,.55);background:rgba(31,173,160,.1);}
+.orow.me .oname{color:var(--teal-hi);}
 .orow .on{color:rgba(255,255,255,.3);font-weight:700;min-width:14px;}
 .orow .oname{font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .orow .ostat{font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--gold-hi);font-weight:700;}
@@ -249,16 +237,6 @@ body{
 
 <div id="game">
  <div class="jleft">
-  <div id="me">
-    <div>
-      <div class="mname" id="meName"></div>
-      <div class="mstat" id="meStat"></div>
-    </div>
-    <div class="mright">
-      <div class="mscore" id="meScore">0</div>
-    </div>
-  </div>
-
   <div id="others"></div>
  </div>
 
@@ -305,7 +283,7 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='3.3';
+const JOIN_VERSION='3.4';
 const JOIN_BUILT_AT='2026-07-18T14:41:48Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
@@ -631,7 +609,6 @@ function render(S){
     document.getElementById('game').style.display='flex';
     waiting('Waiting for the judge', 'to start the game');
     document.getElementById('others').innerHTML='';
-    document.getElementById('me').style.display='none';
     document.getElementById('pboard').style.display='none';
     return;
   }
@@ -641,7 +618,6 @@ function render(S){
 
   document.getElementById('game').style.display='flex';
   _meName = (ME>=0 && S.players) ? S.players[ME] : null;
-  document.getElementById('me').style.display = (ME>=0) ? 'flex' : 'none';
   document.getElementById('pboard').style.display='none';
 
   const ph=S.phase;
@@ -663,16 +639,6 @@ function render(S){
     statusOf=i=> i===S.nextPickerIdx?'Picking' : i===nx?'On deck':''; }
 
   // ── You ──
-  if(ME>=0){
-    const meEl=document.getElementById('me');
-    const stat=statusOf(ME);
-    document.getElementById('meName').textContent=S.players[ME];
-    document.getElementById('meScore').textContent=S.scores[ME];
-    document.getElementById('meStat').textContent=stat||'';
-    meEl.className='';
-    if(stat==='Answering'||stat==='Reading'||stat==='Picking') meEl.className='up';
-    else if(stat==='Stealing'||stat==='Ready to steal!') meEl.className='steal';
-  }
 
   // ── Everyone else ──
   document.getElementById('others').innerHTML = S.players.map((p,i)=>{
@@ -684,8 +650,11 @@ function render(S){
     let cls='orow';
     if(stat && stat!=='On deck') cls+=' up';
     if(i===ME) cls+=' me';
+    // This row IS you now — the separate personal card is gone, so say so. A pure
+    // watcher owns no row, and none of them gets the label.
+    const who = (i===ME) ? `Me (${p})` : p;
     return `<div class="${cls}"><span class="on">${i+1}</span>`
-      + `<span class="oname">${crown}${p}${badge}</span>`
+      + `<span class="oname">${crown}${who}${badge}</span>`
       + (stat?`<span class="ostat">${stat}</span>`:'')
       + `<span class="osc">${S.scores[i]}</span></div>`;
   }).join('');

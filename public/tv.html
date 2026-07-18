@@ -26,7 +26,7 @@ body{
 #join h1{font-family:'Playfair Display',serif;font-size:clamp(23px,5.5vw,121px);font-weight:900;color:var(--gold-hi);line-height:1;margin-bottom:1vh;}
 #join .sub{font-size:clamp(9px,1.5vw,33px);color:rgba(255,255,255,.55);letter-spacing:.25vw;text-transform:uppercase;margin-bottom:4vh;}
 /* Say what this screen is for once, up here — so neither door below repeats it. */
-#join .purpose{font-size:clamp(10px,1.9vw,42px);color:rgba(255,255,255,.8);margin-bottom:5vh;}
+#join .purpose{font-size:clamp(10px,1.9vw,42px);color:rgba(255,255,255,.8);margin-bottom:1.6vh;}
 .codebox{background:rgba(255,255,255,.05);border:2px solid rgba(212,168,67,.4);border-radius:2vw;padding:3vh 5vw;display:flex;align-items:center;gap:4vw;}
 .codelabel{font-size:clamp(9px,1.3vw,29px);color:rgba(255,255,255,.5);letter-spacing:.2vw;text-transform:uppercase;margin-bottom:1vh;}
 .code{font-family:'Playfair Display',serif;font-size:clamp(38px,9.0vw,198px);font-weight:900;color:var(--gold-hi);letter-spacing:1vw;line-height:1;}
@@ -328,6 +328,9 @@ body{
 .orsep{font-size:clamp(9px,1.1vw,24px);letter-spacing:.2vw;text-transform:uppercase;
   color:rgba(255,255,255,.35);font-weight:700;}
 #join .purpose b{color:var(--gold-hi);font-weight:800;}
+/* The instruction belongs to the two controls below it, so it sits away from the
+   headline and close to the things it's telling you to use. */
+#join .purpose .howto{display:block;margin-top:3.5vh;font-size:clamp(10px,1.5vw,33px);color:rgba(255,255,255,.62);}
 #join.connected .codebox{opacity:.45;transform:scale(.9);}
 
 @media (max-width:900px){
@@ -433,7 +436,7 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='5.5';
+const TV_VERSION='5.6';
 const TV_BUILT_AT='2026-07-18T14:41:25Z';
 const BACKEND='';   // same origin
 
@@ -517,7 +520,7 @@ let _paired=false, _device='';
 // This screen always talks to whoever has to act NEXT: the judge until they pair,
 // then everyone else. Identity ("Shared Screen") never changes; the audience does.
 function purpose(h){ const e=document.getElementById('purposeLine'); if(e) e.innerHTML=h; }
-const ASK_JUDGE = 'The whole room follows the game here.<br>Add it on the judge\u2019s device under <b>Connect Players \u2192 Add Shared Screen</b>, by:';
+const ASK_JUDGE = 'The whole room follows the game here.<span class="howto">Add it on the judge\u2019s device under <b>Connect Players \u2192 Add Shared Screen</b>, by:</span>';
 const ASK_PLAYERS = () => 'Follow along on your own personal screen at <b>'+location.host+'/join</b>, by:';
 
 function setPaired(on, device){
