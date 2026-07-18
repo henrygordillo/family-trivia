@@ -439,8 +439,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='5.9';
-const TV_BUILT_AT='2026-07-18T18:00:12Z';
+const TV_VERSION='6.0';
+const TV_BUILT_AT='2026-07-18T18:22:58Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -763,13 +763,40 @@ setInterval(()=>{
 // gone we go back to a fresh code. A brief 404 (server restart) self-heals — the
 // judge re-creates its room on its next push — so we only bail after it's been gone
 // past that recovery window (~12s).
-let _roomGone=0;
+// Losing the room usually means the judge left — but it can also mean their app
+// died and they're about to resume, which reclaims this very code. So don't throw
+// the code away immediately: fall back to the join screen, keep polling it, and
+// slip back in if it returns. Only after a couple of minutes do we accept that
+// it's really over and take a fresh code.
+let _roomGone=0, _waitingBack=false;
+const GONE_STRIKES  = 4;      // ~12s — the room is genuinely missing
+const GIVE_UP_AFTER = 40;     // ~2min more, then start over with a new code
 setInterval(async()=>{
   if(!CODE) return;
   try{
     const r=await fetch(BACKEND+'/api/room/'+CODE);
-    if(r.ok) _roomGone=0;
-    else if(r.status===404 && ++_roomGone>=4) location.reload();
+    if(r.ok){
+      if(_waitingBack){                      // the judge came back to this room
+        _waitingBack=false; _roomGone=0;
+        document.getElementById('offline').style.display='none';
+        try{ if(ES) ES.close(); }catch(e){}
+        listen();
+      }
+      _roomGone=0;
+      return;
+    }
+    if(r.status!==404) return;               // a server error proves nothing
+    _roomGone++;
+    if(_roomGone===GONE_STRIKES){
+      // Show the code again and wait — the judge may be resuming right now.
+      _waitingBack=true;
+      dropPhone();
+      const o=document.getElementById('offline');
+      o.textContent='Waiting for the judge to come back…';
+      o.style.display='block';
+    } else if(_roomGone>=GONE_STRIKES+GIVE_UP_AFTER){
+      location.reload();                     // really over — take a fresh code
+    }
   }catch(e){ /* network blip — not a real close */ }
 }, 3000);
 
