@@ -89,13 +89,16 @@ body{
 #game{display:none;flex-direction:column;gap:12px;min-height:calc(100dvh - 46px);}
 /* Who's up and where everyone stands belong together — the scoreboard sits with
    your own card, not stranded at the far end of the screen. */
+.setupline{font-size:10px;letter-spacing:.5px;text-transform:uppercase;
+  color:rgba(255,255,255,.4);font-weight:700;text-align:center;}
 .jleft{display:flex;flex-direction:column;gap:8px;min-height:0;}
 .jright{display:flex;flex-direction:column;flex:1;min-height:0;gap:12px;}
 
 /* Landscape: a held device is wide and short, so stand the two halves side by
    side rather than scrolling. Portrait keeps the stacked order above. */
 @media (orientation:landscape){
-  #game{flex-direction:row;align-items:stretch;gap:12px;min-height:calc(100dvh - 46px);}
+  #game{flex-direction:row;flex-wrap:wrap;align-items:stretch;gap:12px;min-height:calc(100dvh - 46px);}
+  .setupline{width:100%;flex:0 0 100%;}
   .jleft{width:32%;max-width:340px;min-width:180px;flex:0 0 auto;overflow-y:auto;}
   .jright{flex:1;min-width:0;}
   .orow{padding:6px 9px;font-size:13px;}
@@ -252,6 +255,7 @@ body{
 </div>
 
 <div id="game">
+ <div class="setupline" id="setupLine"></div>
  <div class="jleft">
   <div id="others"></div>
  </div>
@@ -299,8 +303,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='3.5';
-const JOIN_BUILT_AT='2026-07-18T17:41:38Z';
+const JOIN_VERSION='3.6';
+const JOIN_BUILT_AT='2026-07-18T18:00:12Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -628,6 +632,12 @@ const mine = n => !!n && n===_meName;
 function render(S){
   if(!S) return;
   if(S.seq!=null){ if(S.seq<_seq) return; _seq=S.seq; }
+  // What the board can't say for itself: how hard, and who's judging.
+  const _sl=document.getElementById('setupLine');
+  if(_sl){
+    const d = S.gameMode==='easy' ? 'Easier' : S.gameMode==='hard' ? 'Harder' : 'Normal';
+    _sl.textContent = `${d} \u00b7 ${S.judgeMode==='ai' ? 'AI judge' : 'Human judge'}`;
+  }
   _lastHeard=Date.now();
   _stale=false;          // we're hearing the judge again
   _lastS=S;

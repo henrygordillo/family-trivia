@@ -70,6 +70,8 @@ body{
 
 /* ── Game screen ─────────────────────────────────────────── */
 #game{display:none;height:95vh;flex-direction:column;}
+.setupline{text-align:center;font-size:clamp(9px,1.05vw,23px);letter-spacing:.12vw;
+  text-transform:uppercase;color:rgba(255,255,255,.4);font-weight:700;margin-bottom:1vh;}
 .topband{display:flex;gap:1.2vw;align-items:stretch;margin-bottom:1.6vh;}
 .scores{display:flex;gap:1.2vw;flex:1;min-width:0;}
 .pcard{flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
@@ -384,6 +386,7 @@ body{
 </div>
 
 <div id="game" style="position:relative;">
+  <div class="setupline" id="setupLine"></div>
   <div class="topband">
     <div class="scores" id="scores"></div>
     <div id="gameJoin">
@@ -436,8 +439,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='5.8';
-const TV_BUILT_AT='2026-07-18T17:43:17Z';
+const TV_VERSION='5.9';
+const TV_BUILT_AT='2026-07-18T18:00:12Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -775,8 +778,17 @@ window.addEventListener('keydown', (e)=>{
   if(e.key==='r' || e.key==='R' || e.key==='Escape') location.reload();
 });
 
+// What the board can't say for itself: how hard, and who's judging.
+function renderSetupLine(S){
+  const el=document.getElementById('setupLine');
+  if(!el) return;
+  const diff = S.gameMode==='easy' ? 'Easier' : S.gameMode==='hard' ? 'Harder' : 'Normal';
+  el.textContent = `${diff} \u00b7 ${S.judgeMode==='ai' ? 'AI judge' : 'Human judge'}`;
+}
+
 function render(S){
   if(!S) return;
+  renderSetupLine(S);
 
   // Out-of-order arrival: two rapid pushes can land backwards. Never let an older
   // state overwrite a newer one — that's what made the steal beats flicker/stick.

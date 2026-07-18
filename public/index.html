@@ -524,7 +524,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <div id="board" class="screen">
   <div class="board-title-row">
     <div class="game-title">Trivia Night</div>
-    <div class="judge-indicator" id="boardJudgeIndicator"></div>
+    <div class="setup-line" id="boardSetupLine" style="margin-left:auto;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:700;white-space:nowrap;"></div>
   </div>
   <table class="ptable" id="ptable"></table>
   <div class="progress-wrap"><div class="progress-fill" id="progressFill"></div></div>
@@ -833,8 +833,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.56';
-const APP_BUILT_AT='2026-07-18T17:44:51Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.57';
+const APP_BUILT_AT='2026-07-18T18:00:12Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -964,6 +964,7 @@ const STATE_PUBLIC = [
   'pendingStealIdx',   // who is being OFFERED the steal (before they take it)
   'roundEnded',        // {round, at} — set when a round closes, cleared on the next pick
   'attempts',   // {cat,tier,player,type,correct,pts} — no answers; the hit-rate column needs it
+  'gameMode',   // difficulty — the room can't infer it from the board
 ];
 const STATE_PRIVATE = ['qData','askedQuestions'];              // hold answers
 const STATE_LOCAL   = ['timer','speak',                        // hand-published (see publicState)
@@ -2106,6 +2107,7 @@ async function startGame(){
   G.playerProfiles=G.playerProfiles||{}; // preserve entry order for New Game
   G.scores=names.map(()=>0);
   G.judgeMode=G.judgeMode||'human';
+  G.gameMode=gameMode;               // travels with the state, so every screen agrees
   G.hjRotate=0;
   G.numCats=getChip('cats');
   G.numQ=5; // fixed at 5 questions per category
@@ -2217,6 +2219,7 @@ function buildBoard(S, interactive){
 // The two jobs are now separate: renderBoard() is pure and can draw any state,
 // including one that arrived from another device.
 function refreshBoard(){
+  renderSetupLine();      // the board can reappear via resume or a returned question
   G.phase='pick';        // mutation
   renderBoard(G);        // render
 }
@@ -3239,6 +3242,17 @@ function gmChangeSetup(){
   closeGameMenu(); _leaveBoard();
   _playersLocked=true; applyPlayerLock(); show('setup');
 }
+// Difficulty, who judges, and whether a countdown will start — none of these can
+// be read off the board itself. Everything else here is already visible: the
+// categories are the columns, the players are the scoreboard.
+function renderSetupLine(){
+  const el=document.getElementById('boardSetupLine');
+  if(!el) return;
+  const diff = gameMode==='easy' ? 'Easier' : gameMode==='hard' ? 'Harder' : 'Normal';
+  const judge = (G.judgeMode==='ai') ? 'App judges' : 'You judge';
+  el.textContent = `${diff} · ${judge} · Timer ${timerOn?'on':'off'}`;
+}
+
 function applyPlayerLock(){
   const btn=document.getElementById('openPickerBtn');
   const note=document.getElementById('playerLockNote');
