@@ -833,8 +833,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.57';
-const APP_BUILT_AT='2026-07-18T18:00:12Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.58';
+const APP_BUILT_AT='2026-07-18T18:06:00Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1092,6 +1092,7 @@ function show(id){
   _inGame=(id==='board'||id==='qscreen');
   var bb=document.getElementById('backBtn');
   if(bb) bb.style.display=(id==='qscreen'?'':'none');
+  if(id==='board'){ try{ renderSetupLine(); }catch(e){} }
   ensureBackTrap();     // every transition tops the trap back up
 }
 // ── GAME RESUME ───────────────────────────────────────────────────────────
@@ -2219,7 +2220,6 @@ function buildBoard(S, interactive){
 // The two jobs are now separate: renderBoard() is pure and can draw any state,
 // including one that arrived from another device.
 function refreshBoard(){
-  renderSetupLine();      // the board can reappear via resume or a returned question
   G.phase='pick';        // mutation
   renderBoard(G);        // render
 }
