@@ -798,7 +798,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <div class="modal-bg" id="askModal" style="z-index:990;">
   <div class="modal-box">
     <div class="modal-title" id="askTitle"></div>
-    <div class="modal-body" id="askBody"></div>
+    <div class="modal-body" id="askBody" style="white-space:pre-line;"></div>
     <div class="modal-btns">
       <button class="mbtn mbtn-cancel" id="askNo"></button>
       <button class="mbtn mbtn-confirm" id="askYes"></button>
@@ -833,8 +833,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.63';
-const APP_BUILT_AT='2026-07-18T22:20:55Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.64';
+const APP_BUILT_AT='2026-07-18T22:29:56Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{

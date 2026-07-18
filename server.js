@@ -6,8 +6,8 @@ const path = require('path');
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
-const VERSION = '3.20';
-const BUILT_AT = '2026-07-18T22:20:55Z';
+const VERSION = '3.21';
+const BUILT_AT = '2026-07-18T22:29:56Z';
 
 const app = express();
 app.use(cors());
@@ -469,8 +469,8 @@ app.get('/api/categories/recent', async (req, res) => {
   const want = Math.min(30, Math.max(1, Number(req.query.limit) || 20));
   const { data, error } = await supabase
     .from('attempts')
-    .select('category, created_at')
-    .order('created_at', { ascending: false })
+    .select('category, attempted_at')
+    .order('attempted_at', { ascending: false })   // this table stamps attempted_at, not created_at
     .limit(400);
   if (error) return res.status(500).json({ error: error.message });
   const seen = [];
