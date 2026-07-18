@@ -416,8 +416,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='4.5';
-const TV_BUILT_AT='2026-07-15T23:06:14Z';
+const TV_VERSION='4.6';
+const TV_BUILT_AT='2026-07-18T11:37:16Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -465,6 +465,14 @@ async function init(){
     o.textContent='Could not reach the server — reload this page';
     return;
   }
+  useCode(CODE);
+  listen();
+}
+
+// Show a code and point every QR at it. Called on load, and again if the judge
+// hands us its own room (see the 'adopt' event below).
+function useCode(code){
+  CODE = code;
   document.getElementById('code').textContent = CODE;
   qr('qrJudge',  location.origin + '/?tv='   + CODE);   // judge scans → connects
   qr('qrPlayer', location.origin + '/join?code=' + CODE);   // players scan → watch
@@ -472,7 +480,6 @@ async function init(){
   const gj=document.getElementById('gjCode'); if(gj) gj.textContent = CODE;
   const pl=document.getElementById('playUrl');
   if(pl) pl.textContent = location.host + '/join';
-  listen();
 }
 
 function qr(id, url){
@@ -511,6 +518,16 @@ function listen(){
   ES.addEventListener('state',   e => render(JSON.parse(e.data)));
   ES.addEventListener('waiting', () => { setPaired(false, ''); });   // no phone yet
   ES.addEventListener('closed',  () => { location.reload(); });   // game over → fresh code
+  // The judge already had a room with players in it. Move over to theirs rather
+  // than stranding them on a room nobody is pushing to.
+  ES.addEventListener('adopt', e => {
+    let t=null; try{ t=JSON.parse(e.data).code; }catch(err){}
+    if(!t || t===CODE) return;
+    try{ ES.close(); }catch(err){}
+    _roomGone=0; _lastHeard=0;
+    useCode(t);
+    listen();
+  });
   ES.onerror = () => { document.getElementById('offline').style.display='block'; };
   ES.onopen  = () => { document.getElementById('offline').style.display='none'; };
 }
