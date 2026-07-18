@@ -3,6 +3,8 @@ const fs=require('fs'), vm=require('vm');
 const html=fs.readFileSync('index.html','utf8');
 const s=html.indexOf('<script>')+8, e=html.lastIndexOf('</script>');
 let code=html.slice(s,e).replace(/^\s*init\(\);\s*$/m,'');
+// endGame now awaits a custom dialog instead of confirm(); auto-accept it.
+code+=`;ask = async()=>true;`;
 code+=`;globalThis.__api={ endGame,
   get G(){return G;}, set G(v){G=v;},
   setInGame(v){_inGame=v;}, get inGame(){return _inGame;},
@@ -42,18 +44,20 @@ sb.window.localStorage=sb.localStorage; sb.window.confirm=sb.confirm; sb.globalT
 vm.createContext(sb); vm.runInContext(code,sb);
 const api=sb.__api;
 
-function run(label, tvCode){
+async function run(label, tvCode){
   active.clear(); active.add('board');            // pretend we're in a game on the board
   api.setInGame(true);
   api.setTV(tvCode);
   api.G = Object.assign(api.G||{}, {players:['A','B'],scores:[0,0],recording:false,numCats:2,numQ:5,blocked:{},used:{}});
   let threw=null;
-  try{ api.endGame(); }catch(err){ threw=err; }
+  try{ await api.endGame(); }catch(err){ threw=err; }
   const onSetup = active.has('setup') && !active.has('board');
   console.log(`  ${label}: ${threw?('✗ THREW: '+threw.message):(onSetup?'✓ exited to setup':'✗ still on '+[...active].join(','))}  (inGame now=${api.inGame})`);
   return !threw && onSetup;
 }
-console.log('endGame() exit test:');
-const a=run('no TV', null);
-const b=run('with TV', '1234');
-process.exit(a&&b?0:1);
+(async()=>{
+  console.log('endGame() exit test:');
+  const a=await run('no TV', null);
+  const b=await run('with TV', '1234');
+  process.exit(a&&b?0:1);
+})();

@@ -760,10 +760,21 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 </div>
 
 <!-- RESTART MODAL -->
+<div class="modal-bg" id="askModal" style="z-index:990;">
+  <div class="modal-box">
+    <div class="modal-title" id="askTitle"></div>
+    <div class="modal-body" id="askBody"></div>
+    <div class="modal-btns">
+      <button class="mbtn mbtn-cancel" id="askNo"></button>
+      <button class="mbtn mbtn-confirm" id="askYes"></button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="restartModal">
   <div class="modal-box">
-    <div class="modal-title">New Game?</div>
-    <div class="modal-body">Current scores will be lost.</div>
+    <div class="modal-title">New game?</div>
+    <div class="modal-body">Same players, scores back to zero. Connected shared and personal screens stay connected.</div>
     <div class="modal-btns">
       <button class="mbtn mbtn-cancel" id="restartCancelBtn">Cancel</button>
       <button class="mbtn mbtn-confirm" id="restartConfirmBtn">Yes, Restart</button>
@@ -787,8 +798,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.49';
-const APP_BUILT_AT='2026-07-18T16:21:34Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.52';
+const APP_BUILT_AT='2026-07-18T17:08:44Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1051,7 +1062,14 @@ function show(id){
 // A back gesture can always escape a mobile browser, whatever we do. Rather than
 // keep fighting it, make leaving harmless: the game is saved continuously, and
 // re-opening the app offers to carry on exactly where it left off.
-const SAVE_KEY = 'ftn_game';
+const SAVE_KEY  = 'ftn_game';
+// A game in progress raises a flag holding the key of its save. Every deliberate
+// exit lowers it. So "did we die mid-game?" is a recorded fact, not a guess from
+// the age of a file — and a save is never discarded just because you said "not now".
+const LIVE_KEY  = 'ftn_live';
+function markLive(){   try{ localStorage.setItem(LIVE_KEY, SAVE_KEY); }catch(e){} }
+function clearLive(){  try{ localStorage.removeItem(LIVE_KEY); }catch(e){} }
+function liveSaveKey(){ try{ return localStorage.getItem(LIVE_KEY); }catch(e){ return null; } }
 
 function saveGame(){
   if(!_inGame || !G.players || !G.players.length) return;
@@ -1074,23 +1092,27 @@ function saveGame(){
         playerProfiles:G.playerProfiles, setupNames:G.setupNames,
       }
     }));
+    markLive();
   }catch(e){}
 }
-function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
+function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} clearLive(); }
 
 function loadSave(){
+  // Only a raised flag means we died mid-game. Age is irrelevant — a game
+  // interrupted last week is still the game you were playing.
+  const key = liveSaveKey();
+  if(!key) return null;
   try{
-    const raw=localStorage.getItem(SAVE_KEY);
-    if(!raw) return null;
+    const raw=localStorage.getItem(key);
+    if(!raw){ clearLive(); return null; }              // flag with nothing behind it
     const s=JSON.parse(raw);
-    if(!s || !s.g || !Array.isArray(s.g.players) || !s.g.players.length) return null;
-    // Stale games aren't worth offering.
-    if(Date.now()-(s.at||0) > 12*60*60*1000){ clearSave(); return null; }
-    // Already finished? Nothing to resume.
+    if(!s || !s.g || !Array.isArray(s.g.players) || !s.g.players.length){ clearSave(); return null; }
+    // Shouldn't be possible with the flag, but a half-written save shouldn't
+    // strand you in a prompt you can't clear.
     const total=s.g.numCats*s.g.numQ-Object.keys(s.g.blocked||{}).length;
     if(Object.keys(s.g.used||{}).length >= total){ clearSave(); return null; }
     return s;
-  }catch(e){ return null; }
+  }catch(e){ clearSave(); return null; }
 }
 
 async function resumeGame(s){
@@ -2225,9 +2247,9 @@ async function pickQ(ci,qi){
 
     // It has failed repeatedly. Offer to retire the tile so the game can still end.
     show('board');
-    setTimeout(()=>{
+    setTimeout(async ()=>{
       const cat=G.categories[ci];
-      if(confirm(`"${cat} ${PTS[qi]}" won't generate a question.\n\nRetire this tile? The game will carry on without it (nobody scores it).`)){
+      if(await ask('Retire this tile?', `"${cat} ${PTS[qi]}" won't generate a question. The game will carry on without it, and nobody scores it.`, 'Retire it', 'Try again')){
         retireTile(key);
       } else {
         toast('Tap the tile to try again, or pick another.');
@@ -2978,10 +3000,10 @@ function buildEnd(){
 // NEW GAME / RESTART
 // ═══════════════════════════════════════════════════════════════════
 async function endGame(){
-  const msg = TV_CODE
-    ? 'End the session? The game will close and the TV will disconnect.'
-    : 'End the session? The game will close.';
-  if(!confirm(msg)) return;
+  const ok = await ask('End session?',
+    'The game will close, and any connected shared or personal screens will disconnect.',
+    'End session', 'Cancel');
+  if(!ok) return;
   _inGame=false;
   _backDepth=0;                                  // release the back-trap
   show('setup');                                 // switch first, so the exit feels instant
@@ -2997,7 +3019,30 @@ async function endGame(){
     try{ disconnectTV(); }catch(e){}
   }
   clearSave();
-  openRoom(true);   // back at setup with a fresh code on the button, ready to go again
+  // Ending is a full reset — setup should look the way it does on a fresh launch,
+  // otherwise it's indistinguishable from Restart.
+  selectedPlayers=[];
+  try{ renderRoster(); renderSelectedSummary(); }catch(e){}
+  openRoom(true);   // a fresh code on the button, ready to go again
+}
+
+// A promise-based replacement for confirm(). The browser's own dialog prints the
+// site address above the question, which reads like a security warning.
+let _askResolve=null;
+function ask(title, body, yes, no){
+  return new Promise(res=>{
+    _askResolve=res;
+    document.getElementById('askTitle').textContent=title;
+    document.getElementById('askBody').textContent=body;
+    document.getElementById('askYes').textContent=yes||'Yes';
+    document.getElementById('askNo').textContent=no||'Cancel';
+    document.getElementById('askModal').classList.add('show');
+  });
+}
+function closeAsk(v){
+  document.getElementById('askModal').classList.remove('show');
+  const r=_askResolve; _askResolve=null;
+  if(r) r(v);
 }
 
 function openRestart(){ document.getElementById('restartModal').classList.add('show'); }
@@ -3114,6 +3159,8 @@ function closeDedupLog(){ document.getElementById('dedupLogModal').classList.rem
 function closeRestart(){ document.getElementById('restartModal').classList.remove('show'); }
 function doRestart(){
   closeRestart();
+  clearSave();            // a deliberate exit — nothing left to recover
+  _inGame=false;
   window.speechSynthesis?.cancel();
   if(G.recording) stopMic();
   tvGameEnded();          // TV: drop the old board, wait for the next game
@@ -3336,12 +3383,13 @@ function init(){
   if(saved){
     const done = Object.keys(saved.g.used||{}).length;
     const total = saved.g.numCats*saved.g.numQ - Object.keys(saved.g.blocked||{}).length;
-    setTimeout(()=>{
-      if(confirm(`Resume your game?\n\n${saved.g.players.join(', ')}\n${done} of ${total} tiles played.`)){
-        resumeGame(saved);
-      } else {
-        clearSave();
-      }
+    setTimeout(async ()=>{
+      const ok = await ask('Resume your game?',
+        `${saved.g.players.join(', ')} — ${done} of ${total} tiles played.`,
+        'Resume', 'Not now');
+      if(ok) resumeGame(saved);
+      // Declining keeps it: the game is still unfinished, so we'll offer again.
+      // Starting or ending a game is what actually lets it go.
     }, 400);
   }
   document.getElementById('openPickerBtn').addEventListener('click',openPicker);
@@ -3460,19 +3508,20 @@ function init(){
   });
 
   // Guard accidental exit: intercept the back gesture during a game
-  window.addEventListener('popstate',()=>{
+  window.addEventListener('popstate', async ()=>{
     if(_backDepth > 0) _backDepth--;      // this press consumed one of our entries
 
-    // Not in a game, but a TV is still attached (e.g. on setup): a back press here
-    // would otherwise leave the TV stranded in a dead room.
+    // Not in a game, but a shared screen is still attached (e.g. on setup): a back
+    // press here would otherwise leave it stranded in a dead room.
     if(!_inGame){
       if(TV_CODE){
-        if(confirm('Leave? The TV will be disconnected.')){
-          disconnectTV();
-          _backDepth=0;                   // stop trapping — let the next press exit
-          return;
-        }
+        // Re-arm FIRST. Our own dialog can't block the navigation the way confirm()
+        // did, so take the press back immediately and undo it only if they mean it.
         armBack(BACK_BUFFER);
+        const ok = await ask('Leave?',
+          'Any connected shared or personal screens will disconnect.',
+          'Leave', 'Stay');
+        if(ok){ disconnectTV(); _backDepth=0; history.back(); }
       }
       return;
     }
@@ -3486,15 +3535,21 @@ function init(){
     }
 
     // On the board. Leaving means abandoning the game — always ask.
-    if(confirm('Exit the current game? Your progress will be lost.')){
+    armBack(BACK_BUFFER);                  // hold our place while the dialog is open
+    const leave = await ask('Exit this game?',
+      'Progress will be lost, and any connected shared or personal screens will disconnect.',
+      'Exit game', 'Keep playing');
+    if(leave){
       _inGame=false;
       clearSave();                         // an intentional exit really does discard it
-      if(TV_CODE) disconnectTV();          // never leave the TV on a dead game
+      if(TV_CODE) disconnectTV();          // never leave a screen on a dead game
       show('setup');
+      selectedPlayers=[];                  // same full reset as End game
+      try{ renderRoster(); renderSelectedSummary(); }catch(e){}
       openRoom(true);                      // a fresh room, so setup shows a code again
       _backDepth=0;                        // trap released — a further back exits
     } else {
-      armBack(BACK_BUFFER);                // staying — keep the trap deep
+      // already re-armed above — nothing more to do
     }
   });
   // Backstop for tab refresh/close while a game is on
@@ -3505,6 +3560,8 @@ function init(){
 
 
   // Modals
+  document.getElementById('askYes').addEventListener('click',()=>closeAsk(true));
+  document.getElementById('askNo').addEventListener('click',()=>closeAsk(false));
   document.getElementById('restartCancelBtn').addEventListener('click',closeRestart);
   document.getElementById('restartConfirmBtn').addEventListener('click',doRestart);
 
