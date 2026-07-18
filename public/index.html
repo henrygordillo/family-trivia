@@ -833,8 +833,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.60';
-const APP_BUILT_AT='2026-07-18T19:04:26Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.61';
+const APP_BUILT_AT='2026-07-18T21:21:30Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -3255,8 +3255,10 @@ function renderSetupLine(){
   const diff = gameMode==='easy' ? 'Easier' : gameMode==='hard' ? 'Harder' : 'Normal';
   const judge = (G.judgeMode==='ai') ? 'App judges' : 'You judge';
   el.textContent = `${diff} · ${judge} · Timer ${timerOn?'on':'off'}`
-    + (DB_TROUBLE ? `  ·  \u26a0 DEDUP OFFLINE` : '');
-  el.style.color = DB_TROUBLE ? '#ff8b7d' : '';
+    + (DB_TROUBLE ? `  ·  \u26a0 DEDUP OFFLINE \u2014 TAP` : '');
+  el.style.color  = DB_TROUBLE ? '#ff8b7d' : '';
+  el.style.cursor = DB_TROUBLE ? 'pointer' : '';
+  el.onclick      = DB_TROUBLE ? showDbTrouble : null;
 }
 
 function applyPlayerLock(){
@@ -3370,14 +3372,23 @@ async function dbRecordQuestion(category, tier, fingerprint, answer){
 // Dedup depends entirely on the database. Every one of these calls used to fail
 // into "no history", which looks exactly like "nothing to avoid" — so a broken
 // database silently disabled dedup and nothing said a word. Now it says so.
-let DB_TROUBLE=null;          // the first thing that broke, kept for the badge
+let DB_TROUBLE=null, DB_DETAIL='';   // the first thing that broke, and why
 function dbFail(where, detail){
   if(!DB_TROUBLE){
     DB_TROUBLE = where;
-    try{ toast('\u26a0 Dedup offline \u2014 '+where+' failed'); }catch(e){}
+    DB_DETAIL  = (detail===undefined||detail===null||detail==='') ? '(no detail returned)' : String(detail);
+    try{ toast('\u26a0 Dedup offline \u2014 tap the badge'); }catch(e){}
   }
   console.warn('DB failure ['+where+']', detail||'');
   try{ renderSetupLine(); }catch(e){}
+}
+// The reason matters more than the fact, and a console isn't reachable on a phone.
+async function showDbTrouble(){
+  if(!DB_TROUBLE) return;
+  await ask('Dedup offline',
+    'Failed while '+DB_TROUBLE+'.\n\nThe database said: '+DB_DETAIL+
+    '\n\nRepeated questions and categories are expected until this is fixed.',
+    'OK', 'Close');
 }
 function dbOK(){ return DB_TROUBLE===null; }
 
