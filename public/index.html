@@ -833,8 +833,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.58';
-const APP_BUILT_AT='2026-07-18T18:06:00Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.59';
+const APP_BUILT_AT='2026-07-18T18:16:32Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1162,10 +1162,14 @@ async function resumeGame(s){
   await loadActiveRuleset();
   buildBoard();
   show('board');
-  // Re-attach the TV if it's still holding the same room.
+  // Reclaim the SAME room, even if the server already reaped it — posting state
+  // to a missing room recreates it under that code. So screens still polling it
+  // come back on their own, and anyone re-scanning gets the room they were in
+  // rather than a stranger's new one.
   if(s.tv){
-    const r=await connectTV(s.tv);
-    if(r.ok) updateTVBadge();
+    TV_CODE = s.tv;
+    try{ localStorage.setItem('ftn_tv', TV_CODE); }catch(e){}
+    updateTVBadge(); syncJoinBtns();
   }
   pushToTV();
   toast('Game resumed');

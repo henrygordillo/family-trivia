@@ -87,22 +87,12 @@ body{
 
 /* ── Game ─────────────────────────────────────────────── */
 #game{display:none;flex-direction:column;gap:12px;min-height:calc(100dvh - 46px);}
-/* Who's up and where everyone stands belong together — the scoreboard sits with
-   your own card, not stranded at the far end of the screen. */
 .setupline{font-size:10px;letter-spacing:.5px;text-transform:uppercase;
   color:rgba(255,255,255,.4);font-weight:700;text-align:center;}
-.jleft{display:flex;flex-direction:column;gap:8px;min-height:0;}
 .jright{display:flex;flex-direction:column;flex:1;min-height:0;gap:12px;}
-
-/* Landscape: a held device is wide and short, so stand the two halves side by
-   side rather than scrolling. Portrait keeps the stacked order above. */
 @media (orientation:landscape){
-  #game{flex-direction:row;flex-wrap:wrap;align-items:stretch;gap:12px;min-height:calc(100dvh - 46px);}
-  .setupline{width:100%;flex:0 0 100%;}
-  .jleft{width:32%;max-width:340px;min-width:180px;flex:0 0 auto;overflow-y:auto;}
-  .jright{flex:1;min-width:0;}
-  .orow{padding:6px 9px;font-size:13px;}
-  .orow .osc{font-size:16px;}
+  .orow .oname{font-size:11px;}
+  .orow .osc{font-size:18px;}
   #rend{overflow-y:auto;}
 }
 
@@ -158,16 +148,22 @@ body{
 
 /* Everyone */
 #board{display:none;}
-#others{display:flex;flex-direction:column;gap:5px;}
-.orow{display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:10px;
-  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);font-size:14px;}
-.orow.up{background:rgba(212,168,67,.12);border-color:rgba(212,168,67,.5);}
-.orow.me{border-color:rgba(31,173,160,.55);background:rgba(31,173,160,.1);}
+/* One card per player, across the top — the same arrangement the shared screen
+   uses, so both surfaces teach the same layout. */
+#others{display:flex;gap:6px;align-items:stretch;}
+.orow{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:1px;
+  padding:6px 4px;border-radius:10px;background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.1);text-align:center;transition:all .25s;}
+.orow.up{background:rgba(212,168,67,.16);border-color:var(--gold);}
+.orow.me{border-color:rgba(31,173,160,.6);background:rgba(31,173,160,.12);}
+.orow.up.me{background:rgba(212,168,67,.16);border-color:var(--gold);}
+.orow .on{display:none;}
+.orow .oname{font-size:12px;font-weight:700;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .orow.me .oname{color:var(--teal-hi);}
-.orow .on{color:rgba(255,255,255,.3);font-weight:700;min-width:14px;}
-.orow .oname{font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.orow .ostat{font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--gold-hi);font-weight:700;}
-.orow .osc{font-family:'Playfair Display',serif;font-size:19px;font-weight:900;color:var(--gold-hi);}
+.orow .osc{font-family:'Playfair Display',serif;font-size:22px;font-weight:900;color:var(--gold-hi);line-height:1.1;}
+.orow .ostat{font-size:8px;letter-spacing:.4px;text-transform:uppercase;font-weight:700;
+  color:rgba(255,255,255,.4);min-height:11px;}
+.orow.up .ostat{color:var(--gold-hi);}
 
 /* Waiting / generating */
 #wait{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;}
@@ -256,9 +252,7 @@ body{
 
 <div id="game">
  <div class="setupline" id="setupLine"></div>
- <div class="jleft">
-  <div id="others"></div>
- </div>
+ <div id="others"></div>
 
  <div class="jright">
   <div id="pboard"></div>
@@ -303,8 +297,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='3.6';
-const JOIN_BUILT_AT='2026-07-18T18:00:12Z';
+const JOIN_VERSION='3.7';
+const JOIN_BUILT_AT='2026-07-18T18:16:32Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -690,10 +684,10 @@ function render(S){
     // This row IS you now — the separate personal card is gone, so say so. A pure
     // watcher owns no row, and none of them gets the label.
     const who = (i===ME) ? `Me (${p})` : p;
-    return `<div class="${cls}"><span class="on">${i+1}</span>`
+    return `<div class="${cls}">`
       + `<span class="oname">${crown}${who}${badge}</span>`
-      + (stat?`<span class="ostat">${stat}</span>`:'')
-      + `<span class="osc">${S.scores[i]}</span></div>`;
+      + `<span class="osc">${S.scores[i]}</span>`
+      + `<span class="ostat">${stat||''}</span></div>`;
   }).join('');
 
   // ── Round end ──
