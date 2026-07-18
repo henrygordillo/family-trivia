@@ -6,8 +6,8 @@ const path = require('path');
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
-const VERSION = '3.19';
-const BUILT_AT = '2026-07-18T11:37:16Z';
+const VERSION = '3.20';
+const BUILT_AT = '2026-07-18T22:20:55Z';
 
 const app = express();
 app.use(cors());
@@ -459,6 +459,26 @@ app.post('/api/games', async (req, res) => {
   const { data, error } = await supabase.from('games').insert(row).select().single();
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
+});
+
+// Which categories have actually been PLAYED lately. Read from attempts, not
+// games, because a game row is written the moment tiles are dealt — so dealing a
+// board you dislike and re-rolling used to burn five categories for nothing.
+// An attempt only exists once somebody answered, which is the real signal.
+app.get('/api/categories/recent', async (req, res) => {
+  const want = Math.min(30, Math.max(1, Number(req.query.limit) || 20));
+  const { data, error } = await supabase
+    .from('attempts')
+    .select('category, created_at')
+    .order('created_at', { ascending: false })
+    .limit(400);
+  if (error) return res.status(500).json({ error: error.message });
+  const seen = [];
+  for (const row of (data || [])) {
+    if (row.category && !seen.includes(row.category)) seen.push(row.category);
+    if (seen.length >= want) break;
+  }
+  res.json(seen);
 });
 
 app.get('/api/games/recent', async (req, res) => {
