@@ -31,18 +31,30 @@ body{
 #join{display:flex;flex-direction:column;align-items:center;justify-content:center;
   min-height:calc(100dvh - 46px);text-align:center;}
 #join h1{font-family:'Playfair Display',serif;font-size:34px;font-weight:900;color:var(--gold-hi);line-height:1.05;}
-#join .sub{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.45);margin:6px 0 30px;}
-.lbl{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:10px;}
-#code{width:min(280px,80vw);padding:14px;border:2px solid rgba(212,168,67,.45);border-radius:14px;
-  background:rgba(255,255,255,.05);color:var(--gold-hi);font-family:'Playfair Display',serif;
-  font-size:42px;font-weight:900;text-align:center;letter-spacing:10px;outline:none;}
-#code:focus{border-color:var(--gold);}
-#err{margin-top:12px;font-size:13px;color:#ff8b7d;min-height:18px;}
-#join .note{margin-top:26px;font-size:13px;color:rgba(255,255,255,.4);line-height:1.6;max-width:300px;}
+#join .sub{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.45);margin:6px 0 22px;}
+/* Say what joining gets you ONCE, up here — so neither door below has to repeat it. */
+#join .purpose{font-size:15px;color:rgba(255,255,255,.75);margin-bottom:28px;}
+/* Typing and scanning are the same door. Make them look it. */
+.orsep{margin:10px 0;font-size:11px;letter-spacing:2px;text-transform:uppercase;
+  color:rgba(255,255,255,.3);}
+/* Each way in carries its own label, so nothing floats loose above the controls —
+   the same self-contained card the shared screen uses for its code. */
+.codebox{width:min(280px,80vw);border:2px solid rgba(212,168,67,.45);border-radius:14px;
+  background:rgba(255,255,255,.05);padding:9px 12px 12px;display:flex;flex-direction:column;
+  align-items:center;gap:2px;box-sizing:border-box;}
+.codebox:focus-within{border-color:var(--gold);}
+.codelabel{font-size:14px;color:rgba(255,255,255,.62);}
+#code{width:100%;padding:0;border:none;background:transparent;color:var(--gold-hi);
+  font-family:'Playfair Display',serif;font-size:40px;font-weight:900;text-align:center;
+  letter-spacing:10px;outline:none;}
+#code::placeholder{color:rgba(255,255,255,.18);}
+#err{margin-top:10px;font-size:13px;color:#ff8b7d;min-height:0;}
+#join .note{margin-top:26px;font-size:15px;color:rgba(255,255,255,.68);line-height:1.55;max-width:320px;}
 #join .note b{color:var(--gold);}
-.scanbtn{margin-top:18px;padding:12px 22px;border-radius:12px;border:1.5px solid rgba(212,168,67,.45);
-  background:rgba(212,168,67,.1);color:var(--gold-hi);font-family:inherit;font-size:15px;font-weight:700;
-  cursor:pointer;display:inline-flex;align-items:center;gap:8px;}
+.scanbtn{width:min(280px,80vw);box-sizing:border-box;padding:14px 18px;border-radius:14px;
+  border:2px solid rgba(212,168,67,.45);background:rgba(212,168,67,.1);color:var(--gold-hi);
+  font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;}
 .scanbtn:active{background:rgba(212,168,67,.22);border-color:var(--gold);}
 #scanOverlay{display:none;position:fixed;inset:0;z-index:100;background:#000;
   flex-direction:column;align-items:center;justify-content:center;}
@@ -66,7 +78,24 @@ body{
 .wbtn.skip{border-style:dashed;color:rgba(255,255,255,.5);font-weight:600;font-size:14px;}
 
 /* ── Game ─────────────────────────────────────────────── */
-#game{display:none;flex-direction:column;gap:12px;min-height:calc(100dvh - 30px);}
+#game{display:none;flex-direction:column;gap:12px;min-height:calc(100dvh - 46px);}
+/* Who's up and where everyone stands belong together — the scoreboard sits with
+   your own card, not stranded at the far end of the screen. */
+.jleft{display:flex;flex-direction:column;gap:8px;min-height:0;}
+.jright{display:flex;flex-direction:column;flex:1;min-height:0;gap:12px;}
+
+/* Landscape: a held device is wide and short, so stand the two halves side by
+   side rather than scrolling. Portrait keeps the stacked order above. */
+@media (orientation:landscape){
+  #game{flex-direction:row;align-items:stretch;gap:12px;min-height:calc(100dvh - 46px);}
+  .jleft{width:32%;max-width:340px;min-width:180px;flex:0 0 auto;overflow-y:auto;}
+  .jright{flex:1;min-width:0;}
+  #me{padding:8px 11px;}
+  .mname{font-size:15px;} .mscore{font-size:24px;}
+  .orow{padding:6px 9px;font-size:13px;}
+  .orow .osc{font-size:16px;}
+  #rend{overflow-y:auto;}
+}
 
 /* Board — mirrors the TV, display-only (the judge still drives every pick) */
 #pboard{display:none;gap:5px;flex:1;min-height:0;}
@@ -106,7 +135,7 @@ body{
 #qanstext{font-size:22px;font-weight:800;color:var(--teal-hi);margin-top:4px;}
 #qexp{display:none;font-size:12px;line-height:1.5;color:rgba(255,255,255,.55);margin-top:10px;}
 /* THE RESULT BEAT — the phone is in your hand, so this should land harder here
-   than on the TV, not softer. Same colours as the big screen, same motion. */
+   than on the shared screen, not softer. Same colours, same motion. */
 #res{display:none;margin-top:16px;padding:15px 20px;border-radius:12px;font-size:20px;
   font-weight:800;letter-spacing:.2px;animation:pop .35s ease-out;}
 @keyframes pop{0%{transform:scale(.9);opacity:0;}60%{transform:scale(1.03);}100%{transform:scale(1);opacity:1;}}
@@ -185,19 +214,24 @@ body{
 .rrow .rp{font-family:'Playfair Display',serif;font-size:19px;font-weight:900;color:var(--gold-hi);}
 
 .tag{position:fixed;left:0;right:0;bottom:calc(4px + env(safe-area-inset-bottom));
-  text-align:center;font-size:9px;color:rgba(255,255,255,.25);pointer-events:none;z-index:5;}
+  text-align:center;font-size:11px;font-weight:600;letter-spacing:.3px;
+  color:rgba(255,255,255,.5);pointer-events:none;z-index:5;}
 </style>
 </head>
 <body>
 
 <div id="join">
   <h1>Family Trivia</h1>
-  <div class="sub">Watch along</div>
-  <div class="lbl">Game code</div>
-  <input id="code" type="tel" inputmode="numeric" maxlength="4" placeholder="0000" autocomplete="off">
+  <div class="sub">Personal Screen</div>
+  <div class="purpose">Follow the game on your own, by:</div>
+  <button id="scanBtn" class="scanbtn">📷 Scanning this QR</button>
+  <div class="orsep">or</div>
+  <div class="codebox">
+    <div class="codelabel">Entering this code</div>
+    <input id="code" type="tel" inputmode="numeric" maxlength="4" placeholder="0000" autocomplete="off">
+  </div>
   <div id="err"></div>
-  <button id="scanBtn" class="scanbtn">📷 Scan the code</button>
-  <div class="note">The code is on the big screen — or on the judge's phone. Type it above, or scan it.</div>
+  <div class="note">Both are on the judge's device — or the shared screen, if you're using one.</div>
 </div>
 
 <div id="scanOverlay">
@@ -214,6 +248,7 @@ body{
 </div>
 
 <div id="game">
+ <div class="jleft">
   <div id="me">
     <div>
       <div class="mname" id="meName"></div>
@@ -224,6 +259,10 @@ body{
     </div>
   </div>
 
+  <div id="others"></div>
+ </div>
+
+ <div class="jright">
   <div id="pboard"></div>
 
   <div id="q">
@@ -260,15 +299,14 @@ body{
     <div class="rs"></div>
     <div id="rtable"></div>
   </div>
-
-  <div id="others"></div>
+ </div>
 </div>
 
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='2.4';
-const JOIN_BUILT_AT='2026-07-18T12:45:03Z';
+const JOIN_VERSION='3.1';
+const JOIN_BUILT_AT='2026-07-18T14:41:48Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -401,7 +439,7 @@ document.addEventListener('visibilitychange', ()=>{
 });
 
 // ── Scan the code ─────────────────────────────────────────────────────────
-// A player can scan the "watch along" QR on the TV or the judge's phone instead
+// A player can scan the "watch along" QR on the shared screen or the judge's device instead
 // of typing. Whatever QR we read, we pull the 4-digit room code out of it and
 // join as a watcher — being on THIS page is what makes you a player, not the QR
 // you scanned. Android has a native scanner; iOS gets jsQR loaded on demand.
@@ -578,7 +616,7 @@ function drawBoard(S){
 }
 
 // This device belongs to someone, so speak to them directly — "You got it!" not
-// "Papa got it". Same beat and styling as the big screen, just in second person.
+// "Papa got it". Same beat and styling as the shared screen, just in second person.
 let _meName=null;
 const mine = n => !!n && n===_meName;
 
@@ -677,7 +715,7 @@ function render(S){
          + (S.revealedAnswer ? `<span class="ans">Answer: <b>${S.revealedAnswer}</b></span>` : '')
          + `</div>`;
     }
-    // Same tally the big screen runs: own picks vs steals, hit rate, points, total.
+    // Same tally the shared screen runs: own picks vs steals, hit rate, points, total.
     const tally=arr=>{
       const ok=arr.filter(a=>a.correct).length;
       const pts=arr.filter(a=>a.correct).reduce((s,a)=>s+(a.pts||0),0);

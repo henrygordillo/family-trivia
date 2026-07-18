@@ -417,8 +417,25 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button id="openSettingsBtn" aria-label="Settings" style="display:flex;align-items:center;gap:5px;background:transparent;border:none;cursor:pointer;color:var(--gold-lo);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px;"><span style="font-size:16px;">⚙</span> Settings</button>
       <button id="endGameBtnSetup" style="background:transparent;border:none;cursor:pointer;font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;padding:4px;opacity:.8;">End Game Session</button>
     </div>
-    <div style="display:flex;justify-content:center;margin-top:4px;">
-      <button id="tvBtn" style="display:flex;align-items:center;gap:5px;background:transparent;border:none;cursor:pointer;color:var(--muted);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px;"><span style="font-size:14px;">📲</span> <span id="tvBtnLabel">Connect Players</span></button>
+    <!-- Two different operations, so two different controls. Joining is something
+         this phone DISPLAYS (others scan it). A shared screen is something this
+         phone DOES (you scan the screen). Only the first one can be a strip. -->
+    <button id="tvBtn" style="width:100%;margin-top:12px;display:flex;align-items:center;gap:12px;
+      background:var(--card2);border:1.5px solid var(--card3);border-radius:12px;cursor:pointer;
+      padding:9px 12px;text-align:left;font-family:'Outfit',sans-serif;">
+      <span id="joinQr" style="flex:0 0 auto;display:flex;"></span>
+      <span style="flex:1;min-width:0;">
+        <span style="display:block;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;">To follow on a personal screen</span>
+        <span style="display:flex;align-items:baseline;gap:6px;">
+          <span style="font-size:10px;color:var(--muted);">scan, or enter</span>
+          <span id="tvBtnLabel" style="font-family:'Playfair Display',serif;font-size:26px;font-weight:900;color:var(--ink);letter-spacing:4px;line-height:1.15;">····</span>
+        </span>
+        <span id="joinUrl" style="display:block;font-size:10px;color:var(--muted);"></span>
+      </span>
+    </button>
+
+    <div style="display:flex;justify-content:center;margin-top:6px;">
+      <button id="addScreenBtn" style="display:flex;align-items:center;gap:5px;background:transparent;border:none;cursor:pointer;color:var(--muted);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px;"><span style="font-size:14px;">📺</span> Add a shared screen</button>
     </div>
     <div id="buildFooter" style="margin-top:10px;text-align:center;font-size:10px;line-height:1.5;color:var(--muted);opacity:.65;"></div>
 
@@ -431,7 +448,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
     <div id="tvSetup">
       <div style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.5;">
-        Open <b style="color:var(--ink);">/tv</b> on the big screen — it shows a code and a QR.
+        Open <b style="color:var(--ink);">/tv</b> on the shared screen — it shows a code and a QR.
         Scan it, or type the code here.
       </div>
       <input id="tvCode" type="tel" inputmode="numeric" maxlength="4" placeholder="0000"
@@ -455,7 +472,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <div style="font-size:11px;color:var(--muted);margin-top:8px;">Scan on a phone or tablet — or go to <b id="tvPlayUrl" style="color:var(--ink);"></b></div>
       </div>
       <div id="tvViewers" style="font-size:12px;color:var(--teal);font-weight:700;margin-top:10px;text-align:center;min-height:16px;"></div>
-      <button class="mbtn" id="tvAddScreen" style="width:100%;margin-top:10px;background:transparent;border:1.5px dashed var(--card3);color:var(--muted);font-size:13px;">📺 Add a big screen</button>
+      <button class="mbtn" id="tvAddScreen" style="width:100%;margin-top:10px;background:transparent;border:1.5px dashed var(--card3);color:var(--muted);font-size:13px;">📺 Add a shared screen</button>
     </div>
 
     <div id="tvErr" style="font-size:12px;color:var(--red);margin-top:8px;min-height:14px;text-align:center;"></div>
@@ -770,8 +787,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.40';
-const APP_BUILT_AT='2026-07-18T12:45:03Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.44';
+const APP_BUILT_AT='2026-07-18T14:47:52Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -883,17 +900,17 @@ const CAT_POOL=['Math Puzzles','World Geography','History','Science & Nature','P
 // STATE
 // ═══════════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════════════════
-// STATE CLASSIFICATION  (Big Screen groundwork — see publicState() below)
+// STATE CLASSIFICATION  (Shared Screen groundwork — see publicState() below)
 //
 // Every field of G falls into exactly one of three buckets. This matters because
 // a second screen (the TV) will render from a SNAPSHOT of the state, and some of
 // that state must never leave this device.
 //
 //   PUBLIC  — safe for the room to see. Syncs to the TV.
-//   PRIVATE — the ANSWERS. Stays on the judge's phone. NEVER syncs.
+//   PRIVATE — the ANSWERS. Stays on the judge's device. NEVER syncs.
 //   LOCAL   — device-only plumbing (mic handles, caches). Meaningless elsewhere.
 //
-// The whole point of Big Screen Mode is that the judge sees something the room
+// The whole point of Shared Screen Mode is that the judge sees something the room
 // does not. If an answer ever reaches the TV, the feature is dead. So the split
 // is enforced by publicState() below — a strict allow-list, not a deny-list.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1240,7 +1257,7 @@ function findStealIdx(S){
 // PLAYER TABLE — fixed order, highlights move not rows
 // ═══════════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════════════════
-// SYNC — the single choke point (Big Screen groundwork)
+// SYNC — the single choke point (Shared Screen groundwork)
 //
 // Every state change on this device ends in a render. So a render is exactly the
 // moment the rest of the room needs to hear about it. commit() is that one place.
@@ -1254,7 +1271,7 @@ function findStealIdx(S){
 // Hence the `S === G` guard: G is the local truth; anything else came from the wire.
 // ═══════════════════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════════════════
-// BIG SCREEN — this phone pushes its public state to a TV room.
+// SHARED SCREEN — this phone pushes its public state to the shared room.
 // The TV shows a code; we claim it here. From then on, every commit() also POSTs
 // the snapshot. publicState()'s allow-list guarantees no answer travels.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1309,10 +1326,10 @@ function updateTVBadge(){
   const btn=document.getElementById('tvBtn');
   if(!lbl||!btn) return;
   if(TV_CODE){
-    lbl.textContent='Connect Players \u00b7 '+TV_CODE;
+    lbl.textContent=TV_CODE;
     btn.style.color='var(--teal)';
   } else {
-    lbl.textContent='Connect Players';
+    lbl.textContent='\u00b7\u00b7\u00b7\u00b7';
     btn.style.color='var(--muted)';
   }
 }
@@ -1339,7 +1356,28 @@ async function openJoinSheet(){
 }
 function syncJoinBtns(){
   const jb=document.getElementById('joinBtnBoard');
-  if(jb) jb.textContent = TV_CODE ? ('\ud83d\udcf2 Connect Players \u00b7 '+TV_CODE) : '\ud83d\udcf2 Connect Players';
+  if(jb) jb.textContent = TV_CODE ? ('\ud83d\udcf2 Join \u00b7 '+TV_CODE) : '\ud83d\udcf2 Join';
+
+  // The setup strip is a DISPLAY: hold the phone out and people scan it. No tap
+  // needed for the common case; tapping just opens the bigger version.
+  const lbl=document.getElementById('tvBtnLabel');
+  const url=document.getElementById('joinUrl');
+  const box=document.getElementById('joinQr');
+  if(lbl) lbl.textContent = TV_CODE || '\u00b7\u00b7\u00b7\u00b7';
+  if(url) url.textContent = TV_CODE ? ('at '+location.host+'/join') : 'Opening a room\u2026';
+  if(box){
+    if(!TV_CODE){ box.innerHTML=''; return; }
+    if(box.dataset.code===TV_CODE) return;      // already drawn for this room
+    box.dataset.code=TV_CODE;
+    box.innerHTML='';
+    const img=document.createElement('img');
+    img.alt='Scan to join';
+    img.style.cssText='width:58px;height:58px;background:#fff;padding:4px;border-radius:7px;display:block;';
+    img.src='https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=0&data='+
+            encodeURIComponent(location.origin+'/join?code='+TV_CODE);
+    img.onerror=()=>{ img.style.display='none'; };
+    box.appendChild(img);
+  }
 }
 function showSetup(){
   document.getElementById('tvSetup').style.display='block';
@@ -2486,7 +2524,7 @@ function resolveAnswer(correct){
       dbRecordAttempt(G.playerProfiles[_pNameW].id,G.categories[G.curCat],G.curPts,false,0,G.stealMode);
     }
     // Record the miss too — the TV renders this, and without it a wrong answer
-    // was invisible on the big screen (the name at the bottom just quietly changed).
+    // was invisible on the shared screen (the name at the bottom just quietly changed).
     G.lastResult={player:_pNameW, pts:0, steal:G.stealMode, correct:false};
     G.wrongPlayers.push(G.answererIdx);
     const stealIdx=findStealIdx();
@@ -3335,7 +3373,7 @@ function init(){
   pickJudge(G.judgeMode||'human');
   document.querySelectorAll('.dseg').forEach(s=>s.addEventListener('click',()=>pickMode(s.dataset.dm)));
   pickMode(gameMode||'normal');
-  // Big Screen
+  // Shared Screen
   const tvBtn=document.getElementById('tvBtn');
   if(tvBtn) tvBtn.addEventListener('click',openJoinSheet);
   const tvCancel=document.getElementById('tvCancel');
@@ -3427,6 +3465,12 @@ function init(){
   document.getElementById('endGameBtnBoard').addEventListener('click',endGame);
   document.getElementById('joinBtnBoard').addEventListener('click',openJoinSheet);
   const _asb=document.getElementById('tvAddScreen'); if(_asb) _asb.addEventListener('click',showSetup);
+  const _asb2=document.getElementById('addScreenBtn');
+  if(_asb2) _asb2.addEventListener('click', ()=>{        // an action, not a display
+    document.getElementById('tvErr').textContent='';
+    document.getElementById('tvModal').classList.add('show');
+    showSetup();
+  });
 
   // Guard accidental exit: intercept the back gesture during a game
   window.addEventListener('popstate',()=>{

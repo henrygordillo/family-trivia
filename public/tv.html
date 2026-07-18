@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Family Trivia — Big Screen</title>
+<title>Family Trivia — Shared Screen</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -24,7 +24,9 @@ body{
 /* ── Join screen ─────────────────────────────────────────── */
 #join{display:flex;flex-direction:column;align-items:center;justify-content:center;height:95vh;text-align:center;}
 #join h1{font-family:'Playfair Display',serif;font-size:clamp(23px,5.5vw,121px);font-weight:900;color:var(--gold-hi);line-height:1;margin-bottom:1vh;}
-#join .sub{font-size:clamp(9px,1.5vw,33px);color:rgba(255,255,255,.55);letter-spacing:.25vw;text-transform:uppercase;margin-bottom:6vh;}
+#join .sub{font-size:clamp(9px,1.5vw,33px);color:rgba(255,255,255,.55);letter-spacing:.25vw;text-transform:uppercase;margin-bottom:4vh;}
+/* Say what this screen is for once, up here — so neither door below repeats it. */
+#join .purpose{font-size:clamp(10px,1.9vw,42px);color:rgba(255,255,255,.8);margin-bottom:5vh;}
 .codebox{background:rgba(255,255,255,.05);border:2px solid rgba(212,168,67,.4);border-radius:2vw;padding:3vh 5vw;display:flex;align-items:center;gap:4vw;}
 .codelabel{font-size:clamp(9px,1.3vw,29px);color:rgba(255,255,255,.5);letter-spacing:.2vw;text-transform:uppercase;margin-bottom:1vh;}
 .code{font-family:'Playfair Display',serif;font-size:clamp(38px,9.0vw,198px);font-weight:900;color:var(--gold-hi);letter-spacing:1vw;line-height:1;}
@@ -36,11 +38,9 @@ body{
 @keyframes pulse{0%,100%{opacity:.25;}50%{opacity:1;}}
 
 /* ── CONNECTED ────────────────────────────────────────────────────────────
-   A recoloured dot is invisible from a sofa. When the judge's device pairs,
-   the whole screen changes character: the code recedes (it's done its job) and
-   a large green confirmation takes over. */
-#join.connected .codebox{opacity:.3;transform:scale(.82);border-color:rgba(255,255,255,.12);}
-#join.connected #qr{filter:grayscale(1);}
+   A recoloured dot is invisible from a sofa. When the judge's device pairs, the
+   whole screen changes character: a large green confirmation takes over, and the
+   code stays loud because it now belongs to the players. */
 .codebox{transition:opacity .5s, transform .5s, border-color .5s;}
 
 #connected{display:none;margin-top:5vh;align-items:center;gap:1.6vw;
@@ -210,12 +210,12 @@ body{
 .rtab .sep{border-left:1px solid rgba(255,255,255,.12);}
 
 .offline{position:fixed;bottom:2.5vh;left:0;right:0;text-align:center;font-size:clamp(9px,1.0vw,22px);color:var(--red);display:none;}
-.tag{position:fixed;bottom:1vh;left:0;right:0;text-align:center;font-size:clamp(9px,0.75vw,16px);
-  color:rgba(255,255,255,.25);letter-spacing:.03vw;z-index:20;}
+.tag{position:fixed;bottom:1vh;left:0;right:0;text-align:center;font-size:clamp(11px,1.05vw,23px);
+  font-weight:600;color:rgba(255,255,255,.5);letter-spacing:.03vw;z-index:20;}
 
 /* ══════════════════════════════════════════════════════════════════════════
    ANY SCREEN — phone, tablet, laptop, TV.
-   The layout above is tuned for a big screen across a room. A phone held in the
+   The layout above is tuned for a shared screen across a room. A phone held in the
    hand is a different problem: less width, more height, and the reader is close.
    So below ~900px we stop scaling with the viewport and use real sizes.
    ══════════════════════════════════════════════════════════════════════════ */
@@ -225,7 +225,9 @@ body{
   /* Join */
   #join{height:auto;min-height:92vh;}
   #join h1{font-size:34px;}
-  #join .sub{font-size:11px;letter-spacing:3px;margin-bottom:22px;}
+  #join .sub{font-size:11px;letter-spacing:3px;margin-bottom:6px;}
+  #join .purpose{font-size:14px;margin-bottom:16px;}
+  .ctrllabel{font-size:12px;}
   .codebox{flex-direction:column;gap:14px;padding:18px 24px;border-radius:16px;}
   .code{font-size:52px;letter-spacing:6px;}
   #qr img{width:130px;height:130px;}
@@ -310,12 +312,22 @@ body{
 .qrbox img{display:block;width:clamp(90px,10vw,190px);height:clamp(90px,10vw,190px);}
 .jhow{font-size:clamp(10px,1vw,19px);color:rgba(255,255,255,.5);text-align:center;line-height:1.4;}
 .jhow .url{color:rgba(255,255,255,.35);font-size:.85em;}
-#join.connected .joiners .jcard:first-child{opacity:.25;}
 /* Until the judge pairs, this room's code isn't final — the judge may bring its
    own room and we adopt that instead. Scanning now would hand out a dead code, so
    the player QR stays hidden until pairing. visibility (not display) keeps the
    code centred between the two cards. */
-#join:not(.connected) .joiners .jcard:last-child{visibility:hidden;}
+/* Only one QR is ever the right one to scan: the judge's before pairing, the
+   players' after. Show that one, hide the other. */
+#join:not(.connected) .playercard{display:none;}
+#join.connected .judgecard{display:none;}
+
+/* Both ways in are labelled in the same plain voice as the sentence above, so the
+   subtitle reads straight into them: "...and: [scanning this QR] or [entering this code]". */
+.ctrllabel{font-size:clamp(10px,1.35vw,29px);color:rgba(255,255,255,.62);margin-bottom:1vh;}
+/* Scanning and typing are the same door — sit them side by side and say so. */
+.orsep{font-size:clamp(9px,1.1vw,24px);letter-spacing:.2vw;text-transform:uppercase;
+  color:rgba(255,255,255,.35);font-weight:700;}
+#join .purpose b{color:var(--gold-hi);font-weight:800;}
 #join.connected .codebox{opacity:.45;transform:scale(.9);}
 
 @media (max-width:900px){
@@ -331,35 +343,36 @@ body{
 
 <div id="join">
   <h1>Family Trivia</h1>
-  <div class="sub">Big Screen</div>
+  <div class="sub">Shared Screen</div>
+  <div class="purpose" id="purposeLine"></div>
 
   <div class="joiners">
-    <div class="jcard">
-      <div class="jrole">Judge</div>
+    <div class="jcard judgecard">
+      <div class="ctrllabel">Scanning this QR</div>
       <div class="qrbox" id="qrJudge"></div>
-      <div class="jhow">Scan to run the game</div>
     </div>
+
+    <div class="jcard playercard">
+      <div class="ctrllabel">Scanning this QR</div>
+      <div class="qrbox" id="qrPlayer"></div>
+    </div>
+
+    <div class="orsep">or</div>
 
     <div class="codebox">
       <div>
-        <div class="codelabel">Game code</div>
+        <div class="ctrllabel">Entering this code</div>
         <div class="code" id="code">····</div>
       </div>
-    </div>
-
-    <div class="jcard">
-      <div class="jrole player">Everyone else</div>
-      <div class="qrbox" id="qrPlayer"></div>
-      <div class="jhow">Scan to watch along<br><span class="url" id="playUrl"></span></div>
     </div>
   </div>
 
   <div id="connected">
     <div class="tick">✓</div>
     <div class="txt">
-      <div class="big">Judge connected</div>
+      <div class="big">Shared screen added</div>
       <div class="dev" id="connDev"></div>
-      <div class="go">Start the game on that device</div>
+      <div class="go">Waiting for the judge to start the game</div>
     </div>
   </div>
 
@@ -421,8 +434,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='4.7';
-const TV_BUILT_AT='2026-07-18T12:45:03Z';
+const TV_VERSION='5.3';
+const TV_BUILT_AT='2026-07-18T14:41:25Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -453,7 +466,7 @@ fetch(BACKEND+'/api/version').then(r=>r.json()).then(d=>{
   SRV_VER=d.version; SRV_BUILT=d.builtAt; paintTags();
 }).catch(()=>{ SRV_VER='unreachable'; paintTags(); });
 
-// ── The big screen owns the room ──────────────────────────────────────────
+// ── The shared screen owns the room ──────────────────────────────────────────
 // A TV remote is a miserable keyboard, so this page never asks for input. It
 // creates the room, shows a code and a QR, and the JUDGE scans it. Player phones
 // and tablets then join the same room from their own devices — they have real
@@ -471,6 +484,7 @@ async function init(){
     return;
   }
   useCode(CODE);
+  purpose(ASK_JUDGE);
   listen();
 }
 
@@ -483,8 +497,6 @@ function useCode(code){
   qr('qrPlayer', location.origin + '/join?code=' + CODE);   // players scan → watch
   qr('qrGameJoin', location.origin + '/join?code=' + CODE); // same link, lives on the game screen for latecomers
   const gj=document.getElementById('gjCode'); if(gj) gj.textContent = CODE;
-  const pl=document.getElementById('playUrl');
-  if(pl) pl.textContent = location.host + '/join';
 }
 
 function qr(id, url){
@@ -500,6 +512,12 @@ function qr(id, url){
 
 // ── Paired / not paired ───────────────────────────────────────────────────
 let _paired=false, _device='';
+// This screen always talks to whoever has to act NEXT: the judge until they pair,
+// then everyone else. Identity ("Shared Screen") never changes; the audience does.
+function purpose(h){ const e=document.getElementById('purposeLine'); if(e) e.innerHTML=h; }
+const ASK_JUDGE = 'The whole room follows the game here. Add it on the judge\u2019s device under <b>Connect Players \u2192 Add Shared Screen</b>, by:';
+const ASK_PLAYERS = () => 'Follow along on your own personal screen at <b>'+location.host+'/join</b>, by:';
+
 function setPaired(on, device){
   const dev = device || _device;
   if(on===_paired && dev===_device) return;
@@ -512,8 +530,11 @@ function setPaired(on, device){
     const cd=document.getElementById('connDev');
     if(cd) cd.textContent = dev || '';
     h.innerHTML='<span class="dot" style="background:#2ecc71;"></span>Judge connected';
+    // The code has changed hands — it now belongs to the players, so say so.
+    purpose(ASK_PLAYERS());
   } else {
     h.innerHTML='<span class="dot"></span>Waiting for the judge to connect';
+    purpose(ASK_JUDGE);
   }
 }
 
