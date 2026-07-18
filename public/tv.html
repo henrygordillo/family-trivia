@@ -439,8 +439,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='6.1';
-const TV_BUILT_AT='2026-07-18T18:44:40Z';
+const TV_VERSION='6.2';
+const TV_BUILT_AT='2026-07-18T18:53:32Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -928,7 +928,7 @@ function render(S){
     const done=(S.pickedThisRound||[]).includes(i);
     const picked = done
       ? '<span class="chip">picked this round</span>'
-      : '<span class="chip owed">yet to pick</span>';
+      : '<span class="chip owed">not yet picked this round</span>';
 
     return `<div class="${cls}">
       <div class="pname"><span class="pnum">${i+1}</span>${crown}${p}${badge}</div>

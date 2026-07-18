@@ -195,11 +195,12 @@ body{
 .rcard.lead .nm{color:var(--gold-hi);}
 .rcard .tot{font-family:'Playfair Display',serif;font-size:21px;font-weight:900;color:var(--gold-hi);}
 .rcard .grp{display:flex;align-items:baseline;gap:8px;font-size:12px;margin-top:3px;}
-.rcard .grp .k{font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;width:42px;flex:0 0 42px;}
+.rcard .grp .k{font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;width:72px;flex:0 0 72px;}
 .rcard .grp.main .k{color:var(--gold);}
 .rcard .grp.steal .k{color:var(--purple-hi);}
-.rcard .grp .v{color:rgba(255,255,255,.8);font-weight:600;}
-.rcard .grp .v.dim{color:rgba(255,255,255,.28);}
+.rcard .grp .v{color:rgba(255,255,255,.85);font-weight:600;flex:1;}
+.rcard .grp .p{font-family:'Playfair Display',serif;font-weight:900;font-size:14px;color:var(--gold-hi);}
+.rcard .grp .v.dim,.rcard .grp .p.dim{color:rgba(255,255,255,.28);}
 #rtable{width:100%;}
 .rrow{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:10px;
   background:rgba(255,255,255,.04);margin-bottom:5px;font-size:14px;}
@@ -297,8 +298,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='3.9';
-const JOIN_BUILT_AT='2026-07-18T18:44:40Z';
+const JOIN_VERSION='4.0';
+const JOIN_BUILT_AT='2026-07-18T18:53:32Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -747,14 +748,15 @@ function render(S){
                main:tally(att.filter(a=>a.type==='main')),
                steal:tally(att.filter(a=>a.type==='steal')) };
     }).sort((a,b)=>b.score-a.score);
-    const line=(t)=> t.n ? `<span class="v">${t.ok}/${t.n} · ${t.pct}% · ${t.pts}</span>`
-                         : `<span class="v dim">—</span>`;
+    const line=(t)=> t.n
+      ? `<span class="v">${t.ok} of ${t.n}</span><span class="p">+${t.pts}</span>`
+      : `<span class="v dim">none</span><span class="p dim">—</span>`;
     h += stats.map((x,i)=>{
       const isLead = i===0 && x.score>0;
       return `<div class="rcard ${isLead?'lead':''}">`
         + `<div class="top"><span class="nm">${isLead&&!tied?'👑 ':''}${x.name}</span>`
         + `<span class="tot">${x.score}</span></div>`
-        + `<div class="grp main"><span class="k">Own</span>${line(x.main)}</div>`
+        + `<div class="grp main"><span class="k">Own picks</span>${line(x.main)}</div>`
         + `<div class="grp steal"><span class="k">Steals</span>${line(x.steal)}</div>`
         + `</div>`;
     }).join('');

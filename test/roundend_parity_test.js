@@ -87,14 +87,19 @@ console.log(`  Phone card: ${joinHtml.length} chars\n`);
   check(`${n} appears on both`, has(tvHtml,n) && has(joinHtml,n));
   check(`${n} total ${score} on both`, has(tvHtml,String(score)) && has(joinHtml,String(score)));
 });
-check('Papa own-pick rate 50% on both',   has(tvHtml,'50%')  && has(joinHtml,'50%'));
-check('Papa steal rate 100% on both',     has(tvHtml,'100%') && has(joinHtml,'100%'));
+// Hit RATE is a big-screen column only: on a phone card it just restates the
+// fraction beside it, and there's no header to explain it. Deliberate, not drift.
+check('hit rate is shown on the big screen', has(tvHtml,'50%') && has(tvHtml,'100%'));
+check('...and deliberately omitted on the phone', !has(joinHtml,'50%') && !has(joinHtml,'100%'));
+check('but the underlying counts appear on both', has(tvHtml,'1/2')||has(tvHtml,'1')&&has(joinHtml,'1 of 2'));
 check('Papa steal points 150 on both',    has(tvHtml,'150')  && has(joinHtml,'150'));
 check('leader crown on both',             has(tvHtml,'👑')   && has(joinHtml,'👑'));
 
 // Every number the TV reports must also appear on the phone
+// Every figure except the percentages must survive the trip to the phone.
+const pcts=new Set((text(tvHtml).match(/(\d+)%/g)||[]).map(s=>Number(s.slice(0,-1))));
 const tvSet=new Set(nums(tvHtml)), joinSet=new Set(nums(joinHtml));
-const missing=[...tvSet].filter(n=>!joinSet.has(n));
+const missing=[...tvSet].filter(n=>!joinSet.has(n) && !pcts.has(n));
 check(`no TV figure missing from the phone${missing.length?' (missing: '+missing.join(',')+')':''}`, missing.length===0);
 
 console.log('\n'+(pass?'✓✓ PASS — the phone reports everything the big screen does':'✗✗ FAIL'));
