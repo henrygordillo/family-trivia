@@ -297,8 +297,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='3.7';
-const JOIN_BUILT_AT='2026-07-18T18:16:32Z';
+const JOIN_VERSION='3.8';
+const JOIN_BUILT_AT='2026-07-18T18:31:15Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -392,6 +392,7 @@ function backToConnect(msg){
 // passed while the phone was asleep is meaningless, so waking re-checks for real
 // instead of trusting a frozen timer.
 const TICK_MS      = 3000;
+const GIVE_UP_AFTER = 40;     // ~2min of waiting before we accept it's over
 const STALE_AFTER  = 30000;   // awake and unheard this long → show "reconnecting"
 const GONE_STRIKES = 4;       // ~12s of confirmed 404 → the room is genuinely gone
 let _clock=null, _strikes=0, _stale=false, _lastStream=0, _flashed=null;
@@ -410,8 +411,22 @@ async function tick(){
     if(r.ok){ try{ info=await r.json(); }catch(e){} }
   }catch(e){ alive=null; }                          // network blip proves nothing
 
-  if(alive===false){ if(++_strikes>=GONE_STRIKES) return backToConnect('The game ended'); }
+  if(alive===false){
+    _strikes++;
+    // The room vanishing usually means the judge left — but it can also mean their
+    // app died and they're about to resume, which brings this exact code back. So
+    // hold the code and keep asking; only give up after a couple of minutes.
+    if(_strikes===GONE_STRIKES){
+      waiting('Waiting for the judge', 'the game may be coming back\u2026');
+    } else if(_strikes>=GONE_STRIKES+GIVE_UP_AFTER){
+      return backToConnect('The game ended');
+    }
+    return;
+  }
   else if(alive===true){
+    if(_strikes>=GONE_STRIKES){        // it came back — rebuild the stream and carry on
+      _strikes=0; _lastStream=Date.now(); listenStream();
+    }
     _strikes=0;
     // Catch up from the poll. The stream is only an optimisation — this is what
     // guarantees we never sit on "waiting" while the game has already moved on.

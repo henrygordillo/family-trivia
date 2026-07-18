@@ -9,7 +9,7 @@ code+=`;globalThis.__api={ tick, startClock, stopClock, backToConnect, listenStr
   get strikes(){return _strikes;}, set strikes(v){_strikes=v;},
   get stale(){return _stale;},
   set lastHeard(v){_lastHeard=v;}, get lastHeard(){return _lastHeard;},
-  GONE_STRIKES, STALE_AFTER, get seq(){return _seq;}, set seq(v){_seq=v;} };`;
+  GONE_STRIKES, STALE_AFTER, GIVE_UP_AFTER, get seq(){return _seq;}, set seq(v){_seq=v;} };`;
 
 let visibility='visible', wentHome=null, fetchMode='ok', polledState=null;
 const el=()=>({style:new Proxy({},{get:()=>'',set:()=>true}),classList:{add(){},remove(){},toggle(){},contains(){return false;}},
@@ -53,10 +53,13 @@ reset(); fetchMode='ok';      await ticks(10);
 check('room alive → stays put (10 ticks)', wentHome===null);
 
 reset(); fetchMode='404';     await ticks(api.GONE_STRIKES);
-check(`room truly gone → goes home (after ${api.GONE_STRIKES} strikes)`, wentHome!==null);
+check('room gone → waits, does NOT go home yet (judge may be resuming)', wentHome===null);
 
-reset(); fetchMode='404';     await ticks(api.GONE_STRIKES-1);
-check('room gone but under the limit → still waiting', wentHome===null);
+reset(); fetchMode='404';     await ticks(api.GONE_STRIKES+api.GIVE_UP_AFTER);
+check('room still gone two minutes later → now it goes home', wentHome!==null);
+
+reset(); fetchMode='404';     await ticks(api.GONE_STRIKES+2); fetchMode='ok'; await ticks(1);
+check('judge resumed the same room → rejoins on its own', wentHome===null && api.strikes===0);
 
 reset(); fetchMode='404';     await ticks(2); fetchMode='ok'; await ticks(1);
 check('server restart, room came back → stays (self-heal)', wentHome===null && api.strikes===0);
