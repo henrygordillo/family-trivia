@@ -236,13 +236,13 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='1.8';
-const JOIN_BUILT_AT='2026-07-16T14:40:10Z';
+const JOIN_VERSION='2.0';
+const JOIN_BUILT_AT='2026-07-18T10:54:51Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
 let CODE=null, ES=null, ME=null;        // ME = the player index this device belongs to
-let _seq=0, _lastHeard=0, _phoneVisible=true;
+let _seq=0, _lastHeard=0;
 
 function fmt(iso){
   try{
@@ -284,18 +284,28 @@ async function join(code){
   listen();
 }
 
-function listen(){
+function listen(){ listenStream(); startClock(); }
+
+function listenStream(){
+  try{ if(ES) ES.close(); }catch(e){}
   ES=new EventSource(BACKEND+'/api/room/'+CODE+'/stream');
   ES.addEventListener('state', e => render(JSON.parse(e.data)));
   ES.addEventListener('waiting', ()=>{ waiting('Waiting for the judge', 'to start the game'); });
   ES.addEventListener('closed', ()=>backToConnect('The game ended.'));
-  startHeartbeat();
+  // A broken stream is NOT a reason to leave — only a missing room is. The browser
+  // retries by itself; we only step in once it has given up (readyState 2).
+  ES.onerror=()=>{
+    if(!CODE) return;
+    if(ES && ES.readyState===2){
+      setTimeout(()=>{ if(CODE && (!ES || ES.readyState===2)) listenStream(); }, 2000);
+    }
+  };
 }
 
 // Return cleanly to the connect screen (game ended, or the room disappeared).
 function backToConnect(msg){
   try{ if(ES) ES.close(); }catch(e){} ES=null;
-  if(_hbTimer){ clearInterval(_hbTimer); _hbTimer=null; }
+  stopClock();
   document.getElementById('game').style.display='none';
   document.getElementById('who').style.display='none';
   document.getElementById('join').style.display='flex';
@@ -304,22 +314,48 @@ function backToConnect(msg){
   CODE=null; ME=null; _askedWho=false;
 }
 
-// Room heartbeat: the judge destroys the room on leaving, so the moment it's gone
-// we return to connect. A brief 404 (server restart) self-heals via the judge's
-// next push, so we only bail after it's been gone past that window (~12s).
-let _hbTimer=null, _roomGone=0;
-function startHeartbeat(){
-  if(_hbTimer) clearInterval(_hbTimer);
-  _roomGone=0;
-  _hbTimer=setInterval(async()=>{
-    if(!CODE) return;
-    try{
-      const r=await fetch(BACKEND+'/api/room/'+CODE);
-      if(r.ok) _roomGone=0;
-      else if(r.status===404 && ++_roomGone>=4) backToConnect('The game ended.');
-    }catch(e){}
-  }, 3000);
+// ── Connection: ONE clock, one rule ───────────────────────────────────────
+// The room existing is the ONLY thing that decides whether we leave. Silence from
+// the judge just shows a "reconnecting" message — it never exits. And time that
+// passed while the phone was asleep is meaningless, so waking re-checks for real
+// instead of trusting a frozen timer.
+const TICK_MS      = 3000;
+const STALE_AFTER  = 30000;   // awake and unheard this long → show "reconnecting"
+const GONE_STRIKES = 4;       // ~12s of confirmed 404 → the room is genuinely gone
+let _clock=null, _strikes=0, _stale=false;
+
+function startClock(){ stopClock(); _strikes=0; _stale=false; _clock=setInterval(tick, TICK_MS); }
+function stopClock(){ if(_clock){ clearInterval(_clock); _clock=null; } }
+
+async function tick(){
+  if(!CODE) return;
+
+  // (a) The authority: is the room still there?
+  let alive=null;                                   // null = no answer, not a verdict
+  try{
+    const r=await fetch(BACKEND+'/api/room/'+CODE);
+    alive = r.ok ? true : (r.status===404 ? false : null);
+  }catch(e){ alive=null; }                          // network blip proves nothing
+
+  if(alive===false){ if(++_strikes>=GONE_STRIKES) return backToConnect('The game ended.'); }
+  else if(alive===true){ _strikes=0; }
+
+  // (b) Cosmetic only: have we heard from the judge lately?
+  if(document.visibilityState!=='visible') return;  // asleep → no opinion
+  if(_lastHeard && Date.now()-_lastHeard > STALE_AFTER && !_stale){
+    _stale=true;
+    waiting('Lost the judge\u2019s device', 'reconnecting…');
+  }
 }
+
+// Waking up: everything was frozen, so any measured silence is a lie. Reset the
+// clock and verify against the server right now.
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState!=='visible' || !CODE) return;
+  _lastHeard=Date.now(); _strikes=0;
+  if(!ES || ES.readyState===2) listenStream();
+  tick();
+});
 
 // ── Scan the code ─────────────────────────────────────────────────────────
 // A player can scan the "watch along" QR on the TV or the judge's phone instead
@@ -502,6 +538,7 @@ function render(S){
   if(!S) return;
   if(S.seq!=null){ if(S.seq<_seq) return; _seq=S.seq; }
   _lastHeard=Date.now();
+  _stale=false;          // we're hearing the judge again
   _lastS=S;
 
   if(!S.active || !S.players || !S.players.length){
@@ -664,14 +701,6 @@ function render(S){
   }
 }
 
-// The judge went quiet — say so rather than freezing on a stale board.
-setInterval(()=>{
-  if(!_lastHeard) return;
-  if(Date.now()-_lastHeard > 120000){
-    _lastHeard=0;
-    waiting('Lost the judge\u2019s device', 'reconnecting…');
-  }
-}, 10000);
 </script>
 </body>
 </html>
