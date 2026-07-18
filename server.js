@@ -6,8 +6,8 @@ const path = require('path');
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
-const VERSION = '3.17';
-const BUILT_AT = '2026-07-16T15:58:22Z';
+const VERSION = '3.18';
+const BUILT_AT = '2026-07-18T11:16:41Z';
 
 const app = express();
 app.use(cors());
@@ -157,7 +157,12 @@ app.post('/api/room/:code/state', (req, res) => {
 app.get('/api/room/:code', (req, res) => {
   const room = rooms.get(req.params.code);
   if (!room) return res.status(404).json({ error: 'no such room' });
-  res.json({ code: req.params.code, listeners: room.clients.size, hasState: !!room.state });
+  // The state rides along on this poll too. The stream is the fast path, but a
+  // viewer whose stream died (or got orphaned by a server restart) must still be
+  // able to catch up — otherwise it sits on "waiting" forever while the room looks
+  // perfectly healthy. Same answer-free payload the stream sends.
+  res.json({ code: req.params.code, listeners: room.clients.size,
+             hasState: !!room.state, state: room.state || null });
 });
 
 // Game over — tear the room down.

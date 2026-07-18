@@ -9,9 +9,9 @@ code+=`;globalThis.__api={ tick, startClock, stopClock, backToConnect, listenStr
   get strikes(){return _strikes;}, set strikes(v){_strikes=v;},
   get stale(){return _stale;},
   set lastHeard(v){_lastHeard=v;}, get lastHeard(){return _lastHeard;},
-  GONE_STRIKES, STALE_AFTER };`;
+  GONE_STRIKES, STALE_AFTER, get seq(){return _seq;}, set seq(v){_seq=v;} };`;
 
-let visibility='visible', wentHome=null, fetchMode='ok';
+let visibility='visible', wentHome=null, fetchMode='ok', polledState=null;
 const el=()=>({style:new Proxy({},{get:()=>'',set:()=>true}),classList:{add(){},remove(){},toggle(){},contains(){return false;}},
   dataset:{},value:'',textContent:'',innerHTML:'',appendChild(){},addEventListener(){},
   querySelector(){return el();},querySelectorAll(){return [];},focus(){},remove(){},onclick:null});
@@ -25,7 +25,7 @@ const sb={
   EventSource: function(){ this.readyState=1; this.addEventListener=()=>{}; this.close=()=>{this.readyState=2;}; },
   setTimeout:()=>0, clearTimeout(){}, setInterval:()=>1, clearInterval(){},
   fetch: async()=>{
-    if(fetchMode==='ok')      return {ok:true, status:200};
+    if(fetchMode==='ok')      return {ok:true, status:200, json:async()=>({code:'1234',listeners:1,state:polledState})};
     if(fetchMode==='404')     return {ok:false,status:404};
     if(fetchMode==='500')     return {ok:false,status:500};
     throw new Error('network down');           // 'offline'
@@ -83,6 +83,16 @@ visibility='visible';
 await ticks(1);
 check('woke up → clock reset, no spurious "lost the judge"', api.stale===false && wentHome===null);
 
+console.log('\nThe stuck-on-waiting bug — stream dead, poll must save us:\n');
+reset(); fetchMode='ok'; api.seq=0;
+polledState={seq:5, active:true, players:['A','B'], numCats:2, numQ:5, used:{}, blocked:{},
+             categories:['X','Y'], scores:[0,0], streak:[0,0], turnOrder:[0,1], nextPickerIdx:0,
+             pickedThisRound:[], phase:'pick'};
+await ticks(1);
+check('game started while stream was dead → device catches up from the poll', api.seq===5);
+check('...and does not go home over it', wentHome===null);
+
+polledState=null;
 console.log('\n'+(pass?'✓✓ PASS — one rule: only a missing room ends the session':'✗✗ FAIL'));
 process.exit(pass?0:1);
 })();

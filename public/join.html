@@ -236,8 +236,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='2.0';
-const JOIN_BUILT_AT='2026-07-18T10:54:51Z';
+const JOIN_VERSION='2.1';
+const JOIN_BUILT_AT='2026-07-18T11:16:41Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -289,7 +289,7 @@ function listen(){ listenStream(); startClock(); }
 function listenStream(){
   try{ if(ES) ES.close(); }catch(e){}
   ES=new EventSource(BACKEND+'/api/room/'+CODE+'/stream');
-  ES.addEventListener('state', e => render(JSON.parse(e.data)));
+  ES.addEventListener('state', e => { _lastStream=Date.now(); render(JSON.parse(e.data)); });
   ES.addEventListener('waiting', ()=>{ waiting('Waiting for the judge', 'to start the game'); });
   ES.addEventListener('closed', ()=>backToConnect('The game ended.'));
   // A broken stream is NOT a reason to leave — only a missing room is. The browser
@@ -322,23 +322,35 @@ function backToConnect(msg){
 const TICK_MS      = 3000;
 const STALE_AFTER  = 30000;   // awake and unheard this long → show "reconnecting"
 const GONE_STRIKES = 4;       // ~12s of confirmed 404 → the room is genuinely gone
-let _clock=null, _strikes=0, _stale=false;
+let _clock=null, _strikes=0, _stale=false, _lastStream=0;
 
-function startClock(){ stopClock(); _strikes=0; _stale=false; _clock=setInterval(tick, TICK_MS); }
+function startClock(){ stopClock(); _strikes=0; _stale=false; _lastStream=Date.now(); _clock=setInterval(tick, TICK_MS); }
 function stopClock(){ if(_clock){ clearInterval(_clock); _clock=null; } }
 
 async function tick(){
   if(!CODE) return;
 
   // (a) The authority: is the room still there?
-  let alive=null;                                   // null = no answer, not a verdict
+  let alive=null, info=null;                        // null = no answer, not a verdict
   try{
     const r=await fetch(BACKEND+'/api/room/'+CODE);
     alive = r.ok ? true : (r.status===404 ? false : null);
+    if(r.ok){ try{ info=await r.json(); }catch(e){} }
   }catch(e){ alive=null; }                          // network blip proves nothing
 
   if(alive===false){ if(++_strikes>=GONE_STRIKES) return backToConnect('The game ended.'); }
-  else if(alive===true){ _strikes=0; }
+  else if(alive===true){
+    _strikes=0;
+    // Catch up from the poll. The stream is only an optimisation — this is what
+    // guarantees we never sit on "waiting" while the game has already moved on.
+    if(info && info.state){
+      const st=info.state;
+      if(st.seq==null || st.seq>_seq) render(st);
+      // Poll is feeding us but the stream isn't? Then the stream is dead or was
+      // orphaned by a server restart — rebuild it.
+      if(Date.now()-_lastStream > 12000){ _lastStream=Date.now(); listenStream(); }
+    }
+  }
 
   // (b) Cosmetic only: have we heard from the judge lately?
   if(document.visibilityState!=='visible') return;  // asleep → no opinion
