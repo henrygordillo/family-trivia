@@ -326,13 +326,22 @@ body{
 #join.connected .judgecard{display:none;}
 /* Paired: the screen's job is now to display the game, so the big central
    code-and-QR row stands down to a corner card and the confirmation takes over. */
-#join.connected .joiners{position:absolute;bottom:2vh;right:2vw;margin:0;gap:1vw;transform:scale(.7);transform-origin:bottom right;}
-#join.connected .orsep{display:none;}
-#join.connected .codebox{padding:1.4vh 2.4vw;}
-#join.connected .code{font-size:clamp(24px,4vw,86px);letter-spacing:.6vw;}
-#join.connected .qrbox img{width:clamp(70px,9vw,140px);height:clamp(70px,9vw,140px);}
-#join.connected .ctrllabel{font-size:clamp(9px,.95vw,20px);}
 #join{position:relative;}
+.joincaption{display:none;}
+/* Paired: the confirmation owns the screen, and this becomes a labelled panel at
+   the foot of it — clearly a side errand, and no longer a mystery pair of boxes. */
+#join.connected .joincard{position:absolute;left:50%;bottom:2.5vh;transform:translateX(-50%);
+  background:rgba(31,173,160,.09);border:1px solid rgba(31,173,160,.35);
+  border-radius:1.4vw;padding:1.6vh 3vw 2vh;text-align:center;}
+#join.connected .joincaption{display:block;font-size:clamp(10px,1.15vw,25px);
+  color:var(--teal-hi);margin-bottom:1.2vh;}
+#join.connected .joiners{margin-top:0;gap:2.4vw;}
+#join.connected .codebox{padding:1.2vh 2.4vw;}
+#join.connected .code{font-size:clamp(26px,4.2vw,90px);letter-spacing:.6vw;}
+#join.connected .qrbox{padding:.7vw;}
+#join.connected .qrbox img{width:clamp(64px,7.5vw,120px);height:clamp(64px,7.5vw,120px);}
+#join.connected .ctrllabel{font-size:clamp(9px,.95vw,20px);margin-bottom:.6vh;}
+#join.connected .orsep{font-size:clamp(8px,.85vw,18px);}
 
 /* Both ways in are labelled in the same plain voice as the sentence above, so the
    subtitle reads straight into them: "...and: [scanning this QR] or [entering this code]". */
@@ -344,7 +353,6 @@ body{
 /* The instruction belongs to the two controls below it, so it sits away from the
    headline and close to the things it's telling you to use. */
 #join .purpose .howto{display:block;margin-top:3.5vh;font-size:clamp(10px,1.5vw,33px);color:rgba(255,255,255,.62);}
-#join.connected .codebox{opacity:.45;transform:scale(.9);}
 
 @media (max-width:900px){
   .joiners{gap:14px;margin-top:16px;}
@@ -362,6 +370,8 @@ body{
   <div class="sub">Shared Screen</div>
   <div class="purpose" id="purposeLine"></div>
 
+  <div class="joincard" id="joinCard">
+    <div class="joincaption">Personal screens join the game by:</div>
   <div class="joiners" id="joiners">
     <div class="jcard judgecard">
       <div class="ctrllabel">Scanning this QR</div>
@@ -382,6 +392,7 @@ body{
       </div>
     </div>
   </div>
+  </div>
 
   <div id="connected">
     <div class="tick">✓</div>
@@ -392,8 +403,6 @@ body{
   </div>
 
   <div class="hint" id="hint"><span class="dot"></span>Waiting for the judge to connect</div>
-</div>
-
 </div>
 
 <div id="game" style="position:relative;">
@@ -450,8 +459,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='7.0';
-const TV_BUILT_AT='2026-07-19T16:17:41Z';
+const TV_VERSION='7.2';
+const TV_BUILT_AT='2026-07-19T16:23:14Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
