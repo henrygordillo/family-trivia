@@ -439,8 +439,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='6.2';
-const TV_BUILT_AT='2026-07-18T18:53:32Z';
+const TV_VERSION='6.3';
+const TV_BUILT_AT='2026-07-19T15:17:25Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -563,7 +563,21 @@ function listen(){
   ES = new EventSource(BACKEND+'/api/room/'+CODE+'/stream');
   ES.addEventListener('state',   e => render(JSON.parse(e.data)));
   ES.addEventListener('waiting', () => { setPaired(false, ''); });   // no phone yet
-  ES.addEventListener('closed',  () => { location.reload(); });   // game over → fresh code
+  // A 'closed' event is the judge saying it's over — quite different from losing
+  // them. Say so, forget the room so we don't try to crawl back into it, and only
+  // then start fresh.
+  ES.addEventListener('closed',  () => {
+    try{ localStorage.removeItem(LAST_CODE_KEY); }catch(e){}
+    _waitingBack=false;
+    document.getElementById('game').style.display='none';
+    document.getElementById('join').style.display='flex';
+    setPaired(false,'');
+    const h=document.getElementById('hint');
+    if(h) h.innerHTML='<span class="dot" style="background:#2ecc71;"></span>Game ended \u2014 thanks for playing';
+    purpose('The judge has finished for now.');
+    const o=document.getElementById('offline'); if(o) o.style.display='none';
+    setTimeout(()=>location.reload(), 6000);   // long enough to read, then a fresh code
+  });
   // The judge already had a room with players in it. Move over to theirs rather
   // than stranding them on a room nobody is pushing to.
   ES.addEventListener('adopt', e => {
