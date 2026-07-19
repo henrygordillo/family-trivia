@@ -441,8 +441,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='6.4';
-const TV_BUILT_AT='2026-07-19T15:32:32Z';
+const TV_VERSION='6.5';
+const TV_BUILT_AT='2026-07-19T15:39:39Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -577,6 +577,8 @@ function setPaired(on, device){
 }
 
 // ── Subscribe to the room's push stream ───────────────────────────────────
+let _offlineTimer=null;
+
 function listen(){
   ES = new EventSource(BACKEND+'/api/room/'+CODE+'/stream');
   ES.addEventListener('state',   e => render(JSON.parse(e.data)));
@@ -606,8 +608,20 @@ function listen(){
     useCode(t);
     listen();
   });
-  ES.onerror = () => { document.getElementById('offline').style.display='block'; };
-  ES.onopen  = () => { document.getElementById('offline').style.display='none'; };
+  // EventSource fires onerror on every ordinary reconnect, so announcing it
+  // straight away flashed an alarm during a blip that fixes itself in a second.
+  // Wait, and only speak up if it's still down.
+  ES.onerror = () => {
+    if(_offlineTimer) return;
+    _offlineTimer = setTimeout(()=>{
+      _offlineTimer=null;
+      if(ES && ES.readyState!==1) document.getElementById('offline').style.display='block';
+    }, 8000);
+  };
+  ES.onopen  = () => {
+    if(_offlineTimer){ clearTimeout(_offlineTimer); _offlineTimer=null; }
+    document.getElementById('offline').style.display='none';
+  };
 }
 
 // ── Render the snapshot ───────────────────────────────────────────────────
