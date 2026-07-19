@@ -298,8 +298,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='4.0';
-const JOIN_BUILT_AT='2026-07-18T18:53:32Z';
+const JOIN_VERSION='4.1';
+const JOIN_BUILT_AT='2026-07-19T14:02:41Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -554,6 +554,19 @@ document.getElementById('scanCancel').addEventListener('click', stopScan);
 // A TV is impersonal — it shows everyone equally. A phone is in someone's HAND,
 // so it should know whose. This is also the identity we'd need for buzz-in later.
 let _askedWho=false, _lastS=null;
+// Whose device this is, remembered per room. But the memory is only good for the
+// roster it was answered against — if the judge starts a game with different
+// people, "Me (Alec)" may no longer be true, so we ask again.
+let _rosterId=null;
+function checkRoster(S){
+  const rid = S.rosterId || null;
+  if(rid && _rosterId && rid !== _rosterId){
+    ME=null; _askedWho=false;
+    try{ localStorage.removeItem('ftn_me_'+CODE); }catch(e){}
+  }
+  if(rid) _rosterId=rid;
+}
+
 function askWho(players){
   if(_askedWho) return;
   _askedWho=true;
@@ -669,6 +682,7 @@ function render(S){
   if(ME===null) return;                  // still choosing
 
   document.getElementById('game').style.display='flex';
+  checkRoster(S);
   _meName = (ME>=0 && S.players) ? S.players[ME] : null;
   document.getElementById('pboard').style.display='none';
 
