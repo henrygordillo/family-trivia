@@ -298,8 +298,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='4.1';
-const JOIN_BUILT_AT='2026-07-19T14:02:41Z';
+const JOIN_VERSION='4.2';
+const JOIN_BUILT_AT='2026-07-19T15:05:04Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -326,8 +326,8 @@ document.getElementById('tag').textContent = `Join ${JOIN_VERSION} · ${fmt(JOIN
   if(/^\d{4}$/.test(c)){ join(c); return; }
   // No code in the link — but if this device was in a game, the judge may have
   // resumed it under the same code. Try to walk straight back in.
-  const prev=(()=>{ try{ return localStorage.getItem('ftn_last_code'); }catch(e){ return null; } })();
-  if(prev && /^\d{4}$/.test(prev)){ join(prev); return; }
+  // Wire the field FIRST. Returning early to auto-rejoin left the input dead and
+  // the screen showing an error from an attempt the user never made.
   const inp=document.getElementById('code');
   inp.addEventListener('input',()=>{
     const v=inp.value.replace(/\D/g,'').slice(0,4);
@@ -335,15 +335,25 @@ document.getElementById('tag').textContent = `Join ${JOIN_VERSION} · ${fmt(JOIN
     if(v.length===4) join(v);        // 4 digits is the whole code
   });
   setTimeout(()=>inp.focus(),300);
+
+  const prev=(()=>{ try{ return localStorage.getItem('ftn_last_code'); }catch(e){ return null; } })();
+  if(prev && /^\d{4}$/.test(prev)) join(prev, {quiet:true});   // silent: not something they asked for
 })();
 
-async function join(code){
+async function join(code, opts){
+  // quiet = we're trying the last room on our own. Nobody asked, so a failure
+  // isn't their mistake and mustn't look like one.
+  const quiet = !!(opts && opts.quiet);
   const err=document.getElementById('err');
-  err.textContent='Connecting…';
+  err.textContent = quiet ? '' : 'Connecting…';
   try{
     const r=await fetch(BACKEND+'/api/room/'+code);
-    if(!r.ok){ err.textContent='No game with that code.'; return; }
-  }catch(e){ err.textContent='Could not reach the server.'; return; }
+    if(!r.ok){
+      err.textContent = quiet ? '' : 'No game with that code.';
+      if(quiet){ try{ localStorage.removeItem('ftn_last_code'); }catch(e){} }
+      return;
+    }
+  }catch(e){ err.textContent = quiet ? '' : 'Could not reach the server.'; return; }
   CODE=code;
   try{ localStorage.setItem('ftn_last_code', code); }catch(e){}
   err.textContent='';
