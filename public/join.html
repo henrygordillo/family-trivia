@@ -331,8 +331,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='4.6';
-const JOIN_BUILT_AT='2026-07-19T17:04:12Z';
+const JOIN_VERSION='4.7';
+const JOIN_BUILT_AT='2026-07-19T18:00:31Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -515,7 +515,11 @@ async function tick(){
 // clock and verify against the server right now.
 document.addEventListener('visibilitychange', ()=>{
   if(document.visibilityState!=='visible' || !CODE) return;
-  _lastHeard=Date.now(); _strikes=0;
+  // Time that passed while asleep says nothing, so the staleness clock resets.
+  // Strikes do NOT: each one is a real 404 from the server, and that stays true
+  // whether the phone slept or not. Clearing them meant every glance at the phone
+  // restarted the countdown, so a lost judge was never given up on.
+  _lastHeard=Date.now();
   if(!ES || ES.readyState===2) listenStream();
   tick();
 });

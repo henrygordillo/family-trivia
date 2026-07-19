@@ -77,7 +77,14 @@ table.grid td.dim{text-align:center;color:rgba(255,255,255,.4);font-weight:400;}
 <div class="wrap">
   <h1>Trivia Night</h1>
   <div class="sub">Admin · Ruleset Calibration</div>
-  <div id="buildFooter" style="margin:6px 0 18px;font-size:10px;line-height:1.6;opacity:.6;"></div>
+  <div style="margin:6px 0 18px;">
+  <button id="resetRooms" style="background:transparent;border:1.5px solid rgba(192,57,43,.55);color:#ff8b7d;
+    border-radius:10px;padding:9px 14px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;">
+    Close every open room
+  </button>
+  <span id="resetRoomsMsg" style="margin-left:10px;font-size:12px;opacity:.75;"></span>
+</div>
+<div id="buildFooter" style="margin:6px 0 18px;font-size:10px;line-height:1.6;opacity:.6;"></div>
 
   <div class="lbl">Difficulty Ruleset</div>
   <div class="row">
@@ -600,8 +607,19 @@ function renderDetails(){
   if(ov && typeof ov==='object' && Object.keys(ov).length){
     Object.keys(ov).forEach(k=>{ h+=`<div style="font-size:12px;font-weight:700;color:var(--gold-hi);margin:10px 0 4px;">${k}</div>`+prose(ov[k]); });
   } else h+=prose(null);
-  h+='<div class="dl">Easy Nudge</div>'+prose(r.easy_nudge);
-  h+='<div class="dl">Hard Nudge</div>'+prose(r.hard_nudge);
+  // prose() is for text, and treats 0 as empty — but 0 is a perfectly good nudge,
+  // and a null one still has a fallback the app is actually using. Both used to
+  // read "(none)", which said the opposite of what was happening.
+  const nudge=(v,fb)=>{
+    const set = (v!==null && v!==undefined && v!=='');
+    const n   = set ? Number(v) : fb;
+    const sign = n>0 ? '+' : '';
+    return `<div class="prose">${sign}${n} percentage points`
+      + (set ? '' : ` <span style="color:rgba(255,255,255,.4);">(not set — using the built-in default)</span>`)
+      + `</div>`;
+  };
+  h+='<div class="dl">Easier Nudge</div>'+nudge(r.easy_nudge, FALLBACK_EASY_NUDGE);
+  h+='<div class="dl">Harder Nudge</div>'+nudge(r.hard_nudge, FALLBACK_HARD_NUDGE);
   pane.innerHTML=h;
 }
 
@@ -618,8 +636,8 @@ document.getElementById('detailsBtn').addEventListener('click',()=>{
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live.
-const ADMIN_VERSION='3.15';
-const ADMIN_BUILT_AT='2026-07-19T14:28:37Z';   // UTC; shown in the device's local time
+const ADMIN_VERSION='3.17';
+const ADMIN_BUILT_AT='2026-07-19T17:57:10Z';   // UTC; shown in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -641,6 +659,17 @@ function renderBuildFooter(){
   if(!el) return;
   el.textContent=`Admin ${ADMIN_VERSION} · ${fmtBuildTime(ADMIN_BUILT_AT)}`;
 }
+
+// When a screen is wedged in a room nobody is in, this beats waiting out a timeout.
+document.getElementById('resetRooms').addEventListener('click', async ()=>{
+  const m=document.getElementById('resetRoomsMsg');
+  m.textContent='Closing\u2026';
+  try{
+    const r=await fetch(BACKEND+'/api/rooms/reset',{method:'POST'});
+    const d=await r.json();
+    m.textContent = r.ok ? `Closed ${d.closed} room${d.closed===1?'':'s'}.` : 'Failed.';
+  }catch(e){ m.textContent='Could not reach the server.'; }
+});
 
 (async function init(){
   renderBuildFooter();
