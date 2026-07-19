@@ -353,7 +353,7 @@ body{
   <div class="sub">Shared Screen</div>
   <div class="purpose" id="purposeLine"></div>
 
-  <div class="joiners">
+  <div class="joiners" id="joiners">
     <div class="jcard judgecard">
       <div class="ctrllabel">Scanning this QR</div>
       <div class="qrbox" id="qrJudge"></div>
@@ -441,8 +441,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='6.6';
-const TV_BUILT_AT='2026-07-19T15:43:32Z';
+const TV_VERSION='6.7';
+const TV_BUILT_AT='2026-07-19T15:51:35Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -589,14 +589,19 @@ function listen(){
   ES.addEventListener('closed',  () => {
     try{ localStorage.removeItem(LAST_CODE_KEY); }catch(e){}
     _waitingBack=false;
+    CODE=null;                                  // nothing to poll for any more
     document.getElementById('game').style.display='none';
     document.getElementById('join').style.display='flex';
     setPaired(false,'');
+    // The old code and its QRs are dead the moment the judge quits — leaving them
+    // on screen under the words "game ended" invites someone to scan a room that
+    // no longer exists.
+    document.getElementById('joiners').style.display='none';
     const h=document.getElementById('hint');
-    if(h) h.innerHTML='<span class="dot" style="background:#2ecc71;"></span>Game ended \u2014 thanks for playing';
-    purpose('The judge has finished for now.');
+    if(h) h.innerHTML='<span class="dot" style="background:#2ecc71;"></span>Thanks for playing';
+    purpose('Game ended.');
     const o=document.getElementById('offline'); if(o) o.style.display='none';
-    setTimeout(()=>location.reload(), 6000);   // long enough to read, then a fresh code
+    setTimeout(()=>location.reload(), 5000);   // long enough to read, then a fresh code
   });
   // The judge already had a room with players in it. Move over to theirs rather
   // than stranding them on a room nobody is pushing to.
