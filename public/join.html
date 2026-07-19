@@ -331,8 +331,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='4.7';
-const JOIN_BUILT_AT='2026-07-19T18:00:31Z';
+const JOIN_VERSION='4.8';
+const JOIN_BUILT_AT='2026-07-19T18:12:58Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -456,12 +456,15 @@ function backToConnect(msg){
 // passed while the phone was asleep is meaningless, so waking re-checks for real
 // instead of trusting a frozen timer.
 const TICK_MS      = 3000;
-const GIVE_UP_AFTER = 12;     // ~35s more, then the game really has ended
+const GONE_GRACE   = 45000;   // how long a missing room gets before we accept it
 const STALE_AFTER  = 30000;   // awake and unheard this long → show "reconnecting"
 const GONE_STRIKES = 4;       // ~12s of confirmed 404 → the room is genuinely gone
-let _clock=null, _strikes=0, _stale=false, _lastStream=0, _flashed=null;
+// When we FIRST saw the room missing — not how many times we've looked. A phone
+// with its screen off barely runs timers, so counting attempts meant the count
+// crept up one per glance and never got there. Elapsed time is true either way.
+let _clock=null, _strikes=0, _goneSince=0, _stale=false, _lastStream=0, _flashed=null;
 
-function startClock(){ stopClock(); _strikes=0; _stale=false; _lastStream=Date.now(); _clock=setInterval(tick, TICK_MS); }
+function startClock(){ stopClock(); _strikes=0; _goneSince=0; _stale=false; _lastStream=Date.now(); _clock=setInterval(tick, TICK_MS); }
 function stopClock(){ if(_clock){ clearInterval(_clock); _clock=null; } }
 
 async function tick(){
@@ -477,21 +480,21 @@ async function tick(){
 
   if(alive===false){
     _strikes++;
-    // The room vanishing usually means the judge left — but it can also mean their
-    // app died and they're about to resume, which brings this exact code back. So
-    // hold the code and keep asking; only give up after a couple of minutes.
+    if(!_goneSince) _goneSince=Date.now();
+    // A vanished room usually means the judge left — but it can also mean their app
+    // died and they're about to resume, which brings this exact code back. So hold
+    // the code for a short while, then accept it.
     if(_strikes===GONE_STRIKES){
       waiting('Waiting for the judge', 'reconnecting for a few more seconds\u2026');
-    } else if(_strikes>=GONE_STRIKES+GIVE_UP_AFTER){
-      return backToConnect('ended');
     }
+    if(Date.now()-_goneSince >= GONE_GRACE) return backToConnect('ended');
     return;
   }
   else if(alive===true){
     if(_strikes>=GONE_STRIKES){        // it came back — rebuild the stream and carry on
       _strikes=0; _lastStream=Date.now(); listenStream();
     }
-    _strikes=0;
+    _strikes=0; _goneSince=0;
     // Catch up from the poll. The stream is only an optimisation — this is what
     // guarantees we never sit on "waiting" while the game has already moved on.
     if(info && info.state){

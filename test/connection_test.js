@@ -9,7 +9,7 @@ code+=`;globalThis.__api={ tick, startClock, stopClock, backToConnect, listenStr
   get strikes(){return _strikes;}, set strikes(v){_strikes=v;},
   get stale(){return _stale;},
   set lastHeard(v){_lastHeard=v;}, get lastHeard(){return _lastHeard;},
-  GONE_STRIKES, STALE_AFTER, GIVE_UP_AFTER, get seq(){return _seq;}, set seq(v){_seq=v;} };`;
+  GONE_STRIKES, STALE_AFTER, GONE_GRACE, set goneSince(v){_goneSince=v;}, get seq(){return _seq;}, set seq(v){_seq=v;} };`;
 
 let visibility='visible', wentHome=null, fetchMode='ok', polledState=null;
 const el=()=>({style:new Proxy({},{get:()=>'',set:()=>true}),classList:{add(){},remove(){},toggle(){},contains(){return false;}},
@@ -55,8 +55,15 @@ check('room alive → stays put (10 ticks)', wentHome===null);
 reset(); fetchMode='404';     await ticks(api.GONE_STRIKES);
 check('room gone → waits, does NOT go home yet (judge may be resuming)', wentHome===null);
 
-reset(); fetchMode='404';     await ticks(api.GONE_STRIKES+api.GIVE_UP_AFTER);
-check('room still gone two minutes later → now it goes home', wentHome!==null);
+reset(); fetchMode='404';     await ticks(api.GONE_STRIKES);
+api.goneSince = Date.now()-api.GONE_GRACE-1;      // pretend the grace has elapsed
+await ticks(1);
+check('room gone for longer than the grace → goes home', wentHome!==null);
+
+reset(); fetchMode='404';
+api.goneSince = 0; await ticks(1);
+api.goneSince = Date.now()-api.GONE_GRACE-1; await ticks(1);
+check('...and it is ELAPSED TIME, not how often we looked', wentHome!==null);
 
 reset(); fetchMode='404';     await ticks(api.GONE_STRIKES+2); fetchMode='ok'; await ticks(1);
 check('judge resumed the same room → rejoins on its own', wentHome===null && api.strikes===0);
