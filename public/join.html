@@ -56,6 +56,13 @@ body{
   font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;
   display:inline-flex;align-items:center;justify-content:center;gap:8px;}
 .scanbtn:active{background:rgba(212,168,67,.22);border-color:var(--gold);}
+#ended{display:none;position:fixed;inset:0;z-index:130;
+  background:radial-gradient(ellipse at 50% 0%,#1a1636 0%,var(--night) 70%);
+  flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;}
+#ended h1{font-family:'Playfair Display',serif;font-size:34px;font-weight:900;color:var(--gold-hi);line-height:1.05;}
+#ended .sub{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.45);margin:6px 0 30px;}
+.endmsg{font-size:19px;color:rgba(255,255,255,.85);}
+.endsub{margin-top:8px;font-size:14px;color:rgba(255,255,255,.45);}
 #notice{display:none;position:fixed;inset:0;z-index:120;background:rgba(8,9,15,.82);
   align-items:center;justify-content:center;padding:24px;}
 .ncard{background:#1c1c28;border:1px solid rgba(212,168,67,.35);border-radius:18px;
@@ -230,6 +237,13 @@ body{
   <div class="note">Both are on the judge's device — or the shared screen, if you're using one.</div>
 </div>
 
+<div id="ended">
+  <h1>Trivia Night</h1>
+  <div class="sub">Personal Screen</div>
+  <div class="endmsg">Game ended.</div>
+  <div class="endsub">Thanks for playing</div>
+</div>
+
 <div id="notice">
   <div class="ncard">
     <div class="ntitle" id="noticeTitle"></div>
@@ -298,8 +312,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='4.3';
-const JOIN_BUILT_AT='2026-07-19T15:10:18Z';
+const JOIN_VERSION='4.4';
+const JOIN_BUILT_AT='2026-07-19T16:08:50Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -399,8 +413,14 @@ function backToConnect(msg){
   document.getElementById('code').value='';
   document.getElementById('err').textContent='';
   try{ localStorage.removeItem('ftn_last_code'); }catch(e){}   // don't creep back in
-  CODE=null; ME=null; _askedWho=false;
-  if(msg) notice(msg, 'Scan or enter a code to join the next one.');
+  CODE=null; ME=null; _askedWho=false; _rosterId=null;
+  // A finished game is an announcement, not a question — so it plays for a few
+  // seconds and clears itself, the same way the shared screen does it.
+  if(msg){
+    const e=document.getElementById('ended');
+    e.style.display='flex';
+    setTimeout(()=>{ e.style.display='none'; }, 4500);
+  }
 }
 
 // ── Connection: ONE clock, one rule ───────────────────────────────────────
