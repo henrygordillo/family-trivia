@@ -298,8 +298,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='4.2';
-const JOIN_BUILT_AT='2026-07-19T15:05:04Z';
+const JOIN_VERSION='4.3';
+const JOIN_BUILT_AT='2026-07-19T15:10:18Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -398,6 +398,7 @@ function backToConnect(msg){
   document.getElementById('join').style.display='flex';
   document.getElementById('code').value='';
   document.getElementById('err').textContent='';
+  try{ localStorage.removeItem('ftn_last_code'); }catch(e){}   // don't creep back in
   CODE=null; ME=null; _askedWho=false;
   if(msg) notice(msg, 'Scan or enter a code to join the next one.');
 }
@@ -408,7 +409,7 @@ function backToConnect(msg){
 // passed while the phone was asleep is meaningless, so waking re-checks for real
 // instead of trusting a frozen timer.
 const TICK_MS      = 3000;
-const GIVE_UP_AFTER = 40;     // ~2min of waiting before we accept it's over
+const GIVE_UP_AFTER = 12;     // ~35s more, then the game really has ended
 const STALE_AFTER  = 30000;   // awake and unheard this long → show "reconnecting"
 const GONE_STRIKES = 4;       // ~12s of confirmed 404 → the room is genuinely gone
 let _clock=null, _strikes=0, _stale=false, _lastStream=0, _flashed=null;
@@ -433,7 +434,7 @@ async function tick(){
     // app died and they're about to resume, which brings this exact code back. So
     // hold the code and keep asking; only give up after a couple of minutes.
     if(_strikes===GONE_STRIKES){
-      waiting('Waiting for the judge', 'the game may be coming back\u2026');
+      waiting('Waiting for the judge', 'reconnecting for a few more seconds\u2026');
     } else if(_strikes>=GONE_STRIKES+GIVE_UP_AFTER){
       return backToConnect('The game ended');
     }
