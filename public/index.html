@@ -864,8 +864,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.71';
-const APP_BUILT_AT='2026-07-19T14:57:24Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.72';
+const APP_BUILT_AT='2026-07-19T16:32:34Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1540,7 +1540,14 @@ async function tvJoin(code){
   const err=document.getElementById('tvErr');
   err.textContent='Connecting\u2026';
   const r=await connectTV(code);
-  if(r.ok){ err.textContent=''; showLive(code); toast('\ud83d\udcfa Connected to the screen'); }
+  if(r.ok){
+    // Adding a screen is finished business — say so and get out of the way. It
+    // used to open the player-joining panel, which is a different subject, and
+    // showed the screen's code when the room is actually ours.
+    err.textContent='';
+    closeTVModal();
+    toast('\ud83d\udcfa Shared screen connected');
+  }
   else { err.textContent = 'No screen with that code. Check the TV.'; }
 }
 
