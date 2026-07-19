@@ -461,6 +461,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
          to borrow the light card's --muted/--ink/--card2, which is why the text was
          all but invisible against #1c1c28. -->
     <div id="tvSetup">
+      <div id="tvCounts" style="display:none;font-size:13px;color:var(--teal);font-weight:700;text-align:center;margin-bottom:12px;"></div>
       <button class="mbtn" id="tvDropAll" style="display:none;width:100%;margin-bottom:14px;background:transparent;border:1.5px solid rgba(192,57,43,.55);color:#ff8b7d;font-size:13px;">Disconnect all screens</button>
       <div style="font-size:14px;color:rgba(255,255,255,.65);margin-bottom:14px;line-height:1.55;">
         On the screen everyone will watch, open<br>
@@ -866,8 +867,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.75';
-const APP_BUILT_AT='2026-07-19T16:49:31Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.76';
+const APP_BUILT_AT='2026-07-19T17:48:26Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1475,9 +1476,7 @@ function syncJoinBtns(){
   // Say how many are attached right on the strip — you shouldn't have to open a
   // panel to find out whether anybody is actually watching.
   const w=document.getElementById('joinWatchers');
-  if(w) w.textContent = _viewerCount>0
-    ? `\ud83d\udc40 ${_viewerCount} screen${_viewerCount===1?'':'s'} connected`
-    : '';
+  if(w) w.textContent = screensLine();
   // The board carries the same strip, so a latecomer can join mid-game.
   const lblB=document.getElementById('joinCodeBoard');
   const urlB=document.getElementById('joinUrlBoard');
@@ -1502,10 +1501,27 @@ function syncJoinBtns(){
   });
 }
 let _viewerCount=0, _sharedCount=0;
+// Shared and personal screens are counted separately now that each one says what
+// it is when it connects — "3 screens" told you nothing about what they were.
+function screensLine(){
+  const p=_viewerCount-_sharedCount;
+  if(_viewerCount===0) return '';
+  const bits=[];
+  if(_sharedCount) bits.push(`${_sharedCount} shared`);
+  if(p)            bits.push(`${p} personal`);
+  return '\ud83d\udc40 '+bits.join(' \u00b7 ')+' connected';
+}
+function paintCounts(){
+  const el=document.getElementById('tvCounts');
+  if(!el) return;
+  el.textContent = screensLine();
+  el.style.display = _viewerCount>0 ? 'block' : 'none';
+}
 function showSetup(){
   const t=document.getElementById('tvModalTitle'); if(t) t.textContent='Add a shared screen';
   const d=document.getElementById('tvDropAll');
   if(d) d.style.display = (_viewerCount>0) ? 'block' : 'none';
+  paintCounts();
   const u=document.getElementById('tvOpenUrl'); if(u) u.textContent=location.host+'/tv';
   document.getElementById('tvSetup').style.display='block';
   document.getElementById('tvLive').style.display='none';
@@ -1552,10 +1568,9 @@ async function pollViewers(){
       const drop=document.getElementById('tvDropAll');
       if(drop && document.getElementById('tvSetup').style.display!=='none')
         drop.style.display = _viewerCount>0 ? 'block' : 'none';
+      paintCounts();
       const el=document.getElementById('tvViewers');
-      if(el) el.textContent = d.listeners>0
-        ? `\ud83d\udc40 ${d.listeners} screen${d.listeners===1?'':'s'} watching`
-        : 'No screens watching yet\u2026';
+      if(el) el.textContent = screensLine() || 'No screens watching yet\u2026';
     }catch(e){}
   };
   paint();
