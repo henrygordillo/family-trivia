@@ -441,8 +441,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='6.5';
-const TV_BUILT_AT='2026-07-19T15:39:39Z';
+const TV_VERSION='6.6';
+const TV_BUILT_AT='2026-07-19T15:43:32Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -497,15 +497,15 @@ function lastCode(){
 async function init(){
   const prev=lastCode();
   if(prev){
-    // Give the judge a moment to come back before we give up on their room.
-    useCode(prev);
-    purpose(ASK_JUDGE);
+    // Showing the old code while we ask for it meant watching a number that was
+    // probably about to be replaced. Hold the placeholder until a code is real.
+    purpose('Looking for the game you were in\u2026');
     const o=document.getElementById('offline');
     o.textContent='Reconnecting to the last game\u2026'; o.style.display='block';
     for(let i=0;i<8;i++){                       // ~12s of asking
       try{
         const r=await fetch(BACKEND+'/api/room/'+prev);
-        if(r.ok){ o.style.display='none'; CODE=prev; listen(); return; }
+        if(r.ok){ o.style.display='none'; useCode(prev); purpose(ASK_JUDGE); listen(); return; }
       }catch(e){}
       await new Promise(res=>setTimeout(res,1500));
     }
