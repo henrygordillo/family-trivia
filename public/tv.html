@@ -330,17 +330,22 @@ body{
 .joincaption{display:none;}
 /* Paired: the confirmation owns the screen, and this becomes a labelled panel at
    the foot of it — clearly a side errand, and no longer a mystery pair of boxes. */
-#join.connected .joincard{position:absolute;left:50%;bottom:2.5vh;transform:translateX(-50%);
-  background:rgba(31,173,160,.09);border:1px solid rgba(31,173,160,.35);
-  border-radius:1.4vw;padding:1.6vh 3vw 2vh;text-align:center;}
-#join.connected .joincaption{display:block;font-size:clamp(10px,1.15vw,25px);
-  color:var(--teal-hi);margin-bottom:1.2vh;}
-#join.connected .joiners{margin-top:0;gap:2.4vw;}
-#join.connected .codebox{padding:1.2vh 2.4vw;}
-#join.connected .code{font-size:clamp(26px,4.2vw,90px);letter-spacing:.6vw;}
-#join.connected .qrbox{padding:.7vw;}
-#join.connected .qrbox img{width:clamp(64px,7.5vw,120px);height:clamp(64px,7.5vw,120px);}
-#join.connected .ctrllabel{font-size:clamp(9px,.95vw,20px);margin-bottom:.6vh;}
+/* The card is out of flow, so the centred content above has to be told to leave
+   room for it — otherwise the confirmation centres straight through it. */
+#join.connected{padding-bottom:30vh;}
+#join.connected .joincard{position:absolute;left:50%;bottom:3vh;transform:translateX(-50%);
+  background:#0d0f18;border:2px solid rgba(31,173,160,.5);
+  border-radius:1.2vw;padding:1.4vh 2.6vw 1.8vh;text-align:center;
+  box-shadow:0 0 0 1px rgba(0,0,0,.6), 0 1.4vh 4vh rgba(0,0,0,.55);}
+#join.connected .joincaption{display:block;font-size:clamp(12px,1.5vw,32px);
+  color:var(--teal-hi);font-weight:700;margin-bottom:1.4vh;}
+#join.connected .joiners{margin-top:0;gap:1.8vw;}
+#join.connected .jcard{background:none;border:none;padding:0;}
+#join.connected .codebox{padding:.8vh 1.8vw;}
+#join.connected .code{font-size:clamp(22px,3.2vw,66px);letter-spacing:.45vw;}
+#join.connected .qrbox{padding:.5vw;}
+#join.connected .qrbox img{width:clamp(52px,5.4vw,88px);height:clamp(52px,5.4vw,88px);}
+#join.connected .ctrllabel{font-size:clamp(9px,1vw,21px);margin-bottom:.5vh;}
 #join.connected .orsep{font-size:clamp(8px,.85vw,18px);}
 
 /* Both ways in are labelled in the same plain voice as the sentence above, so the
@@ -459,8 +464,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='7.2';
-const TV_BUILT_AT='2026-07-19T16:23:14Z';
+const TV_VERSION='7.3';
+const TV_BUILT_AT='2026-07-19T16:27:12Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
