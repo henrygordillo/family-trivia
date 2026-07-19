@@ -636,8 +636,8 @@ document.getElementById('detailsBtn').addEventListener('click',()=>{
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live.
-const ADMIN_VERSION='3.17';
-const ADMIN_BUILT_AT='2026-07-19T17:57:10Z';   // UTC; shown in the device's local time
+const ADMIN_VERSION='3.18';
+const ADMIN_BUILT_AT='2026-07-19T18:10:20Z';   // UTC; shown in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -665,7 +665,7 @@ document.getElementById('resetRooms').addEventListener('click', async ()=>{
   const m=document.getElementById('resetRoomsMsg');
   m.textContent='Closing\u2026';
   try{
-    const r=await fetch(BACKEND+'/api/rooms/reset',{method:'POST'});
+    const r=await fetch('/api/rooms/reset',{method:'POST'});   // this page talks to its own origin
     const d=await r.json();
     m.textContent = r.ok ? `Closed ${d.closed} room${d.closed===1?'':'s'}.` : 'Failed.';
   }catch(e){ m.textContent='Could not reach the server.'; }

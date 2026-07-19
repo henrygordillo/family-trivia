@@ -464,8 +464,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='7.5';
-const TV_BUILT_AT='2026-07-19T17:04:12Z';
+const TV_VERSION='7.6';
+const TV_BUILT_AT='2026-07-19T18:10:20Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -615,7 +615,7 @@ function showEnded(dropped){
   if(h) h.innerHTML = dropped
     ? '<span class="dot"></span>Scan again to rejoin'
     : '<span class="dot" style="background:#2ecc71;"></span>Thanks for playing';
-  purpose(dropped ? 'Disconnected by the judge.' : 'Game ended.');
+  purpose(dropped ? 'Disconnected.' : 'Game ended.');
   const o=document.getElementById('offline'); if(o) o.style.display='none';
   setTimeout(()=>location.reload(), 5000);     // long enough to read, then a fresh code
 }

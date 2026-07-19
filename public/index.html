@@ -867,8 +867,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.76';
-const APP_BUILT_AT='2026-07-19T17:48:26Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.77';
+const APP_BUILT_AT='2026-07-19T18:10:20Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1373,6 +1373,23 @@ let TV_CODE = null;
 // room belongs to it — any number of TVs, tablets and phones then watch the same one.
 async function openRoom(quiet){
   if(TV_CODE) return {ok:true, code:TV_CODE};
+  // We may already own a room — closing the app without quitting leaves it open,
+  // with screens still attached. Opening a second one stranded them, and left two
+  // rooms alive. Reclaim ours if it's still there.
+  try{
+    const prev=localStorage.getItem('ftn_tv');
+    if(prev && /^\d{4}$/.test(prev)){
+      const r=await fetch(BACKEND+'/api/room/'+prev);
+      if(r.ok){
+        TV_CODE=prev;
+        if(!quiet) armBack(BACK_BUFFER);
+        updateTVBadge(); syncJoinBtns(); startWatchPoll();
+        pushToTV();
+        return {ok:true, code:TV_CODE, resumed:true};
+      }
+      localStorage.removeItem('ftn_tv');   // gone for good
+    }
+  }catch(e){}
   try{
     const r = await fetch(BACKEND+'/api/room/new',{method:'POST'});
     if(!r.ok) return {ok:false, err:'Could not reach the server.'};
