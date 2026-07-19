@@ -441,8 +441,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='6.7';
-const TV_BUILT_AT='2026-07-19T15:51:35Z';
+const TV_VERSION='6.8';
+const TV_BUILT_AT='2026-07-19T15:56:12Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -579,6 +579,27 @@ function setPaired(on, device){
 // ── Subscribe to the room's push stream ───────────────────────────────────
 let _offlineTimer=null;
 
+// The room is over. We reach this either because the judge said so, or because
+// the room stayed missing long enough that nothing else explains it — the screen
+// shouldn't care which, and shouldn't sit on "waiting" for minutes either way.
+function showEnded(){
+  try{ localStorage.removeItem(LAST_CODE_KEY); }catch(e){}
+  _waitingBack=false;
+  CODE=null;                                   // nothing left to poll for
+  try{ if(ES) ES.close(); }catch(e){} ES=null;
+  document.getElementById('game').style.display='none';
+  document.getElementById('join').style.display='flex';
+  setPaired(false,'');
+  // The old code and its QRs die with the room — leaving them under the words
+  // "game ended" invites someone to scan a room that no longer exists.
+  document.getElementById('joiners').style.display='none';
+  const h=document.getElementById('hint');
+  if(h) h.innerHTML='<span class="dot" style="background:#2ecc71;"></span>Thanks for playing';
+  purpose('Game ended.');
+  const o=document.getElementById('offline'); if(o) o.style.display='none';
+  setTimeout(()=>location.reload(), 5000);     // long enough to read, then a fresh code
+}
+
 function listen(){
   ES = new EventSource(BACKEND+'/api/room/'+CODE+'/stream');
   ES.addEventListener('state',   e => render(JSON.parse(e.data)));
@@ -586,23 +607,7 @@ function listen(){
   // A 'closed' event is the judge saying it's over — quite different from losing
   // them. Say so, forget the room so we don't try to crawl back into it, and only
   // then start fresh.
-  ES.addEventListener('closed',  () => {
-    try{ localStorage.removeItem(LAST_CODE_KEY); }catch(e){}
-    _waitingBack=false;
-    CODE=null;                                  // nothing to poll for any more
-    document.getElementById('game').style.display='none';
-    document.getElementById('join').style.display='flex';
-    setPaired(false,'');
-    // The old code and its QRs are dead the moment the judge quits — leaving them
-    // on screen under the words "game ended" invites someone to scan a room that
-    // no longer exists.
-    document.getElementById('joiners').style.display='none';
-    const h=document.getElementById('hint');
-    if(h) h.innerHTML='<span class="dot" style="background:#2ecc71;"></span>Thanks for playing';
-    purpose('Game ended.');
-    const o=document.getElementById('offline'); if(o) o.style.display='none';
-    setTimeout(()=>location.reload(), 5000);   // long enough to read, then a fresh code
-  });
+  ES.addEventListener('closed',  () => showEnded());
   // The judge already had a room with players in it. Move over to theirs rather
   // than stranding them on a room nobody is pushing to.
   ES.addEventListener('adopt', e => {
@@ -845,7 +850,7 @@ setInterval(()=>{
 // it's really over and take a fresh code.
 let _roomGone=0, _waitingBack=false;
 const GONE_STRIKES  = 4;      // ~12s — the room is genuinely missing
-const GIVE_UP_AFTER = 40;     // ~2min more, then start over with a new code
+const GIVE_UP_AFTER = 12;     // ~36s more, then start over with a new code
 setInterval(async()=>{
   if(!CODE) return;
   try{
@@ -870,7 +875,7 @@ setInterval(async()=>{
       o.textContent='Waiting for the judge to come back…';
       o.style.display='block';
     } else if(_roomGone>=GONE_STRIKES+GIVE_UP_AFTER){
-      location.reload();                     // really over — take a fresh code
+      showEnded();                           // same ending, we just worked it out ourselves
     }
   }catch(e){ /* network blip — not a real close */ }
 }, 3000);
