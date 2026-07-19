@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Family Trivia — Admin</title>
+<title>Trivia Night — Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -75,7 +75,7 @@ table.grid td.dim{text-align:center;color:rgba(255,255,255,.4);font-weight:400;}
 </head>
 <body>
 <div class="wrap">
-  <h1>Family Trivia</h1>
+  <h1>Trivia Night</h1>
   <div class="sub">Admin · Ruleset Calibration</div>
   <div id="buildFooter" style="margin:6px 0 18px;font-size:10px;line-height:1.6;opacity:.6;"></div>
 
@@ -618,8 +618,8 @@ document.getElementById('detailsBtn').addEventListener('click',()=>{
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live.
-const ADMIN_VERSION='3.14';
-const ADMIN_BUILT_AT='2026-07-18T16:21:34Z';   // UTC; shown in the device's local time
+const ADMIN_VERSION='3.15';
+const ADMIN_BUILT_AT='2026-07-19T14:28:37Z';   // UTC; shown in the device's local time
 
 function fmtBuildTime(iso){
   try{

@@ -6,8 +6,8 @@ const path = require('path');
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
-const VERSION = '3.21';
-const BUILT_AT = '2026-07-18T22:29:56Z';
+const VERSION = '3.22';
+const BUILT_AT = '2026-07-19T14:28:37Z';
 
 const app = express();
 app.use(cors());
@@ -500,4 +500,4 @@ app.get('*', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Family Trivia server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Trivia Night server running on port ${PORT}`));
