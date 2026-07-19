@@ -464,8 +464,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='7.3';
-const TV_BUILT_AT='2026-07-19T16:27:12Z';
+const TV_VERSION='7.4';
+const TV_BUILT_AT='2026-07-19T16:48:09Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -619,7 +619,7 @@ function showEnded(){
 }
 
 function listen(){
-  ES = new EventSource(BACKEND+'/api/room/'+CODE+'/stream');
+  ES = new EventSource(BACKEND+'/api/room/'+CODE+'/stream?role=shared');
   ES.addEventListener('state',   e => render(JSON.parse(e.data)));
   ES.addEventListener('waiting', () => { setPaired(false, ''); });   // no phone yet
   // A 'closed' event is the judge saying it's over — quite different from losing
@@ -631,6 +631,9 @@ function listen(){
   ES.addEventListener('adopt', e => {
     let t=null; try{ t=JSON.parse(e.data).code; }catch(err){}
     if(!t || t===CODE) return;
+    // The room we made to advertise ourselves has done its job. Close it, or it
+    // lingers empty until the lobby grace expires.
+    try{ fetch(BACKEND+'/api/room/'+CODE+'/close',{method:'POST'}).catch(()=>{}); }catch(err){}
     try{ ES.close(); }catch(err){}
     _roomGone=0; _lastHeard=0;
     useCode(t);

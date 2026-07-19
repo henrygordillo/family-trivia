@@ -441,6 +441,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <span style="display:block;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;">To follow on a personal screen</span>
         <span id="tvBtnLabel" style="display:block;font-family:'Playfair Display',serif;font-size:26px;font-weight:900;color:var(--ink);letter-spacing:4px;line-height:1.15;">····</span>
         <span id="joinUrl" style="display:block;font-size:10px;color:var(--muted);line-height:1.35;"></span>
+        <span id="joinWatchers" style="display:block;font-size:10px;color:var(--teal);font-weight:700;"></span>
       </span>
     </button>
 
@@ -460,6 +461,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
          to borrow the light card's --muted/--ink/--card2, which is why the text was
          all but invisible against #1c1c28. -->
     <div id="tvSetup">
+      <button class="mbtn" id="tvDropAll" style="display:none;width:100%;margin-bottom:14px;background:transparent;border:1.5px solid rgba(192,57,43,.55);color:#ff8b7d;font-size:13px;">Disconnect all screens</button>
       <div style="font-size:14px;color:rgba(255,255,255,.65);margin-bottom:14px;line-height:1.55;">
         On the screen everyone will watch, open<br>
         <b id="tvOpenUrl" style="color:var(--gold-hi);font-size:15px;">…</b><br>
@@ -864,8 +866,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.72';
-const APP_BUILT_AT='2026-07-19T16:32:34Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.75';
+const APP_BUILT_AT='2026-07-19T16:49:31Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1378,7 +1380,7 @@ async function openRoom(quiet){
   }catch(e){ return {ok:false, err:'Could not reach the server.'}; }
   try{ localStorage.setItem('ftn_tv', TV_CODE); }catch(e){}
   if(!quiet) armBack(BACK_BUFFER);   // quiet = opened on the setup screen; nothing to trap yet
-  updateTVBadge(); syncJoinBtns();
+  updateTVBadge(); syncJoinBtns(); startWatchPoll();
   pushToTV();
   return {ok:true, code:TV_CODE};
 }
@@ -1443,6 +1445,22 @@ async function openJoinSheet(){
   }
   showLive(TV_CODE);
 }
+let _watchPoll=null;
+function startWatchPoll(){
+  if(_watchPoll) return;
+  const tick=async()=>{
+    if(!TV_CODE) return;
+    try{
+      const r=await fetch(BACKEND+'/api/room/'+TV_CODE);
+      if(!r.ok) return;
+      const d=await r.json();
+      _viewerCount=d.listeners||0; _sharedCount=d.shared||0;
+      syncJoinBtns();
+    }catch(e){}
+  };
+  tick(); _watchPoll=setInterval(tick, 5000);
+}
+
 function syncJoinBtns(){
 
   // The setup strip is a DISPLAY: hold the phone out and people scan it. No tap
@@ -1454,6 +1472,12 @@ function syncJoinBtns(){
   if(url) url.textContent = TV_CODE
     ? ('Scan the QR, or enter the code at '+location.host+'/join')
     : 'Opening a room\u2026';
+  // Say how many are attached right on the strip — you shouldn't have to open a
+  // panel to find out whether anybody is actually watching.
+  const w=document.getElementById('joinWatchers');
+  if(w) w.textContent = _viewerCount>0
+    ? `\ud83d\udc40 ${_viewerCount} screen${_viewerCount===1?'':'s'} connected`
+    : '';
   // The board carries the same strip, so a latecomer can join mid-game.
   const lblB=document.getElementById('joinCodeBoard');
   const urlB=document.getElementById('joinUrlBoard');
@@ -1477,8 +1501,11 @@ function syncJoinBtns(){
     b.appendChild(img);
   });
 }
+let _viewerCount=0, _sharedCount=0;
 function showSetup(){
   const t=document.getElementById('tvModalTitle'); if(t) t.textContent='Add a shared screen';
+  const d=document.getElementById('tvDropAll');
+  if(d) d.style.display = (_viewerCount>0) ? 'block' : 'none';
   const u=document.getElementById('tvOpenUrl'); if(u) u.textContent=location.host+'/tv';
   document.getElementById('tvSetup').style.display='block';
   document.getElementById('tvLive').style.display='none';
@@ -1520,6 +1547,11 @@ async function pollViewers(){
       const r=await fetch(BACKEND+'/api/room/'+TV_CODE);
       if(!r.ok) return;
       const d=await r.json();
+      _viewerCount = d.listeners||0;
+      _sharedCount = d.shared||0;
+      const drop=document.getElementById('tvDropAll');
+      if(drop && document.getElementById('tvSetup').style.display!=='none')
+        drop.style.display = _viewerCount>0 ? 'block' : 'none';
       const el=document.getElementById('tvViewers');
       if(el) el.textContent = d.listeners>0
         ? `\ud83d\udc40 ${d.listeners} screen${d.listeners===1?'':'s'} watching`
@@ -3775,6 +3807,26 @@ function init(){
   document.getElementById('endGameBtnSetup').addEventListener('click',exitApp);   // same routine as the results screen
   document.getElementById('joinBtnBoard').addEventListener('click',openJoinSheet);
   const _asb=document.getElementById('tvAddScreen'); if(_asb) _asb.addEventListener('click',showSetup);
+  const _drop=document.getElementById('tvDropAll');
+  if(_drop) _drop.addEventListener('click', async ()=>{
+    const ok = await ask('Disconnect all screens?',
+      'Every shared and personal screen goes back to its start screen.\n\nThe game carries on, and the code stays the same — anyone can rejoin.',
+      'Disconnect', 'Cancel');
+    if(!ok) return;
+    try{
+      let total=0;
+      for(const role of ['shared','personal']){
+        const r=await fetch(BACKEND+'/api/room/'+TV_CODE+'/drop',{
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({role})
+        });
+        if(!r.ok){ dbFail('disconnecting screens', await errText(r)); return; }
+        total += (await r.json()).dropped||0;
+      }
+      _viewerCount=0; _sharedCount=0; showSetup();
+      toast(total===1 ? '1 screen disconnected' : `${total} screens disconnected`);
+    }catch(e){ dbFail('disconnecting screens', e.message); }
+  });
   const openAddScreen = ()=>{                            // an action, not a display
     document.getElementById('tvErr').textContent='';
     document.getElementById('tvModal').classList.add('show');

@@ -312,8 +312,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='4.4';
-const JOIN_BUILT_AT='2026-07-19T16:08:50Z';
+const JOIN_VERSION='4.5';
+const JOIN_BUILT_AT='2026-07-19T16:48:09Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -379,7 +379,7 @@ function listen(){ listenStream(); startClock(); }
 
 function listenStream(){
   try{ if(ES) ES.close(); }catch(e){}
-  ES=new EventSource(BACKEND+'/api/room/'+CODE+'/stream');
+  ES=new EventSource(BACKEND+'/api/room/'+CODE+'/stream?role=personal');
   ES.addEventListener('state', e => { _lastStream=Date.now(); render(JSON.parse(e.data)); });
   ES.addEventListener('waiting', ()=>{ waiting('Waiting for the judge', 'to start the game'); });
   ES.addEventListener('closed', ()=>backToConnect('The game ended'));

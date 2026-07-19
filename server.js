@@ -6,8 +6,8 @@ const path = require('path');
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
-const VERSION = '3.22';
-const BUILT_AT = '2026-07-19T14:28:37Z';
+const VERSION = '3.24';
+const BUILT_AT = '2026-07-19T16:48:09Z';
 
 const app = express();
 app.use(cors());
@@ -119,6 +119,10 @@ app.get('/api/room/:code/stream', (req, res) => {
   });
   res.flushHeaders?.();
 
+  // Remember what KIND of screen this is. Without it every subscriber is just an
+  // open socket, so "disconnect the shared screens" could only be done by closing
+  // the whole room — which took the personal screens down with it.
+  res._role = (req.query.role === 'shared') ? 'shared' : 'personal';
   room.clients.add(res);
   // NOTE: viewers deliberately do NOT refresh touchedAt — only the JUDGE's state
   // pushes keep a room alive, so a room dies when the judge leaves, not the viewers.
@@ -174,11 +178,42 @@ app.get('/api/room/:code', (req, res) => {
   // viewer whose stream died (or got orphaned by a server restart) must still be
   // able to catch up — otherwise it sits on "waiting" forever while the room looks
   // perfectly healthy. Same answer-free payload the stream sends.
+  let shared=0, personal=0;
+  room.clients.forEach(c => { c._role==='shared' ? shared++ : personal++; });
   res.json({ code: req.params.code, listeners: room.clients.size,
+             shared, personal,
              hasState: !!room.state, state: room.state || null });
 });
 
 // Game over — tear the room down.
+// Every screen home, every room gone. For when something is wedged and you'd
+// rather start clean than wait out a timeout.
+app.post('/api/rooms/reset', (req, res) => {
+  const bye = `event: closed\ndata: {}\n\n`;
+  let n = 0;
+  for (const [code, room] of rooms) {
+    room.clients.forEach(c => { try { c.write(bye); c.end(); } catch(e){} });
+    rooms.delete(code); n++;
+  }
+  res.json({ ok: true, closed: n });
+});
+
+// Send home only the screens of one kind, leaving the room and everyone else be.
+app.post('/api/room/:code/drop', (req, res) => {
+  const room = rooms.get(req.params.code);
+  const role = req.body && req.body.role;
+  if (!room) return res.status(404).json({ error: 'no such room' });
+  if (role !== 'shared' && role !== 'personal') return res.status(400).json({ error: 'bad role' });
+  const bye = `event: closed\ndata: {}\n\n`;
+  let n = 0;
+  room.clients.forEach(c => {
+    if (c._role !== role) return;
+    try { c.write(bye); c.end(); } catch(e){}
+    room.clients.delete(c); n++;
+  });
+  res.json({ ok: true, dropped: n });
+});
+
 app.post('/api/room/:code/close', (req, res) => {
   const room = rooms.get(req.params.code);
   if (room) {
