@@ -441,8 +441,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='6.8';
-const TV_BUILT_AT='2026-07-19T15:56:12Z';
+const TV_VERSION='6.9';
+const TV_BUILT_AT='2026-07-19T16:01:35Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -495,21 +495,16 @@ function lastCode(){
 }
 
 async function init(){
+  // If we were in a room moments ago, ask ONCE whether it's still there. It either
+  // is or it isn't — polling for twelve seconds just left the screen blank with no
+  // code and no QR, and reloading only restarted the wait.
   const prev=lastCode();
   if(prev){
-    // Showing the old code while we ask for it meant watching a number that was
-    // probably about to be replaced. Hold the placeholder until a code is real.
-    purpose('Looking for the game you were in\u2026');
-    const o=document.getElementById('offline');
-    o.textContent='Reconnecting to the last game\u2026'; o.style.display='block';
-    for(let i=0;i<8;i++){                       // ~12s of asking
-      try{
-        const r=await fetch(BACKEND+'/api/room/'+prev);
-        if(r.ok){ o.style.display='none'; useCode(prev); purpose(ASK_JUDGE); listen(); return; }
-      }catch(e){}
-      await new Promise(res=>setTimeout(res,1500));
-    }
-    o.style.display='none';
+    try{
+      const r=await fetch(BACKEND+'/api/room/'+prev);
+      if(r.ok){ useCode(prev); purpose(ASK_JUDGE); listen(); return; }
+    }catch(e){}
+    try{ localStorage.removeItem(LAST_CODE_KEY); }catch(e){}   // gone: don't ask again
   }
   try{
     const r = await fetch(BACKEND+'/api/room/new', {method:'POST'});
