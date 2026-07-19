@@ -103,6 +103,16 @@ body{
   #rend{overflow-y:auto;}
 }
 
+#joinCard{display:none;margin:14px auto 0;max-width:320px;background:#0d0f18;
+  border:2px solid rgba(31,173,160,.5);border-radius:14px;padding:12px 14px;text-align:center;}
+.jc-cap{font-size:13px;font-weight:700;color:var(--teal-hi);margin-bottom:10px;}
+.jc-row{display:flex;align-items:center;justify-content:center;gap:12px;}
+.jc-half{flex:1;min-width:0;}
+.jc-lab{font-size:11px;color:rgba(255,255,255,.6);margin-bottom:5px;}
+.jc-qr img{width:84px;height:84px;background:#fff;padding:4px;border-radius:6px;display:block;margin:0 auto;}
+.jc-or{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.35);font-weight:700;}
+.jc-num{font-family:'Playfair Display',serif;font-size:30px;font-weight:900;color:var(--gold-hi);letter-spacing:4px;}
+
 /* Board — mirrors the TV, display-only (the judge still drives every pick) */
 #pboard{display:none;gap:5px;flex:1;min-height:0;}
 .pcat{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:rgba(255,255,255,.55);
@@ -240,8 +250,8 @@ body{
 <div id="ended">
   <h1>Trivia Night</h1>
   <div class="sub">Personal Screen</div>
-  <div class="endmsg">Game ended.</div>
-  <div class="endsub">Thanks for playing</div>
+  <div class="endmsg" id="endMsg">Game ended.</div>
+  <div class="endsub" id="endMsg2">Thanks for playing</div>
 </div>
 
 <div id="notice">
@@ -271,6 +281,15 @@ body{
 
  <div class="jright">
   <div id="pboard"></div>
+
+  <div id="joinCard">
+    <div class="jc-cap">Another personal screen can join by:</div>
+    <div class="jc-row">
+      <div class="jc-half"><div class="jc-lab">Scanning this QR</div><div class="jc-qr" id="jcQr"></div></div>
+      <div class="jc-or">or</div>
+      <div class="jc-half"><div class="jc-lab">Entering this code</div><div class="jc-num" id="jcCode">····</div></div>
+    </div>
+  </div>
 
   <div id="q">
     <div id="qhead">
@@ -312,8 +331,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='4.5';
-const JOIN_BUILT_AT='2026-07-19T16:48:09Z';
+const JOIN_VERSION='4.6';
+const JOIN_BUILT_AT='2026-07-19T17:04:12Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -382,7 +401,10 @@ function listenStream(){
   ES=new EventSource(BACKEND+'/api/room/'+CODE+'/stream?role=personal');
   ES.addEventListener('state', e => { _lastStream=Date.now(); render(JSON.parse(e.data)); });
   ES.addEventListener('waiting', ()=>{ waiting('Waiting for the judge', 'to start the game'); });
-  ES.addEventListener('closed', ()=>backToConnect('The game ended'));
+  ES.addEventListener('closed', (e)=>{
+    let why=null; try{ why=JSON.parse(e.data||'{}').reason; }catch(err){}
+    backToConnect(why==='dropped' ? 'dropped' : 'ended');
+  });
   // A broken stream is NOT a reason to leave — only a missing room is. The browser
   // retries by itself; we only step in once it has given up (readyState 2).
   ES.onerror=()=>{
@@ -417,7 +439,12 @@ function backToConnect(msg){
   // A finished game is an announcement, not a question — so it plays for a few
   // seconds and clears itself, the same way the shared screen does it.
   if(msg){
+    // Being disconnected isn't the game ending, and shouldn't read like it.
     const e=document.getElementById('ended');
+    const dropped = (msg==='dropped');
+    document.getElementById('endMsg').textContent  = dropped ? 'Disconnected.' : 'Game ended.';
+    document.getElementById('endMsg2').textContent = dropped
+      ? 'Scan or enter the code to rejoin' : 'Thanks for playing';
     e.style.display='flex';
     setTimeout(()=>{ e.style.display='none'; }, 4500);
   }
@@ -456,7 +483,7 @@ async function tick(){
     if(_strikes===GONE_STRIKES){
       waiting('Waiting for the judge', 'reconnecting for a few more seconds\u2026');
     } else if(_strikes>=GONE_STRIKES+GIVE_UP_AFTER){
-      return backToConnect('The game ended');
+      return backToConnect('ended');
     }
     return;
   }
@@ -665,6 +692,25 @@ function nextEligible(S,f){ const o=S.turnOrder||[],n=o.length,p=o.indexOf(f);
     if((S.wrongPlayers||[]).includes(x)) continue; return x; } return -1; }
 
 // ── Render ────────────────────────────────────────────────────────────────
+// While we're waiting there's nothing to watch, so the screen may as well help
+// the next person in — the same offer the shared screen makes at this moment.
+function showJoinCard(on){
+  const el=document.getElementById('joinCard');
+  if(!el) return;
+  el.style.display = on ? 'block' : 'none';
+  if(!on || !CODE || el.dataset.code===CODE) return;
+  el.dataset.code=CODE;
+  document.getElementById('jcCode').textContent=CODE;
+  const box=document.getElementById('jcQr');
+  box.innerHTML='';
+  const img=document.createElement('img');
+  img.alt='Scan to join';
+  img.src='https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=0&data='+
+          encodeURIComponent(location.origin+'/join?code='+CODE);
+  img.onerror=()=>{ img.style.display='none'; };
+  box.appendChild(img);
+}
+
 const BPTS=[100,200,300,400,500];
 function drawBoard(S){
   const b=document.getElementById('pboard');
@@ -706,6 +752,7 @@ function render(S){
     waiting('Waiting for the judge', 'to start the game');
     document.getElementById('others').innerHTML='';
     document.getElementById('pboard').style.display='none';
+    showJoinCard(true);
     return;
   }
 
@@ -716,6 +763,7 @@ function render(S){
   checkRoster(S);
   _meName = (ME>=0 && S.players) ? S.players[ME] : null;
   document.getElementById('pboard').style.display='none';
+  showJoinCard(false);
 
   const ph=S.phase;
   const q=S.currentQuestion;

@@ -6,8 +6,8 @@ const path = require('path');
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
-const VERSION = '3.24';
-const BUILT_AT = '2026-07-19T16:48:09Z';
+const VERSION = '3.25';
+const BUILT_AT = '2026-07-19T17:04:12Z';
 
 const app = express();
 app.use(cors());
@@ -204,7 +204,8 @@ app.post('/api/room/:code/drop', (req, res) => {
   const role = req.body && req.body.role;
   if (!room) return res.status(404).json({ error: 'no such room' });
   if (role !== 'shared' && role !== 'personal') return res.status(400).json({ error: 'bad role' });
-  const bye = `event: closed\ndata: {}\n\n`;
+  // Being dropped is not the game ending — the screens should say so.
+  const bye = `event: closed\ndata: {"reason":"dropped"}\n\n`;
   let n = 0;
   room.clients.forEach(c => {
     if (c._role !== role) return;
