@@ -211,7 +211,9 @@ body{
 .rtab .dim{color:rgba(255,255,255,.3);}
 .rtab .sep{border-left:1px solid rgba(255,255,255,.12);}
 
-.offline{position:fixed;bottom:2.5vh;left:0;right:0;text-align:center;font-size:clamp(9px,1.0vw,22px);color:var(--red);display:none;}
+.offline{position:fixed;bottom:5.5vh;left:0;right:0;text-align:center;
+  font-size:clamp(10px,1.25vw,27px);color:var(--red);display:none;
+  padding:0 4vw;line-height:1.4;}
 .tag{position:fixed;bottom:1vh;left:0;right:0;text-align:center;font-size:clamp(11px,1.05vw,23px);
   font-weight:600;color:rgba(255,255,255,.5);letter-spacing:.03vw;z-index:20;}
 
@@ -439,8 +441,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='6.3';
-const TV_BUILT_AT='2026-07-19T15:17:25Z';
+const TV_VERSION='6.4';
+const TV_BUILT_AT='2026-07-19T15:32:32Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -473,8 +475,24 @@ paintTags();
 // they reclaim the SAME code — so a screen that reloaded in the meantime should
 // try its old room before taking a new one, instead of stranding itself.
 const LAST_CODE_KEY='ftn_tv_code';
-function rememberCode(c){ try{ localStorage.setItem(LAST_CODE_KEY,c); }catch(e){} }
-function lastCode(){ try{ return localStorage.getItem(LAST_CODE_KEY); }catch(e){ return null; } }
+const REJOIN_WINDOW = 3*60*1000;   // only useful right after an interruption
+function rememberCode(c){
+  try{ localStorage.setItem(LAST_CODE_KEY, JSON.stringify({code:c, at:Date.now()})); }catch(e){}
+}
+// Only offer the old room if it was ours moments ago. Kept indefinitely, this
+// quietly pinned the screen to one code forever — refreshing couldn't escape it,
+// because the judge's room was usually still alive and we'd just rejoin it.
+function lastCode(){
+  try{
+    const raw=localStorage.getItem(LAST_CODE_KEY);
+    if(!raw) return null;
+    if(raw[0]!=='{') return null;                       // old plain-string form
+    const d=JSON.parse(raw);
+    if(!d || !d.code) return null;
+    if(Date.now()-(d.at||0) > REJOIN_WINDOW){ localStorage.removeItem(LAST_CODE_KEY); return null; }
+    return d.code;
+  }catch(e){ return null; }
+}
 
 async function init(){
   const prev=lastCode();
