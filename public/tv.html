@@ -324,6 +324,15 @@ body{
    players' after. Show that one, hide the other. */
 #join:not(.connected) .playercard{display:none;}
 #join.connected .judgecard{display:none;}
+/* Paired: the screen's job is now to display the game, so the big central
+   code-and-QR row stands down to a corner card and the confirmation takes over. */
+#join.connected .joiners{position:absolute;bottom:2vh;right:2vw;margin:0;gap:1vw;transform:scale(.7);transform-origin:bottom right;}
+#join.connected .orsep{display:none;}
+#join.connected .codebox{padding:1.4vh 2.4vw;}
+#join.connected .code{font-size:clamp(24px,4vw,86px);letter-spacing:.6vw;}
+#join.connected .qrbox img{width:clamp(70px,9vw,140px);height:clamp(70px,9vw,140px);}
+#join.connected .ctrllabel{font-size:clamp(9px,.95vw,20px);}
+#join{position:relative;}
 
 /* Both ways in are labelled in the same plain voice as the sentence above, so the
    subtitle reads straight into them: "...and: [scanning this QR] or [entering this code]". */
@@ -441,8 +450,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='6.9';
-const TV_BUILT_AT='2026-07-19T16:01:35Z';
+const TV_VERSION='7.0';
+const TV_BUILT_AT='2026-07-19T16:17:41Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -564,7 +573,7 @@ function setPaired(on, device){
   if(on){
     h.innerHTML='<span class="dot" style="background:#2ecc71;"></span>Judge connected';
     // The code has changed hands — it now belongs to the players, so say so.
-    purpose(ASK_PLAYERS());
+    purpose('');                       // the confirmation speaks for the screen now
   } else {
     h.innerHTML='<span class="dot"></span>Waiting for the judge to connect';
     purpose(ASK_JUDGE);
