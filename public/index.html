@@ -407,7 +407,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         </div>
         <div style="width:1px;background:var(--card3);flex:0 0 auto;"></div>
         <div style="flex:1;min-width:0;">
-          <span class="slabel" style="text-align:center;">Judge Mode</span>
+          <span class="slabel" style="text-align:center;">Who judges?</span>
           <div style="display:flex;background:var(--card3);border-radius:100px;padding:3px;gap:3px;">
             <button class="jseg" data-jm="ai" style="flex:1;text-align:center;padding:9px 4px;border:none;border-radius:100px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);white-space:nowrap;">🤖 AI</button>
             <button class="jseg" data-jm="human" style="flex:1;text-align:center;padding:9px 4px;border:none;border-radius:100px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);white-space:nowrap;">👤 Human</button>
@@ -867,8 +867,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.77';
-const APP_BUILT_AT='2026-07-19T18:10:20Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.78';
+const APP_BUILT_AT='2026-07-27T22:59:09Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{

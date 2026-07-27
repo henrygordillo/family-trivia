@@ -244,7 +244,7 @@ body{
     <input id="code" type="tel" inputmode="numeric" maxlength="4" placeholder="0000" autocomplete="off">
   </div>
   <div id="err"></div>
-  <div class="note">Both are on the judge's device — or the shared screen, if you're using one.</div>
+  <div class="note">Both are on the host's device — or the shared screen, if you're using one.</div>
 </div>
 
 <div id="ended">
@@ -331,8 +331,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='4.9';
-const JOIN_BUILT_AT='2026-07-19T18:13:53Z';
+const JOIN_VERSION='4.10';
+const JOIN_BUILT_AT='2026-07-27T22:59:09Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -400,7 +400,7 @@ function listenStream(){
   try{ if(ES) ES.close(); }catch(e){}
   ES=new EventSource(BACKEND+'/api/room/'+CODE+'/stream?role=personal');
   ES.addEventListener('state', e => { _lastStream=Date.now(); render(JSON.parse(e.data)); });
-  ES.addEventListener('waiting', ()=>{ waiting('Waiting for the judge', 'to start the game'); });
+  ES.addEventListener('waiting', ()=>{ waiting('Waiting for the host', 'to start the game'); });
   ES.addEventListener('closed', (e)=>{
     let why=null; try{ why=JSON.parse(e.data||'{}').reason; }catch(err){}
     backToConnect(why==='dropped' ? 'dropped' : 'ended');
@@ -485,7 +485,7 @@ async function tick(){
     // died and they're about to resume, which brings this exact code back. So hold
     // the code for a short while, then accept it.
     if(_strikes===GONE_STRIKES){
-      waiting('Waiting for the judge', 'reconnecting for a few more seconds\u2026');
+      waiting('Waiting for the host', 'reconnecting for a few more seconds\u2026');
     }
     if(Date.now()-_goneSince >= GONE_GRACE) return backToConnect('ended');
     return;
@@ -510,7 +510,7 @@ async function tick(){
   if(document.visibilityState!=='visible') return;  // asleep → no opinion
   if(_lastHeard && Date.now()-_lastHeard > STALE_AFTER && !_stale){
     _stale=true;
-    waiting('Lost the judge\u2019s device', 'reconnecting…');
+    waiting('Lost the host\u2019s device', 'reconnecting…');
   }
 }
 
@@ -756,7 +756,7 @@ function render(S){
 
   if(!S.active || !S.players || !S.players.length){
     document.getElementById('game').style.display='flex';
-    waiting('Waiting for the judge', 'to start the game');
+    waiting('Waiting for the host', 'to start the game');
     document.getElementById('others').innerHTML='';
     document.getElementById('pboard').style.display='none';
     showJoinCard(true);

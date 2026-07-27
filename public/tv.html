@@ -403,11 +403,11 @@ body{
     <div class="tick">✓</div>
     <div class="txt">
       <div class="big">Shared screen added</div>
-      <div class="go">Waiting for the judge to start the game</div>
+      <div class="go">Waiting for the host to start the game</div>
     </div>
   </div>
 
-  <div class="hint" id="hint"><span class="dot"></span>Waiting for the judge to connect</div>
+  <div class="hint" id="hint"><span class="dot"></span>Waiting for the host to connect this screen</div>
 </div>
 
 <div id="game" style="position:relative;">
@@ -464,8 +464,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='7.7';
-const TV_BUILT_AT='2026-07-19T18:13:53Z';
+const TV_VERSION='7.8';
+const TV_BUILT_AT='2026-07-27T22:59:09Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -573,7 +573,7 @@ let _paired=false, _device='';
 // This screen always talks to whoever has to act NEXT: the judge until they pair,
 // then everyone else. Identity ("Shared Screen") never changes; the audience does.
 function purpose(h){ const e=document.getElementById('purposeLine'); if(e) e.innerHTML=h; }
-const ASK_JUDGE = 'The whole room follows the game here.<span class="howto">Add it on the judge\u2019s device under <b>Add Shared Screen</b>, by:</span>';
+const ASK_JUDGE = 'The whole room follows the game here.<span class="howto">Add it on the host\u2019s device under <b>Add Shared Screen</b>, by:</span>';
 const ASK_PLAYERS = () => 'Follow along on your own personal screen at <b>'+location.host+'/join</b>, by:';
 
 function setPaired(on, device){
@@ -585,11 +585,11 @@ function setPaired(on, device){
   document.getElementById('join').classList.toggle('connected', on);
   const h=document.getElementById('hint');
   if(on){
-    h.innerHTML='<span class="dot" style="background:#2ecc71;"></span>Judge connected';
+    h.innerHTML='<span class="dot" style="background:#2ecc71;"></span>Connected';
     // The code has changed hands — it now belongs to the players, so say so.
     purpose('');                       // the confirmation speaks for the screen now
   } else {
-    h.innerHTML='<span class="dot"></span>Waiting for the judge to connect';
+    h.innerHTML='<span class="dot"></span>Waiting for the host to connect this screen';
     purpose(ASK_JUDGE);
   }
 }
@@ -898,7 +898,7 @@ setInterval(async()=>{
       _waitingBack=true;
       dropPhone();
       const o=document.getElementById('offline');
-      o.textContent='Waiting for the judge to come back…';
+      o.textContent='Waiting for the host to come back…';
       o.style.display='block';
     } else if(_roomGone>=GONE_STRIKES+GIVE_UP_AFTER){
       showEnded();                           // same ending, we just worked it out ourselves
