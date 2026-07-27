@@ -464,8 +464,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='7.6';
-const TV_BUILT_AT='2026-07-19T18:10:20Z';
+const TV_VERSION='7.7';
+const TV_BUILT_AT='2026-07-19T18:13:53Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -876,7 +876,7 @@ setInterval(()=>{
 // it's really over and take a fresh code.
 let _roomGone=0, _waitingBack=false;
 const GONE_STRIKES  = 4;      // ~12s — the room is genuinely missing
-const GIVE_UP_AFTER = 12;     // ~36s more, then start over with a new code
+const GIVE_UP_AFTER = 6;      // ~18s more, then start over with a new code
 setInterval(async()=>{
   if(!CODE) return;
   try{

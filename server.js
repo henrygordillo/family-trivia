@@ -6,8 +6,8 @@ const path = require('path');
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
-const VERSION = '3.25';
-const BUILT_AT = '2026-07-19T17:04:12Z';
+const VERSION = '3.26';
+const BUILT_AT = '2026-07-19T18:13:53Z';
 
 const app = express();
 app.use(cors());
@@ -58,7 +58,10 @@ const ROOM_TTL_MS = 4 * 60 * 60 * 1000;   // reap rooms idle for 4h
 // Short fuse when the judge was last in the FOREGROUND (silence = gone); long fuse
 // when BACKGROUNDED (screen off / app switch — alive, just throttled).
 const JUDGE_GONE_ACTIVE =  30 * 1000;
-const JUDGE_GONE_HIDDEN = 180 * 1000;
+// A backgrounded judge still heartbeats, just slowly — browsers throttle timers
+// to roughly one a minute. 90s tolerates a couple of missed ones while cutting
+// the wait after a force-kill, which looks identical from here.
+const JUDGE_GONE_HIDDEN =  90 * 1000;
 const LOBBY_GRACE       = 15 * 60 * 1000;   // pre-game: a waiting device is patient, so don't kick it for a slow host
 function reapRooms(){
   const now = Date.now();

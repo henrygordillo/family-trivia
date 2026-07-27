@@ -331,8 +331,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='4.8';
-const JOIN_BUILT_AT='2026-07-19T18:12:58Z';
+const JOIN_VERSION='4.9';
+const JOIN_BUILT_AT='2026-07-19T18:13:53Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -456,7 +456,7 @@ function backToConnect(msg){
 // passed while the phone was asleep is meaningless, so waking re-checks for real
 // instead of trusting a frozen timer.
 const TICK_MS      = 3000;
-const GONE_GRACE   = 45000;   // how long a missing room gets before we accept it
+const GONE_GRACE   = 25000;   // how long a missing room gets before we accept it
 const STALE_AFTER  = 30000;   // awake and unheard this long → show "reconnecting"
 const GONE_STRIKES = 4;       // ~12s of confirmed 404 → the room is genuinely gone
 // When we FIRST saw the room missing — not how many times we've looked. A phone
