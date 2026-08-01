@@ -84,14 +84,20 @@ body{
   padding:.55vh .9vw;font-size:clamp(9px,.95vw,20px);line-height:1.2;
   font-weight:700;letter-spacing:.06vw;text-transform:uppercase;
   color:rgba(255,255,255,.6);white-space:nowrap;}
-/* A re-deal swaps every category under the room's feet — but the new ones are
-   right there to read, so this only has to explain them. A note under the board,
-   not a curtain over it. */
-#splash{display:none;text-align:center;margin-top:1vh;
-  font-size:clamp(11px,1.35vw,28px);font-weight:700;letter-spacing:.1vw;
-  text-transform:uppercase;color:var(--gold-hi);}
-#splash.show{display:block;animation:splashIn .4s ease;}
-@keyframes splashIn{from{opacity:0;transform:translateY(-.6vh);}to{opacity:1;transform:none;}}
+/* A re-deal swaps every category under the room's feet. Announced in the middle of
+   the board where nobody can miss it — but as a card, not a curtain, so the new
+   categories stay visible behind it. */
+#splashWrap{position:absolute;inset:0;z-index:60;display:none;
+  align-items:center;justify-content:center;pointer-events:none;}
+#splashWrap.show{display:flex;}
+#splash{background:rgba(8,9,15,.94);border:.18vw solid var(--gold);border-radius:1.2vw;
+  padding:2.6vh 3.4vw;text-align:center;animation:splashIn .38s cubic-bezier(.2,1.3,.4,1);
+  box-shadow:0 0 0 100vmax rgba(8,9,15,.45);}
+#splashTitle{font-family:'Playfair Display',serif;font-weight:900;color:var(--gold-hi);
+  font-size:clamp(24px,4.4vw,92px);line-height:1.05;}
+#splashLine{margin-top:.9vh;font-size:clamp(11px,1.5vw,32px);font-weight:700;
+  letter-spacing:.14vw;text-transform:uppercase;color:rgba(255,255,255,.62);}
+@keyframes splashIn{from{opacity:0;transform:scale(.86);}to{opacity:1;transform:none;}}
 .topband{display:flex;gap:1.2vw;align-items:stretch;margin-bottom:1.6vh;}
 .scores{display:flex;gap:1.2vw;flex:1;min-width:0;}
 .pcard{flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
@@ -431,6 +437,10 @@ body{
 </div>
 
 <div id="game" style="position:relative;">
+  <div id="splashWrap"><div id="splash">
+    <div id="splashTitle"></div>
+    <div id="splashLine"></div>
+  </div></div>
   <div class="gamehead">
     <div class="ghlogo">Trivia Night</div>
     <div class="chips" id="setupLine"></div>
@@ -449,7 +459,6 @@ body{
     <div id="roundTable"></div>
   </div>
   <div id="board"></div>
-  <div id="splash"></div>
   <div id="gen">
     <div class="spinner"></div>
     <div class="who" id="genWho"></div>
@@ -488,8 +497,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='7.12';
-const TV_BUILT_AT='2026-08-01T15:28:23Z';
+const TV_VERSION='7.13';
+const TV_BUILT_AT='2026-08-01T15:41:16Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -789,12 +798,13 @@ function sayIt(text){
 // push. 4.5s is long enough to read two lines from a sofa without stalling play.
 let _lastSplashSeq=null, _splashT=null;
 function handleSplash(sp){
-  if(!sp || !sp.text) return;
+  if(!sp || !sp.title) return;
   if(sp.seq === _lastSplashSeq) return;
   _lastSplashSeq = sp.seq;
-  const el=document.getElementById('splash');
+  const el=document.getElementById('splashWrap');
   if(!el) return;
-  el.textContent = sp.text;
+  document.getElementById('splashTitle').textContent = sp.title || '';
+  document.getElementById('splashLine').textContent  = sp.line  || '';
   el.classList.add('show');
   clearTimeout(_splashT);
   _splashT=setTimeout(()=>el.classList.remove('show'), 5000);

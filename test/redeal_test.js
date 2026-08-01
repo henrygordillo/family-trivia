@@ -9,7 +9,7 @@ code+=`;globalThis.__api={get G(){return G;},publicState,redealState,dealAgain,
   get used(){return _redealsUsed;}, set used(v){_redealsUsed=v;},
   get answered(){return _answeredThisBoard;}, set answered(v){_answeredThisBoard=v;},
   get recorded(){return _gameRecorded;}, set recorded(v){_gameRecorded=v;},
-  get splash(){return _splash;}, LIMIT:REDEAL_LIMIT};`;
+  get splash(){return _splash;}, showSplash, LIMIT:REDEAL_LIMIT};`;
 const btn={textContent:'',disabled:false,style:{}};
 function el(id){ if(id==='dealAgainBtn') return btn;
   return {id,style:new Proxy({},{get:()=>'',set:()=>true}),
@@ -80,5 +80,14 @@ chk('...and the wire still says active', api.publicState().active===true);
 api.inGame=true;
 api._leaveBoard();
 chk('a real exit still ends it', api.inGame===false);
+// The message must carry BOTH lines — the headline and the budget — or the room
+// learns that categories changed without learning how much rope is left.
+api.used=0; api.answered=false;
+const allHtml=['tv.html','join.html','index.html']
+  .map(f=>fs.readFileSync('public/'+f,'utf8')).join('');
+chk('all three screens centre the card', (allHtml.match(/id="splashWrap"/g)||[]).length===3);
+chk('all three read title and line',     (allHtml.match(/splashTitle/g)||[]).length>=6);
+chk('host announces to itself',          allHtml.includes('showSplash(_splash)'));
+
 console.log(fail?('\n'+fail+' FAILED'):'\nall re-deal checks passed');
 process.exit(fail?1:0);
