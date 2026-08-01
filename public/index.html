@@ -107,13 +107,18 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   white-space:nowrap;font-family:'Outfit',sans-serif;}
 /* A failed write is invisible twice over, so it stays loud while the rest go quiet. */
 .hchip.trouble{background:rgba(192,57,43,.22);color:#ff8b7d;cursor:pointer;}
-.boardlinks{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:8px;flex-wrap:wrap;}
-.boardlink{display:flex;align-items:center;gap:5px;background:transparent;border:none;cursor:pointer;
-  color:var(--muted);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;
-  letter-spacing:1px;text-transform:uppercase;padding:4px;}
-.boardlink .bl-i{font-size:14px;}
-.bl-sep{width:1px;height:14px;background:rgba(255,255,255,.15);}
-.bl-watchers{text-align:center;font-size:11px;color:var(--muted);margin-top:2px;min-height:14px;}
+/* Two doors, equal weight, one each side — a pair of real targets rather than
+   two words floating under the board. */
+.boardlinks{display:flex;gap:8px;margin-top:8px;}
+.boardlink{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:4px;background:var(--card2);border:1.5px solid var(--card3);
+  border-radius:12px;cursor:pointer;padding:11px 8px;
+  font-family:'Outfit',sans-serif;font-size:10.5px;font-weight:700;
+  letter-spacing:.8px;text-transform:uppercase;color:var(--muted);
+  line-height:1.25;text-align:center;transition:all .15s;}
+.boardlink:active{transform:scale(.98);}
+.boardlink .bl-i{font-size:18px;line-height:1;}
+.bl-watchers{text-align:center;font-size:11px;color:var(--muted);margin-top:6px;min-height:14px;}
 .new-game-btn{background:rgba(192,57,43,.2);border:1.5px solid rgba(192,57,43,.6);border-radius:6px;
   padding:5px 12px;cursor:pointer;font-family:'Outfit',sans-serif;font-size:10px;font-weight:700;
   letter-spacing:1px;text-transform:uppercase;color:#ff8a80;white-space:nowrap;flex-shrink:0;transition:all .2s;}
@@ -592,9 +597,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
        of the board for something used once a night — and the shared screen already
        shows the code all game, which is how people actually join. -->
   <div class="boardlinks">
-    <button class="boardlink" id="addScreenBtnBoard"><span class="bl-i">📺</span> Add a shared screen</button>
-    <span class="bl-sep"></span>
-    <button class="boardlink" id="joinBtnBoard"><span class="bl-i">📱</span> Connect a personal screen</button>
+    <button class="boardlink" id="addScreenBtnBoard"><span class="bl-i">📺</span><span>Add a<br>shared screen</span></button>
+    <button class="boardlink" id="joinBtnBoard"><span class="bl-i">📱</span><span>Connect a<br>personal screen</span></button>
   </div>
   <div class="bl-watchers" id="joinWatchersBoard"></div>
 </div>
@@ -897,8 +901,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.84';
-const APP_BUILT_AT='2026-08-01T14:44:09Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.85';
+const APP_BUILT_AT='2026-08-01T15:10:04Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
