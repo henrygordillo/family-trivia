@@ -106,17 +106,24 @@ body{
 .scores{display:flex;gap:1.2vw;flex:1;min-width:0;}
 .pcard{flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
   border-radius:1vw;padding:1vh .8vw;text-align:center;transition:all .25s;}
-.pcard.active{background:rgba(212,168,67,.16);border-color:var(--gold);transform:translateY(-.4vh);}
-.pcard.steal{background:rgba(124,58,237,.16);border-color:var(--purple-hi);}
-.pcard.ondeck{border-color:rgba(255,255,255,.22);}
+/* Who still owes a pick, said with weight instead of words. Play sweeps left to
+   right, so a row of bright cards followed by muted ones IS the progress of the
+   round — two chips reading "not yet picked this round" said the same thing in
+   text nobody had room to read from a sofa.
+   Deliberately last-but-one in the cascade: `active` and `steal` re-assert their
+   full opacity below, because dimming whoever is playing right now would fight
+   the very thing this is meant to make legible. */
+.pcard.done{opacity:.42;}
+.pcard.active{background:rgba(212,168,67,.16);border-color:var(--gold);transform:translateY(-.4vh);opacity:1;}
+.pcard.steal{background:rgba(124,58,237,.16);border-color:var(--purple-hi);opacity:1;}
+.pcard.ondeck{border-color:rgba(255,255,255,.22);opacity:1;}
 .pname{font-size:clamp(9px,1.4vw,31px);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .pscore{font-family:'Playfair Display',serif;font-size:clamp(11px,2.6vw,57px);font-weight:900;color:var(--gold-hi);line-height:1.15;}
-/* Hit rate + whether they've picked this round — the phone shows both, so the TV must too */
+/* Hit rate only. Whether they've picked is the card's opacity now. */
 .pmeta{display:flex;align-items:center;justify-content:center;gap:.5vw;flex-wrap:wrap;
   height:1.8vw;white-space:nowrap;}
 .pmeta .chip{font-size:clamp(9px,0.8vw,18px);font-weight:600;color:rgba(255,255,255,.45);
   background:rgba(255,255,255,.06);border-radius:1vw;padding:.2vh .8vw;}
-.pmeta .chip.owed{color:var(--gold-hi);background:rgba(212,168,67,.14);}
 .pcard.missed{border-color:rgba(192,57,43,.7);background:rgba(192,57,43,.12);}
 .pstat.miss{color:#ff8b7d!important;}
 .pstat{font-size:clamp(9px,0.95vw,21px);font-weight:700;letter-spacing:.1vw;text-transform:uppercase;height:1.5vw;
@@ -499,8 +506,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='7.16';
-const TV_BUILT_AT='2026-08-01T16:54:48Z';
+const TV_VERSION='7.17';
+const TV_BUILT_AT='2026-08-01T17:00:26Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -1061,12 +1068,9 @@ function render(S){
       ? `<span class="chip hit">${Math.round(ok/mine.length*100)}% correct</span>`
       : '';
 
-    // Whether they still owe a pick this round. Spelled out — "✓" and "to pick"
-    // told nobody anything.
+    // Carried by the card's weight now, not by a chip — see .pcard.done.
     const done=(S.pickedThisRound||[]).includes(i);
-    const picked = done
-      ? '<span class="chip">picked this round</span>'
-      : '<span class="chip owed">not yet picked this round</span>';
+    if(done) cls+=' done';
 
     return `<div class="${cls}">
       <!-- No seat number. G.players is reordered into play order at deal time, so
@@ -1074,7 +1078,7 @@ function render(S){
            number. "Picking" and "On deck" mark where the loop currently is. -->
       <div class="pname">${crown}${p}${badge}</div>
       <div class="pscore">${S.scores[i]}</div>
-      <div class="pmeta">${hit}${picked}</div>
+      <div class="pmeta">${hit}</div>
       <div class="${statCls}">${stat}</div>
     </div>`;
   }).join('');
