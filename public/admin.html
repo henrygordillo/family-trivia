@@ -72,30 +72,89 @@ table.grid td.dim{text-align:center;color:rgba(255,255,255,.4);font-weight:400;}
 .tier3 .none{opacity:.25;}
 .tier3 .lown{font-size:9px;opacity:.5;}
 .tier3 .vsprior{font-size:9.5px;font-weight:700;margin-top:2px;letter-spacing:.2px;}
+/* Collapsible sections. The page holds four unrelated jobs — the ruleset's
+   definition, how it's performing, what the AI makes of it, and live-server
+   operations. Flat, they read as one undifferentiated list and the Details
+   panel opened 800px below the button that opened it. */
+.panel{border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.02);margin-bottom:14px;overflow:hidden;}
+.panel>.phead{display:flex;align-items:center;gap:10px;width:100%;background:transparent;border:none;
+  padding:14px 16px;cursor:pointer;font-family:inherit;color:var(--ink);text-align:left;}
+.panel>.phead:hover{background:rgba(255,255,255,.04);}
+.panel>.phead .ptitle{font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:rgba(255,255,255,.75);}
+.panel>.phead .psub{font-size:11px;color:var(--muted);margin-left:auto;text-align:right;}
+.panel>.phead .chev{flex:0 0 auto;font-size:11px;color:var(--muted);transition:transform .18s ease;}
+.panel.open>.phead .chev{transform:rotate(90deg);}
+.panel>.pbody{display:none;padding:0 16px 18px;}
+.panel.open>.pbody{display:block;}
+/* Operations is destructive and unrelated to reading — set apart, not stacked in. */
+.panel.ops{border-color:rgba(192,57,43,.28);background:rgba(192,57,43,.03);margin-top:26px;}
+.panel.ops>.phead .ptitle{color:#ff9b8e;}
+/* The definition pane lives inside a panel now, so it no longer hides itself. */
+.details{margin-top:0;border-top:none;padding-top:0;display:block;}
+.details.show{display:block;}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Trivia Night</h1>
   <div class="sub">Admin · Ruleset Calibration</div>
-  <div style="margin:6px 0 18px;">
-  <button id="resetRooms" style="background:transparent;border:1.5px solid rgba(192,57,43,.55);color:#ff8b7d;
-    border-radius:10px;padding:9px 14px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;">
-    Close every open room
-  </button>
-  <span id="resetRoomsMsg" style="margin-left:10px;font-size:12px;opacity:.75;"></span>
-</div>
-<div id="buildFooter" style="margin:6px 0 18px;font-size:10px;line-height:1.6;opacity:.6;"></div>
 
+  <!-- The picker governs Definition and Reporting alike, so it sits above both
+       and outside every panel — collapsing it would hide what everything means. -->
   <div class="lbl">Difficulty Ruleset</div>
   <div class="row">
     <select id="rsSelect" style="max-width:100%;text-overflow:ellipsis;"></select>
-    <button class="pill" id="detailsBtn">ⓘ Details</button>
   </div>
 
-  <div id="statsArea"><div class="muted">Loading…</div></div>
+  <div class="panel" id="panelDef">
+    <button class="phead" data-panel="panelDef">
+      <span class="chev">▶</span>
+      <span class="ptitle">Definition</span>
+      <span class="psub">What this ruleset asks for</span>
+    </button>
+    <div class="pbody">
+      <div class="details show" id="detailsPane"></div>
+    </div>
+  </div>
 
-  <div class="details" id="detailsPane"></div>
+  <div class="panel open" id="panelRep">
+    <button class="phead" data-panel="panelRep">
+      <span class="chev">▶</span>
+      <span class="ptitle">Reporting</span>
+      <span class="psub">How it is actually performing</span>
+    </button>
+    <div class="pbody">
+      <div id="statsArea"><div class="muted">Loading…</div></div>
+    </div>
+  </div>
+
+  <div class="panel open" id="panelAI">
+    <button class="phead" data-panel="panelAI">
+      <span class="chev">▶</span>
+      <span class="ptitle">Analysis</span>
+      <span class="psub">What to change, and why</span>
+    </button>
+    <div class="pbody">
+      <div id="assistArea"></div>
+    </div>
+  </div>
+
+  <div class="panel ops" id="panelOps">
+    <button class="phead" data-panel="panelOps">
+      <span class="chev">▶</span>
+      <span class="ptitle">Operations</span>
+      <span class="psub">Acts on the live server</span>
+    </button>
+    <div class="pbody">
+      <div class="meta" style="margin-bottom:10px;">Ends every room in progress. Any shared or personal screen still connected drops back to its start screen.</div>
+      <button id="resetRooms" style="background:transparent;border:1.5px solid rgba(192,57,43,.55);color:#ff8b7d;
+        border-radius:10px;padding:9px 14px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;">
+        Close every open room
+      </button>
+      <span id="resetRoomsMsg" style="margin-left:10px;font-size:12px;opacity:.75;"></span>
+      <div id="buildFooter" style="margin:16px 0 0;font-size:10px;line-height:1.6;opacity:.6;"></div>
+    </div>
+  </div>
 
   <div class="footer">View-only. Data reads live from the game database.</div>
 </div>
@@ -679,17 +738,6 @@ async function loadStats(){
     modeNote+
     `<div class="meta">${s.total} answers · steals ${stealStr} · by mode ${modeStr}</div>`+
     (emptyRuleset?'<div class="warn">No answers recorded under this ruleset yet \u2014 the tables below are empty. Play a few games, then Analyze.</div>':'')+
-    '<div class="assistbox">'+
-      '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">'+
-        '<div><div class="section" style="margin:0;">Calibration Assistant</div>'+
-        '<div class="muted" style="font-size:11px;margin-top:2px;">Reads the numbers below and says what (if anything) to change — and where we still lack data.</div></div>'+
-        '<div style="display:flex;gap:8px;align-items:center;">'+
-          '<button id="assistCopyAll" class="copyall" style="display:none;">Copy analysis</button>'+
-          '<button id="assistBtn" class="assistbtn">Analyze</button>'+
-        '</div>'+
-      '</div>'+
-      '<div id="assistOut" style="margin-top:12px;"></div>'+
-    '</div>'+
     '<div class="section">By Tier · All Modes</div>'+tierTable(s.byTier||{}, s.tiersByMode||{}, s.byVersion||{})+
     '<div class="section">Drift From Target · By Ruleset Version</div>'+versionChart(s.byVersion||{})+
     '<hr style="border:none;border-top:1px solid rgba(255,255,255,.12);margin:26px 0 18px;">'+
@@ -698,6 +746,25 @@ async function loadStats(){
     modeSelectorHTML()+
     matrixTable(s);
   wireModeSelector();
+  renderAssistPanel();
+}
+
+// The assistant lives in its own panel now, so it is rendered separately from the
+// tables — but it still has to be re-rendered whenever the ruleset changes, since
+// a stale analysis of the previous version is worse than none.
+function renderAssistPanel(){
+  const box=document.getElementById('assistArea');
+  if(!box) return;
+  LAST_ANALYSIS='';
+  box.innerHTML=
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">'+
+      '<div class="muted" style="font-size:11px;text-align:left;padding:0;max-width:60%;">Reads the numbers above \u2014 including every earlier ruleset \u2014 and says whether the last change helped, and what to do next.</div>'+
+      '<div style="display:flex;gap:8px;align-items:center;">'+
+        '<button id="assistCopyAll" class="copyall" style="display:none;">Copy analysis</button>'+
+        '<button id="assistBtn" class="assistbtn">Analyze</button>'+
+      '</div>'+
+    '</div>'+
+    '<div id="assistOut" style="margin-top:12px;"></div>';
   const ab=document.getElementById('assistBtn');
   if(ab) ab.addEventListener('click',runAssistant);
   const ca=document.getElementById('assistCopyAll');
@@ -745,18 +812,23 @@ function renderDetails(){
 document.getElementById('rsSelect').addEventListener('change',e=>{
   SELECTED=Number(e.target.value);
   loadStats();
-  if(document.getElementById('detailsPane').classList.contains('show')) renderDetails();
+  renderDetails();          // cheap, and the panel may be open — never let it go stale
 });
-document.getElementById('detailsBtn').addEventListener('click',()=>{
-  const pane=document.getElementById('detailsPane');
-  const open=pane.classList.toggle('show');
-  if(open) renderDetails();
+
+// Panels open and close in place. The Details button used to sit at the top while
+// the pane it opened rendered below every table, so pressing it looked like nothing
+// happened; a panel's body is inside the panel, which removes the problem entirely.
+document.querySelectorAll('.phead').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const p=document.getElementById(b.dataset.panel);
+    if(p) p.classList.toggle('open');
+  });
 });
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live.
-const ADMIN_VERSION='3.19';
-const ADMIN_BUILT_AT='2026-08-01T13:00:17Z';   // UTC; shown in the device's local time
+const ADMIN_VERSION='3.20';
+const ADMIN_BUILT_AT='2026-08-01T13:10:18Z';   // UTC; shown in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -803,6 +875,7 @@ document.getElementById('resetRooms').addEventListener('click', async ()=>{
   sel.innerHTML=RULESETS.map(r=>`<option value="${r.difficulty_ruleset_version}">Ruleset ${r.difficulty_ruleset_version}${short(r.note)}</option>`).join('');
   SELECTED=RULESETS[RULESETS.length-1].difficulty_ruleset_version; // newest
   sel.value=SELECTED;
+  renderDetails();          // panel starts closed, but its contents must be ready
   loadStats();
 })();
 </script>
