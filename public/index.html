@@ -501,14 +501,21 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       </div>
     </div>
 
+    <!-- The QR carries the code inside it, so a camera goes straight into the room
+         with nothing typed. Whoever is joining here is standing next to you — hold
+         the phone out, they scan. The code is the fallback for a camera that won't
+         cooperate, so it sits with the address it has to be typed into, not on its
+         own. (The shared screen keeps the code large: scanning a TV from a sofa
+         often fails, and there the number IS the path.) -->
     <div id="tvLive" style="display:none;">
       <div style="background:rgba(255,255,255,.05);border:2px solid rgba(212,168,67,.45);border-radius:14px;padding:18px 16px;text-align:center;">
-        <div style="font-size:13px;color:rgba(255,255,255,.6);">Game code</div>
-        <div id="tvRoomCode" style="font-family:'Playfair Display',serif;font-size:56px;font-weight:900;color:var(--gold-hi);letter-spacing:11px;line-height:1.15;text-indent:11px;">····</div>
-        <div style="height:1px;background:rgba(255,255,255,.12);margin:14px 0;"></div>
-        <div style="font-size:13px;color:rgba(255,255,255,.6);margin-bottom:10px;">Or scan to follow on a personal screen</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.6);margin-bottom:12px;">Scan to follow on a personal screen</div>
         <div id="tvQr" style="display:flex;justify-content:center;"></div>
-        <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:10px;line-height:1.45;">or go to <b id="tvPlayUrl" style="color:var(--gold-hi);"></b></div>
+        <div style="height:1px;background:rgba(255,255,255,.12);margin:16px 0 12px;"></div>
+        <div style="font-size:12.5px;color:rgba(255,255,255,.5);line-height:1.6;">
+          No camera? Go to <b id="tvPlayUrl" style="color:var(--gold-hi);"></b><br>
+          and enter <b id="tvRoomCode" style="font-family:'Playfair Display',serif;font-size:22px;font-weight:900;color:var(--gold-hi);letter-spacing:3px;vertical-align:-2px;">····</b>
+        </div>
       </div>
       <div id="tvViewers" style="font-size:12px;color:var(--teal);font-weight:700;margin-top:10px;text-align:center;min-height:16px;"></div>
       <button class="mbtn" id="tvAddScreen" style="width:100%;margin-top:10px;background:transparent;border:1.5px dashed rgba(255,255,255,.25);color:rgba(255,255,255,.7);font-size:13px;">📺 Add a shared screen</button>
@@ -883,8 +890,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.81';
-const APP_BUILT_AT='2026-08-01T14:14:07Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.82';
+const APP_BUILT_AT='2026-08-01T14:21:58Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
