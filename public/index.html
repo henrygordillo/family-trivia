@@ -340,10 +340,15 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .judge-line{font-size:12px;color:rgba(255,255,255,.5);padding:4px 0 2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
 .judge-line-name{color:var(--purple-hi);font-weight:700;}
 .judge-line-turn{color:rgba(255,255,255,.3);font-size:11px;}
-.back-btn{background:none;border:none;cursor:pointer;font-family:'Outfit',sans-serif;font-size:11px;
-  font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.2);
-  padding:8px 0;text-align:center;transition:color .2s;width:100%;}
-.back-btn:hover{color:rgba(255,255,255,.5);}
+/* A mis-tapped tile is a real and common mistake, and this is the way out of it.
+   At 20% opacity in 11px caps it read as absent — people didn't know they could.
+   The tile isn't consumed until the question resolves, so backing out costs
+   nothing: it stays playable. */
+.back-btn{background:var(--card2);border:1.5px solid var(--card3);cursor:pointer;
+  font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:1.4px;
+  text-transform:uppercase;color:var(--muted);border-radius:10px;
+  padding:11px 0;text-align:center;transition:all .2s;width:100%;margin-top:10px;}
+.back-btn:active{transform:scale(.98);}
 
 /* ── End ── */
 .end-title{font-family:'Playfair Display',serif;font-weight:900;font-size:clamp(52px,12vw,100px);
@@ -727,7 +732,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
   </div>
 
-  <button class="back-btn" id="backBtn" style="display:none;">← Back to Board</button>
+  <button class="back-btn" id="backBtn" style="display:none;">← Wrong tile? Back to the board</button>
 </div>
 
 <!-- END -->
@@ -914,8 +919,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.89';
-const APP_BUILT_AT='2026-08-01T15:55:23Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.90';
+const APP_BUILT_AT='2026-08-01T16:15:12Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -2786,11 +2791,11 @@ function autoRotateJudge(){
 function markUsed(){ G.used[`${G.curCat}-${G.curQ}`]=true; }
 
 function showSteal(stealIdx){
-  // Hide regen and back to board during steal
+  // Regen goes — the question has been heard, rewriting it now would be unfair.
+  // Backing out stays: the host is the one who knows whether this tile was tapped
+  // by mistake, and that judgement doesn't stop being theirs mid-steal.
   var rb=document.getElementById('regenBtn');
   if(rb) rb.style.display='none';
-  var bb=document.getElementById('backBtn');
-  if(bb) bb.style.display='none';
   setStep(2); showPhase('phResult');
   const stealPts=Math.round(G.curPts/2);
   const wrongName=G.players[G.answererIdx];
@@ -2856,11 +2861,9 @@ function noSteal(){
 }
 
 function showFinalReveal(){
-  // Restore regen and back to board
+  // Regen comes back; the back-out never left.
   var rb=document.getElementById('regenBtn');
   if(rb) rb.style.display=G.judgeMode==='human'?'block':'none';
-  var bb=document.getElementById('backBtn');
-  if(bb) bb.style.display='';
   const qd=G.qData[`${G.curCat}-${G.curQ}`];
 
   // THE REVEAL. Until now the answer has never left this device; from here the
@@ -3444,17 +3447,23 @@ function showSplash(sp){
   _hostSplashT=setTimeout(()=>w.classList.remove('show'), 4000);
 }
 
-// Greyed with a reason, never hidden — a button that vanishes teaches nothing.
+// Two different kinds of unavailable, so two different treatments.
+// Out of re-deals is a LIVE rule you're bumping into — grey it and say so, because
+// the count is still information. Once a question has been answered the button is
+// dead for the rest of the game and never comes back, so it just goes: a
+// permanently dead control is clutter, not a lesson.
 function syncDealAgainBtn(){
   const b=document.getElementById('dealAgainBtn');
   if(!b) return;
   const st=redealState();
+  if(_answeredThisBoard){ b.style.display='none'; return; }   // gone for good
+  b.style.display='';
   b.disabled = !st.ok;
   b.style.opacity = st.ok ? '' : '.4';
   b.style.cursor  = st.ok ? '' : 'default';
   b.textContent = st.ok
     ? `\u21bb Deal again${_redealsUsed?' ('+st.left+' left)':''}`
-    : `\u21bb ${st.why}`;
+    : '\u21bb No re-deals left';
 }
 
 async function dealAgain(){

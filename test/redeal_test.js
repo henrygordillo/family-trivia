@@ -56,6 +56,11 @@ chk('button states the reason', btn.textContent.includes('No re-deals left'));
 api.used=0; api.answered=true;
 chk('answered board blocks re-deal even with budget', !api.redealState().ok);
 chk('answered reason wins', api.redealState().why==='The game has started');
+// Out of re-deals is a live rule (grey it); answered is permanent (remove it).
+api.syncDealAgainBtn();
+chk('button removed once a question is answered', btn.style.display==='none');
+api.answered=false; api.used=2; api.syncDealAgainBtn();
+chk('but only greyed when merely out of re-deals', btn.style.display==='' && btn.disabled===true);
 
 // game row written once, on first play only
 api.answered=false; api.recorded=false; gamePosts=0;
@@ -97,6 +102,13 @@ chk('setup pair wired',  idx.includes("getElementById('tvBtn')") && idx.includes
 chk('board pair wired',  idx.includes("getElementById('joinBtnBoard')") && idx.includes("getElementById('addScreenBtnBoard')"));
 chk('old setup strip gone', !idx.includes('tvBtnLabel') && !idx.includes('joinQr'));
 chk('both places report attached screens', (idx.match(/joinWatchers/g)||[]).length>=2);
+
+// A mis-tapped tile must always be escapable — the host decides, including
+// mid-steal. And backing out must un-mark the pick, or the picks-this-round
+// indicator shows a turn nobody took.
+chk('back-out is a real button, not 20% grey', /\.back-btn\{background:var\(--card2\)/.test(idx));
+chk('back-out survives a steal', !/showSteal[\s\S]{0,320}backBtn[\s\S]{0,80}display='none'/.test(idx));
+chk('back-out un-marks the pick', /function backToBoard\(\)[\s\S]{0,700}pickedThisRound=G\.pickedThisRound\.filter/.test(idx));
 
 console.log(fail?('\n'+fail+' FAILED'):'\nall re-deal checks passed');
 process.exit(fail?1:0);
