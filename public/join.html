@@ -97,10 +97,12 @@ body{
 /* Same two chips as the shared screen and the host — the conditions of play read
    as facts, not as a caption. No logo here: this is the tightest of the three
    screens and the player already knows what they opened. */
-.setupline{display:flex;gap:8px;justify-content:center;}
-.setupline .chip{border:1px solid rgba(255,255,255,.22);border-radius:12px;
-  padding:6px 13px;font-size:11.5px;line-height:1.3;font-weight:700;
-  color:rgba(255,255,255,.82);text-align:center;white-space:nowrap;}
+.setupline{display:flex;gap:6px;justify-content:center;}
+/* Tags, not buttons — states you read, not controls you press. */
+.setupline .chip{background:rgba(255,255,255,.07);border-radius:5px;
+  padding:4px 8px;font-size:10px;line-height:1.2;font-weight:700;
+  letter-spacing:.6px;text-transform:uppercase;color:rgba(255,255,255,.6);
+  white-space:nowrap;}
 .jright{display:flex;flex-direction:column;flex:1;min-height:0;gap:12px;}
 @media (orientation:landscape){
   .orow .oname{font-size:11px;}
@@ -336,8 +338,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='4.11';
-const JOIN_BUILT_AT='2026-08-01T13:45:56Z';
+const JOIN_VERSION='4.12';
+const JOIN_BUILT_AT='2026-08-01T14:14:07Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -754,8 +756,8 @@ function render(S){
   if(_sl){
     const d = S.gameMode==='easy' ? 'Easier' : S.gameMode==='hard' ? 'Harder' : 'Normal';
     const j = S.judgeMode==='ai' ? 'AI' : 'Human';
-    _sl.innerHTML = `<span class="chip">${d}<br>difficulty</span>`+
-                    `<span class="chip">${j}<br>judge</span>`;
+    _sl.innerHTML = `<span class="chip">${d} difficulty</span>`+
+                    `<span class="chip">${j} judge</span>`;
   }
   _lastHeard=Date.now();
   _stale=false;          // we're hearing the judge again

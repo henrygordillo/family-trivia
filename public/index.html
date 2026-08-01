@@ -95,19 +95,25 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 /* ── Board ── */
 .board-title-row{display:flex;align-items:center;gap:10px;}
-/* Two lines, so the row is tall enough for the chips to sit beside it rather
-   than adding a row of their own. */
-.game-title{font-family:'Playfair Display',serif;font-size:clamp(16px,3.5vw,21px);font-weight:700;color:var(--gold-hi);line-height:1.15;flex:0 0 auto;}
-.hchips{display:flex;gap:6px;margin-left:auto;flex:0 0 auto;}
-/* NOT called .chip — the setup screen already owns that name with a cream fill,
-   and inheriting it turned these into solid blocks. */
-.hchip{border:1px solid rgba(255,255,255,.22);background:transparent;border-radius:12px;
-  padding:6px 11px;font-size:11px;line-height:1.3;font-weight:700;
-  color:rgba(255,255,255,.82);text-align:center;white-space:nowrap;
-  font-family:'Outfit',sans-serif;}
-/* A failed write is invisible twice over, so it gets its own chip rather than
-   being appended to a line nobody reads. */
-.hchip.trouble{border-color:rgba(192,57,43,.6);color:#ff8b7d;cursor:pointer;}
+.game-title{font-family:'Playfair Display',serif;font-size:clamp(16px,3.5vw,22px);font-weight:700;color:var(--gold-hi);flex:0 0 auto;}
+.hchips{display:flex;gap:6px;margin-left:auto;flex:0 0 auto;align-items:center;}
+/* Tags, not buttons. A bordered box on a screen full of tappable things reads as
+   something you press — these are states, so they get a faint ground and no
+   outline. NOT called .chip: the setup screen already owns that name with a cream
+   fill, and inheriting it turned these into solid blocks. */
+.hchip{background:rgba(255,255,255,.07);border:none;border-radius:5px;
+  padding:4px 8px;font-size:10px;line-height:1.2;font-weight:700;
+  letter-spacing:.6px;text-transform:uppercase;color:rgba(255,255,255,.6);
+  white-space:nowrap;font-family:'Outfit',sans-serif;}
+/* A failed write is invisible twice over, so it stays loud while the rest go quiet. */
+.hchip.trouble{background:rgba(192,57,43,.22);color:#ff8b7d;cursor:pointer;}
+.boardlinks{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:8px;flex-wrap:wrap;}
+.boardlink{display:flex;align-items:center;gap:5px;background:transparent;border:none;cursor:pointer;
+  color:var(--muted);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;
+  letter-spacing:1px;text-transform:uppercase;padding:4px;}
+.boardlink .bl-i{font-size:14px;}
+.bl-sep{width:1px;height:14px;background:rgba(255,255,255,.15);}
+.bl-watchers{text-align:center;font-size:11px;color:var(--muted);margin-top:2px;min-height:14px;}
 .new-game-btn{background:rgba(192,57,43,.2);border:1.5px solid rgba(192,57,43,.6);border-radius:6px;
   padding:5px 12px;cursor:pointer;font-family:'Outfit',sans-serif;font-size:10px;font-weight:700;
   letter-spacing:1px;text-transform:uppercase;color:#ff8a80;white-space:nowrap;flex-shrink:0;transition:all .2s;}
@@ -496,11 +502,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
 
     <div id="tvLive" style="display:none;">
-      <div style="background:rgba(255,255,255,.05);border:2px solid rgba(212,168,67,.45);border-radius:14px;padding:16px;text-align:center;">
+      <div style="background:rgba(255,255,255,.05);border:2px solid rgba(212,168,67,.45);border-radius:14px;padding:18px 16px;text-align:center;">
         <div style="font-size:13px;color:rgba(255,255,255,.6);">Game code</div>
-        <div id="tvRoomCode" style="font-family:'Playfair Display',serif;font-size:40px;font-weight:900;color:var(--gold-hi);letter-spacing:8px;line-height:1.2;">····</div>
-        <div style="height:1px;background:rgba(255,255,255,.12);margin:12px 0;"></div>
-        <div style="font-size:13px;color:rgba(255,255,255,.6);margin-bottom:8px;">Or scan to follow on a personal screen</div>
+        <div id="tvRoomCode" style="font-family:'Playfair Display',serif;font-size:56px;font-weight:900;color:var(--gold-hi);letter-spacing:11px;line-height:1.15;text-indent:11px;">····</div>
+        <div style="height:1px;background:rgba(255,255,255,.12);margin:14px 0;"></div>
+        <div style="font-size:13px;color:rgba(255,255,255,.6);margin-bottom:10px;">Or scan to follow on a personal screen</div>
         <div id="tvQr" style="display:flex;justify-content:center;"></div>
         <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:10px;line-height:1.45;">or go to <b id="tvPlayUrl" style="color:var(--gold-hi);"></b></div>
       </div>
@@ -555,7 +561,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <!-- BOARD -->
 <div id="board" class="screen">
   <div class="board-title-row">
-    <div class="game-title">Trivia<br>Night</div>
+    <div class="game-title">Trivia Night</div>
     <div class="hchips" id="boardSetupLine"></div>
   </div>
   <table class="ptable" id="ptable"></table>
@@ -568,22 +574,15 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <button class="new-game-btn" id="dedupBtn" style="flex:0 0 auto;padding:8px 12px;background:rgba(124,58,237,.2);border-color:rgba(124,58,237,.5);color:#a78bfa;display:none;">🐛</button>
   </div>
 
-  <!-- Latecomers need this mid-game, so it lives under the board rather than as a
-       chip in the title bar. Same two doors as everywhere else. -->
-  <button id="joinBtnBoard" style="width:100%;margin-top:6px;display:flex;align-items:center;gap:12px;
-    background:var(--card2);border:1.5px solid var(--card3);border-radius:12px;cursor:pointer;
-    padding:9px 12px;text-align:left;font-family:'Outfit',sans-serif;">
-    <span id="joinQrBoard" style="flex:0 0 auto;display:flex;"></span>
-    <span style="flex:1;min-width:0;">
-      <span style="display:block;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;">Connect a personal screen</span>
-      <span id="joinCodeBoard" style="display:block;font-family:'Playfair Display',serif;font-size:26px;font-weight:900;color:var(--ink);letter-spacing:4px;line-height:1.15;">····</span>
-      <span id="joinUrlBoard" style="display:block;font-size:10px;color:var(--muted);line-height:1.35;"></span>
-    </span>
-  </button>
-
-  <div style="display:flex;justify-content:center;margin-top:6px;">
-    <button id="addScreenBtnBoard" style="display:flex;align-items:center;gap:5px;background:transparent;border:none;cursor:pointer;color:var(--muted);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px;"><span style="font-size:14px;">📺</span> Add a shared screen</button>
+  <!-- Both doors are links, not panels. A permanent code-and-QR card cost a third
+       of the board for something used once a night — and the shared screen already
+       shows the code all game, which is how people actually join. -->
+  <div class="boardlinks">
+    <button class="boardlink" id="addScreenBtnBoard"><span class="bl-i">📺</span> Add a shared screen</button>
+    <span class="bl-sep"></span>
+    <button class="boardlink" id="joinBtnBoard"><span class="bl-i">📱</span> Connect a personal screen</button>
   </div>
+  <div class="bl-watchers" id="joinWatchersBoard"></div>
 </div>
 
 <!-- QUESTION SCREEN -->
@@ -884,8 +883,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.80';
-const APP_BUILT_AT='2026-08-01T14:02:12Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.81';
+const APP_BUILT_AT='2026-08-01T14:14:07Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1511,15 +1510,11 @@ function syncJoinBtns(){
   // panel to find out whether anybody is actually watching.
   const w=document.getElementById('joinWatchers');
   if(w) w.textContent = screensLine();
-  // The board carries the same strip, so a latecomer can join mid-game.
-  const lblB=document.getElementById('joinCodeBoard');
-  const urlB=document.getElementById('joinUrlBoard');
-  if(lblB) lblB.textContent = TV_CODE || '\u00b7\u00b7\u00b7\u00b7';
-  if(urlB) urlB.textContent = TV_CODE
-    ? ('Scan the QR, or enter the code at '+location.host+'/join')
-    : 'Opening a room\u2026';
+  // The board shows only who's attached — the code and QR live in the sheet now.
+  const wB=document.getElementById('joinWatchersBoard');
+  if(wB) wB.textContent = screensLine();
 
-  [box, document.getElementById('joinQrBoard')].forEach(b=>{
+  [box].forEach(b=>{
     if(!b) return;
     if(!TV_CODE){ b.innerHTML=''; b.dataset.code=''; return; }
     if(b.dataset.code===TV_CODE) return;        // already drawn for this room
@@ -1578,8 +1573,10 @@ function showLive(code){
   box.innerHTML='';
   const img=document.createElement('img');
   img.alt='Scan to watch';
-  img.style.cssText='width:120px;height:120px;background:#fff;padding:6px;border-radius:8px;display:block;';
-  img.src='https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=0&data='+encodeURIComponent(url);
+  // This sheet is now the only place the code and QR appear, so make both readable
+  // at arm's length — someone is holding the phone out for another person to scan.
+  img.style.cssText='width:190px;height:190px;background:#fff;padding:8px;border-radius:10px;display:block;';
+  img.src='https://api.qrserver.com/v1/create-qr-code/?size=380x380&margin=0&data='+encodeURIComponent(url);
   img.onerror=()=>{ img.style.display='none'; };
   box.appendChild(img);
 
@@ -3430,9 +3427,9 @@ function renderSetupLine(){
   const diff = gameMode==='easy' ? 'Easier' : gameMode==='hard' ? 'Harder' : 'Normal';
   const judge = (G.judgeMode==='ai') ? 'AI' : 'Human';
   el.innerHTML =
-    `<span class="hchip">${diff}<br>difficulty</span>`+
-    `<span class="hchip">${judge}<br>judge</span>`+
-    (DB_TROUBLE ? `<span class="hchip trouble" id="dbTroubleChip">\u26a0 Dedup<br>offline</span>` : '');
+    `<span class="hchip">${diff} difficulty</span>`+
+    `<span class="hchip">${judge} judge</span>`+
+    (DB_TROUBLE ? `<span class="hchip trouble" id="dbTroubleChip">\u26a0 Dedup offline</span>` : '');
   const tc=document.getElementById('dbTroubleChip');
   if(tc) tc.onclick=showDbTrouble;
 }
