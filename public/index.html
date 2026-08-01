@@ -154,14 +154,18 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
    on the tiles still wins when the screen is short, so a cramped phone scrolls
    exactly as it did before. */
 .cat-grid{display:grid;gap:5px;flex:1;min-height:0;}
-/* Categories like "Ancient Civilizations" have no space to break at inside a 70px
-   column, so without hyphenation the browser either overflows or shrinks the text
-   to nothing. Hyphens let a long word split and the type stay readable. */
+/* A single long word — SUPERHEROES, CIVILIZATIONS — has nowhere to break inside a
+   70px column. `overflow-wrap:break-word` is NOT enough here: it breaks text after
+   the box is sized, but doesn't reduce the box's minimum width, so the cell still
+   gets sized to fit the whole word and overflows. `anywhere` is the value that
+   actually shrinks min-content. Paired with hyphens:auto the browser prefers a
+   proper hyphenated break and only falls back to a hard split when it can't find one. */
 .cat-head{background:rgba(255,255,255,.04);border:1px solid rgba(212,168,67,.18);border-radius:10px;
   display:flex;align-items:center;justify-content:center;text-align:center;
-  padding:8px 4px;min-height:46px;font-family:'Playfair Display',serif;
+  padding:8px 4px;min-height:46px;overflow:hidden;}
+.cat-head .ct{min-width:0;max-width:100%;font-family:'Playfair Display',serif;
   font-size:clamp(10.5px,2.3vw,14px);font-weight:700;color:var(--gold-hi);line-height:1.22;
-  hyphens:auto;-webkit-hyphens:auto;overflow-wrap:break-word;word-break:normal;}
+  hyphens:auto;-webkit-hyphens:auto;overflow-wrap:anywhere;}
 .q-tile{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:10px;
   display:flex;align-items:center;justify-content:center;
   min-height:42px;font-family:'Playfair Display',serif;
@@ -893,8 +897,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.83';
-const APP_BUILT_AT='2026-08-01T14:27:45Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.84';
+const APP_BUILT_AT='2026-08-01T14:44:09Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -2359,7 +2363,12 @@ function buildBoard(S, interactive){
   S.categories.forEach(cat=>{
     const h=document.createElement('div');
     h.className='cat-head';
-    h.textContent=cat.toUpperCase();
+    // Real element, not a bare text node: an anonymous flex item can't be given
+    // min-width:0, so it refuses to shrink and pushes the column wide.
+    const ct=document.createElement('span');
+    ct.className='ct';
+    ct.textContent=cat.toUpperCase();
+    h.appendChild(ct);
     grid.appendChild(h);
   });
 
