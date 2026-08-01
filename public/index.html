@@ -196,8 +196,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 /* ── Question screen ── */
 #qscreen{padding:14px;gap:10px;}
-.q-hd{display:flex;align-items:center;gap:10px;}
-.q-hd .judge-indicator{margin-left:auto;}
+.q-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;}
 .q-title{font-family:'Playfair Display',serif;font-size:clamp(15px,3vw,20px);font-weight:700;color:var(--gold-hi);}
 .q-badges{display:flex;gap:6px;flex-wrap:wrap;}
 .qbadge{padding:4px 12px;border-radius:100px;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;}
@@ -345,9 +344,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
    At 20% opacity in 11px caps it read as absent — people didn't know they could.
    The tile isn't consumed until the question resolves, so backing out costs
    nothing: it stays playable. */
-.back-btn{flex:0 0 auto;background:var(--card2);border:1.5px solid var(--card3);cursor:pointer;
-  font-family:'Outfit',sans-serif;font-size:19px;font-weight:700;line-height:1;
-  color:var(--gold-hi);border-radius:10px;padding:6px 12px;
+/* Sized to sit beside the regen and read-aloud buttons, not to compete with them. */
+.back-btn{flex-shrink:0;background:var(--card2);border:1.5px solid var(--card3);cursor:pointer;
+  font-family:'Outfit',sans-serif;font-size:14px;font-weight:700;line-height:1;
+  color:var(--gold-hi);border-radius:10px;padding:8px 10px;width:auto;
   transition:all .2s;}
 .back-btn:active{transform:scale(.94);}
 
@@ -618,12 +618,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 <!-- QUESTION SCREEN -->
 <div id="qscreen" class="screen">
-  <!-- A mis-tapped tile needs an exit that's FINDABLE. This used to be the last
-       element on the screen, below every phase panel — off the bottom of a phone,
-       so nobody knew it existed. Top-left is where a back belongs, and it's the
-       same corner the phone's own back gesture occupies. -->
   <div class="q-hd">
-    <button class="back-btn" id="backBtn" style="display:none;" aria-label="Back to the board">←</button>
     <div class="game-title">Trivia Night</div>
     <div class="judge-indicator" id="qJudgeIndicator"></div>
   </div>
@@ -658,7 +653,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="phQuestion" style="display:none;flex-direction:column;gap:12px;">
       <div class="q-badges" id="qBadges" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
       <div class="q-body"><div class="q-text" id="qText"></div></div>
+      <!-- A mis-tapped tile needs an exit that's FINDABLE. This lived at the very
+           bottom of the screen, below every phase panel — off the bottom of a
+           phone, so nobody knew it was there. It belongs with the other things
+           you do TO a question: regenerate it, read it out, back out of it. -->
       <div class="q-foot" id="qFootNormal" style="flex-wrap:nowrap;gap:6px;align-items:center;">
+        <button class="back-btn" id="backBtn" style="display:none;" title="Wrong tile — back to the board" aria-label="Wrong tile — back to the board">↩</button>
         <button class="regen-btn" id="regenBtn" style="display:none;width:auto;padding:8px 10px;flex-shrink:0;font-size:14px;">🔄</button>
         <button class="read-btn" id="readBtn" style="flex-shrink:0;padding:8px 10px;">🔊</button>
         <button class="next-btn" id="nextBtn" style="flex:1;justify-content:center;">Ready to Answer →</button>
@@ -924,8 +924,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.91';
-const APP_BUILT_AT='2026-08-01T16:20:43Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.92';
+const APP_BUILT_AT='2026-08-01T16:31:03Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{

@@ -79,8 +79,12 @@ body{
   font-size:clamp(15px,2.4vw,52px);flex:0 0 auto;}
 .chips{display:flex;gap:.7vw;margin-left:auto;flex:0 0 auto;align-items:center;}
 /* Tags, not buttons — a bordered box reads as something you press, and nothing on
-   this screen is pressable. Faint ground, no outline, one line each. */
-.chip{background:rgba(255,255,255,.07);border-radius:.4vw;
+   this screen is pressable. Faint ground, no outline, one line each.
+   NOT called .chip: the player cards already own that name for "picked this round"
+   and the hit rate, and a bare .chip rule leaked a grey box, uppercasing and
+   white-space:nowrap into them — which widened the cards and crushed the name row
+   the streak badge sits in. */
+.gtag{background:rgba(255,255,255,.07);border-radius:.4vw;
   padding:.55vh .9vw;font-size:clamp(9px,.95vw,20px);line-height:1.2;
   font-weight:700;letter-spacing:.06vw;text-transform:uppercase;
   color:rgba(255,255,255,.6);white-space:nowrap;}
@@ -497,8 +501,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='7.14';
-const TV_BUILT_AT='2026-08-01T15:55:23Z';
+const TV_VERSION='7.15';
+const TV_BUILT_AT='2026-08-01T16:35:46Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -968,8 +972,8 @@ function renderSetupLine(S){
   const diff = S.gameMode==='easy' ? 'Easier' : S.gameMode==='hard' ? 'Harder' : 'Normal';
   const judge = S.judgeMode==='ai' ? 'AI' : 'Human';
   el.innerHTML =
-    `<span class="chip">${diff} difficulty</span>`+
-    `<span class="chip">${judge} judge</span>`;
+    `<span class="gtag">${diff} difficulty</span>`+
+    `<span class="gtag">${judge} judge</span>`;
 }
 
 function render(S){

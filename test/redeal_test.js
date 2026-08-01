@@ -106,13 +106,14 @@ chk('both places report attached screens', (idx.match(/joinWatchers/g)||[]).leng
 // A mis-tapped tile must always be escapable — the host decides, including
 // mid-steal. And backing out must un-mark the pick, or the picks-this-round
 // indicator shows a turn nobody took.
-chk('back-out is a real button, not 20% grey', /\.back-btn\{flex:0 0 auto;background:var\(--card2\)/.test(idx));
-// It must be ABOVE the fold. Buried at the bottom of the question screen it was
-// ~6000 chars of markup down and nobody ever found it.
+chk('back-out is a real button, not 20% grey', /\.back-btn\{flex-shrink:0;background:var\(--card2\)/.test(idx));
+// It must sit WITH the other things you do to a question — regenerate, read out,
+// back out. At the bottom of the screen it was ~6000 chars down and invisible.
 {
-  const i=idx.indexOf('id="backBtn"');
-  const q=idx.lastIndexOf('<div id="qscreen" class="screen">', i);
-  chk('back-out sits in the question header, not the basement', i-q < 800);
+  const foot=idx.slice(idx.indexOf('id="qFootNormal"'), idx.indexOf('id="qFootConfirm"'));
+  chk('back-out is in the question button row', foot.includes('id="backBtn"'));
+  chk('...beside regen and read-aloud',
+      foot.includes('id="regenBtn"') && foot.includes('id="readBtn"'));
 }
 chk('back-out survives a steal', !/showSteal[\s\S]{0,320}backBtn[\s\S]{0,80}display='none'/.test(idx));
 chk('back-out un-marks the pick', /function backToBoard\(\)[\s\S]{0,700}pickedThisRound=G\.pickedThisRound\.filter/.test(idx));
