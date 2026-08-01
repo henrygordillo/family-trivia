@@ -34,5 +34,25 @@ chk('all three screens render a streak badge', all.every(s=>s.includes('\u{1F525
 chk('all three use the same +/-2 threshold',
     all.every(s=>/st\s*>=\s*2/.test(s) && /st\s*<=\s*-2/.test(s)));
 
+// An icon-only button whose glyph matches its own background is invisible. The
+// back-out shipped once at 1.31:1 (light gold on cream) — check the contrast maths
+// rather than trusting that it "looks fine" in a diff.
+{
+  const idx=fs.readFileSync('public/index.html','utf8');
+  const varOf=n=>{ const m=idx.match(new RegExp('--'+n+':\\s*(#[0-9a-fA-F]{6})')); return m&&m[1]; };
+  const rule=idx.match(/\.back-btn\{[\s\S]*?\}/)[0];
+  const fg=(rule.match(/color:var\(--([\w-]+)\)/)||[])[1];
+  const bg=(rule.match(/background:var\(--([\w-]+)\)/)||[])[1];
+  const hx=c=>[1,3,5].map(i=>parseInt(c.substr(i,2),16));
+  const lum=c=>{ const [r,g,b]=hx(c).map(v=>v/255)
+      .map(v=>v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4));
+    return .2126*r+.7152*g+.0722*b; };
+  const l=[lum(varOf(fg)),lum(varOf(bg))].sort((a,b)=>b-a);
+  const ratio=(l[0]+.05)/(l[1]+.05);
+  chk('back-out arrow contrasts with its button ('+ratio.toFixed(2)+':1)', ratio>=4.5);
+  const size=Number((rule.match(/font-size:(\d+)px/)||[])[1]);
+  chk('back-out glyph is large enough ('+size+'px)', size>=18);
+}
+
 console.log(fail?('\n'+fail+' FAILED'):'\nno tag-class collisions');
 process.exit(fail?1:0);

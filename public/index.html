@@ -344,11 +344,15 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
    At 20% opacity in 11px caps it read as absent — people didn't know they could.
    The tile isn't consumed until the question resolves, so backing out costs
    nothing: it stays playable. */
-/* Sized to sit beside the regen and read-aloud buttons, not to compete with them. */
+/* Cream ground with a DARK arrow. The first attempt put --gold-hi (light gold) on
+   --card2 (cream) — near-identical values, so the arrow was invisible. Sized to
+   sit beside regen and read-aloud, but the glyph is bigger than their labels
+   because an icon alone has to carry the whole meaning. */
 .back-btn{flex-shrink:0;background:var(--card2);border:1.5px solid var(--card3);cursor:pointer;
-  font-family:'Outfit',sans-serif;font-size:14px;font-weight:700;line-height:1;
-  color:var(--gold-hi);border-radius:10px;padding:8px 10px;width:auto;
+  font-family:'Outfit',sans-serif;font-size:21px;font-weight:700;line-height:1;
+  color:var(--ink);border-radius:10px;padding:6px 12px;width:auto;
   transition:all .2s;}
+.back-btn:hover{background:var(--card);border-color:var(--muted);}
 .back-btn:active{transform:scale(.94);}
 
 /* ── End ── */
@@ -924,8 +928,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.92';
-const APP_BUILT_AT='2026-08-01T16:31:03Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.93';
+const APP_BUILT_AT='2026-08-01T16:47:34Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
