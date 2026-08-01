@@ -30,7 +30,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .screen{display:none;position:relative;z-index:1;min-height:100vh;flex-direction:column;}
 .screen.active{display:flex;}
 #setup{min-height:100vh;align-items:center;justify-content:flex-start;padding:28px 16px 40px;gap:20px;overflow-y:auto;}
-#board{padding:14px;gap:10px;}
+#board{padding:14px 10px;gap:10px;}
 #qscreen{min-height:100vh;overflow-y:auto;}
 #end{min-height:100vh;align-items:center;justify-content:center;padding:40px 20px;gap:24px;text-align:center;}
 
@@ -147,21 +147,25 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 .progress-wrap{height:3px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;flex-shrink:0;}
 .progress-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-hi));transition:width .5s;}
-.grid-scroll{flex:1;overflow-y:auto;overflow-x:hidden;display:flex;}
+.grid-scroll{flex:1;overflow-y:auto;overflow-x:auto;display:flex;}
 /* The grid claims the full height of its scroller, so leftover space becomes
    taller tiles — bigger tap targets — rather than a dead gap under the board.
    The header row stays its natural size; only the question rows stretch. min-height
    on the tiles still wins when the screen is short, so a cramped phone scrolls
    exactly as it did before. */
-.cat-grid{display:grid;gap:6px;flex:1;min-height:0;}
+.cat-grid{display:grid;gap:5px;flex:1;min-height:0;}
+/* Categories like "Ancient Civilizations" have no space to break at inside a 70px
+   column, so without hyphenation the browser either overflows or shrinks the text
+   to nothing. Hyphens let a long word split and the type stay readable. */
 .cat-head{background:rgba(255,255,255,.04);border:1px solid rgba(212,168,67,.18);border-radius:10px;
   display:flex;align-items:center;justify-content:center;text-align:center;
-  padding:10px 6px;min-height:46px;font-family:'Playfair Display',serif;
-  font-size:clamp(9px,1.6vw,12px);font-weight:700;color:var(--gold-hi);line-height:1.3;}
+  padding:8px 4px;min-height:46px;font-family:'Playfair Display',serif;
+  font-size:clamp(10.5px,2.3vw,14px);font-weight:700;color:var(--gold-hi);line-height:1.22;
+  hyphens:auto;-webkit-hyphens:auto;overflow-wrap:break-word;word-break:normal;}
 .q-tile{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:10px;
   display:flex;align-items:center;justify-content:center;
   min-height:42px;font-family:'Playfair Display',serif;
-  font-size:clamp(13px,2.5vw,20px);font-weight:700;color:var(--gold);
+  font-size:clamp(16px,4.2vw,24px);font-weight:700;color:var(--gold);
   cursor:pointer;user-select:none;transition:all .15s;}
 .q-tile:active{background:rgba(212,168,67,.15);transform:scale(.97);}
 .q-tile.used{opacity:.15;pointer-events:none;color:rgba(255,255,255,.3);font-size:13px;}
@@ -518,7 +522,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         </div>
       </div>
       <div id="tvViewers" style="font-size:12px;color:var(--teal);font-weight:700;margin-top:10px;text-align:center;min-height:16px;"></div>
-      <button class="mbtn" id="tvAddScreen" style="width:100%;margin-top:10px;background:transparent;border:1.5px dashed rgba(255,255,255,.25);color:rgba(255,255,255,.7);font-size:13px;">📺 Add a shared screen</button>
     </div>
 
     <div id="tvErr" style="font-size:12px;color:var(--red);margin-top:8px;min-height:14px;text-align:center;"></div>
@@ -890,8 +893,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.82';
-const APP_BUILT_AT='2026-08-01T14:21:58Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.83';
+const APP_BUILT_AT='2026-08-01T14:27:45Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1567,7 +1570,7 @@ function showSetup(){
 }
 function showLive(code){
   stopScan();
-  const t=document.getElementById('tvModalTitle'); if(t) t.textContent='Everyone else follows';
+  const t=document.getElementById('tvModalTitle'); if(t) t.textContent='Connect a personal screen';
   document.getElementById('tvSetup').style.display='none';
   document.getElementById('tvLive').style.display='block';
   document.getElementById('tvStop').style.display='block';
@@ -2342,7 +2345,10 @@ function buildBoard(S, interactive){
   S = S || G;
   if(interactive===undefined) interactive = true;
   const grid=document.getElementById('catGrid');
-  grid.style.gridTemplateColumns=`repeat(${S.numCats},1fr)`;
+  // A floor on column width so the type never gets crushed. It only bites on a very
+  // narrow phone with 6 categories; below that the board scrolls sideways instead
+  // of shrinking the tiles past legibility.
+  grid.style.gridTemplateColumns=`repeat(${S.numCats},minmax(52px,1fr))`;
   // Header row stays its natural size; the question rows share the leftover height,
   // so spare space becomes bigger tap targets instead of a dead gap under the board.
   // minmax keeps the old min-height, so a short phone still scrolls as it did.
@@ -3867,7 +3873,6 @@ function init(){
   document.getElementById('byeStartBtn').addEventListener('click',startNewNight);
   document.getElementById('endGameBtnSetup').addEventListener('click',exitApp);   // same routine as the results screen
   document.getElementById('joinBtnBoard').addEventListener('click',openJoinSheet);
-  const _asb=document.getElementById('tvAddScreen'); if(_asb) _asb.addEventListener('click',showSetup);
   const _drop=document.getElementById('tvDropAll');
   if(_drop) _drop.addEventListener('click', async ()=>{
     const ok = await ask('Disconnect all screens?',
