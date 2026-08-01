@@ -11,10 +11,17 @@ const built={tiles:[],handlers:0,heads:[]};
 function el(id){
   const e={id,style:new Proxy({},{get:()=>'',set:()=>true}),
     classList:{_s:new Set(),add(...c){c.forEach(x=>this._s.add(x));},remove(){},toggle(){},contains(c){return this._s.has(c);}},
-    dataset:{},value:'',textContent:'',innerHTML:'',children:[],
+    dataset:{},_text:'',innerHTML:'',children:[],
+    // Real textContent aggregates descendants. The flat version silently returned
+    // '' once category names moved into a child span — the test still passed while
+    // checking nothing, which is worse than failing.
+    get textContent(){
+      return this._text || this.children.map(c=>c.textContent||'').join('');
+    },
+    set textContent(v){ this._text=v; this.children=[]; },
     appendChild(ch){ this.children.push(ch);
       if(ch.className&&ch.className.includes('q-tile')) built.tiles.push(ch);
-      if(ch.className==='cat-head') built.heads.push(ch.textContent);
+      if(ch.className==='cat-head') built.heads.push(ch);
       if(ch.onclick) built.handlers++; },
     addEventListener(){},querySelector(){return el();},querySelectorAll(){return [];},focus(){},remove(){}};
   Object.defineProperty(e,'onclick',{set(v){ if(v) built.handlers++; },get(){return null;},configurable:true});
@@ -50,7 +57,12 @@ console.log('  question text   : '+JSON.stringify(wire.currentQuestion.text));
 built.tiles=[];built.handlers=0;built.heads=[];
 api.buildBoard(wire, false);
 console.log('\nTV BOARD (from snapshot, non-interactive):');
-console.log('  category headers : '+JSON.stringify(built.heads));
+const headTxt=built.heads.map(h=>h.textContent);
+console.log('  category headers : '+JSON.stringify(headTxt));
+// Headers must actually carry their category name — the whole point of the row.
+if(headTxt.length!==G.categories.length || headTxt.some(t=>!t)){
+  console.log('  FAIL: a category header rendered empty'); process.exit(1);
+}
 console.log('  tiles built      : '+built.tiles.length+' (expect '+(wire.numCats*wire.numQ)+')');
 console.log('  click handlers   : '+built.handlers+' '+(built.handlers===0?'✓ none — TV is display-only':'✗ TV is clickable!'));
 
