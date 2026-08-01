@@ -6,8 +6,8 @@ const path = require('path');
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
-const VERSION = '3.26';
-const BUILT_AT = '2026-07-19T18:13:53Z';
+const VERSION = '3.27';
+const BUILT_AT = '2026-08-01T13:00:17Z';
 
 const app = express();
 app.use(cors());
@@ -436,7 +436,34 @@ app.get('/api/stats/tiers', async (req, res) => {
     if (r.correct) tiersByMode[m][r.tier].ok++;
   });
 
+  // EVERY ruleset version, not just the selected one. Calibration questions are
+  // really "did the last change help?", and that cannot be answered from one
+  // version in isolation. Raw counts only — the client owns targets, because a
+  // version's targets live in ITS OWN ruleset row (tiers + nudge), not this one's.
+  // Thin versions are returned too, flagged rather than filtered: a version that
+  // flopped after nine answers is still history the reader should see.
+  const byVersion = {};
+  {
+    const { data: vd, error: verr } = await supabase
+      .from('attempts')
+      .select('tier, correct, mode, difficulty_ruleset_version')
+      .limit(100000);
+    if (!verr) {
+      (vd || []).forEach(r => {
+        const v = r.difficulty_ruleset_version;
+        if (v === null || v === undefined) return;      // pre-ruleset rows can't be compared
+        const m = r.mode || 'normal';
+        if (!byVersion[v]) byVersion[v] = {};
+        if (!byVersion[v][m]) byVersion[v][m] = {};
+        if (!byVersion[v][m][r.tier]) byVersion[v][m][r.tier] = { att: 0, ok: 0 };
+        byVersion[v][m][r.tier].att++;
+        if (r.correct) byVersion[v][m][r.tier].ok++;
+      });
+    }
+  }
+
   res.json({ byTier, byCat, byCatTier, byMode, steals, total, totalOK, trend, excluded, mode, modeCounts, tiersByMode, trendByMode,
+    byVersion,
     categoriesAll: [...new Set(all.map(r => r.category).filter(Boolean))].sort(),
     totalAll: all.length });
 });

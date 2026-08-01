@@ -71,6 +71,7 @@ table.grid td.dim{text-align:center;color:rgba(255,255,255,.4);font-weight:400;}
 .tier3 .frac{opacity:.4;font-size:10px;}
 .tier3 .none{opacity:.25;}
 .tier3 .lown{font-size:9px;opacity:.5;}
+.tier3 .vsprior{font-size:9.5px;font-weight:700;margin-top:2px;letter-spacing:.2px;}
 </style>
 </head>
 <body>
@@ -108,8 +109,11 @@ const FALLBACK_EASY_NUDGE=15, FALLBACK_HARD_NUDGE=-15;
 let TARGET_RATES={100:75,200:66,300:50,400:33,500:20};   // recomputed on every load
 let MODE='normal';
 
-function targetsForMode(mode){
-  const r=RULESETS.find(x=>x.difficulty_ruleset_version===SELECTED)||{};
+// Targets belong to a VERSION, not to the page. Comparing v3 against v2 means
+// measuring each against ITS OWN targets — if v3 moved a target, the two versions'
+// raw hit rates are not the same measurement and must never be subtracted.
+function targetsForVersion(version, mode){
+  const r=RULESETS.find(x=>x.difficulty_ruleset_version===version)||{};
   const tiers=Array.isArray(r.tiers)&&r.tiers.length===5
     ? r.tiers.map(t=>Number(t.pct))
     : FALLBACK_TIERS;
@@ -122,6 +126,23 @@ function targetsForMode(mode){
     out[pts[i]]=Math.max(15,Math.min(90,Math.round(pct+nudge)));   // same clamp as the app
   });
   return out;
+}
+function targetsForMode(mode){ return targetsForVersion(SELECTED, mode); }
+
+// The version immediately before the selected one that has ANY answers at all.
+// Deliberately NOT "the previous version with enough data": skipping a thin
+// version would hide it from the reader entirely. Show it, mark it thin, let
+// the reader decide what it's worth.
+function priorVersionWithData(byVersion){
+  const vs=Object.keys(byVersion||{}).map(Number).filter(v=>v<SELECTED).sort((a,b)=>b-a);
+  return vs.length?vs[0]:null;
+}
+// Gap from target for one version/mode/tier. null when that cell was never played.
+function gapAt(byVersion, version, mode, tier){
+  const d=(((byVersion||{})[version]||{})[mode]||{})[tier];
+  if(!d||!d.att) return null;
+  const tgt=targetsForVersion(version, mode)[tier];
+  return { gap: Math.round(d.ok/d.att*100)-tgt, n: d.att };
 }
 function recomputeTargets(){ TARGET_RATES=targetsForMode(MODE); }
 // Mode colours deliberately avoid teal/gold/red — those mean "on target",
@@ -146,8 +167,9 @@ function catExpected(ct){
   return n>0?Math.round(w/n):0;
 }
 
-function tierTable(_ignored, tiersByMode){
+function tierTable(_ignored, tiersByMode, byVersion){
   const tiers=[100,200,300,400,500];
+  const prior=priorVersionWithData(byVersion);
   // Spectrum order: Easier <- Normal -> Harder (baseline centred)
   const modes=MODE_COLS;
   const T={}; modes.forEach(m=>{ T[m.key]=targetsForMode(m.key); });
@@ -173,8 +195,23 @@ function tierTable(_ignored, tiersByMode){
         const low=att<LOW;
         const cls=low?'':(Math.abs(diff)<=10?'hit-ok':(diff>0?'hit-good':'hit-low'));
         const lowTag=low?` <span class="lown">low n</span>`:'';
+        // "vs prior" compares GAP FROM TARGET, never raw hit rate — see targetsForVersion.
+        // Positive = this version sits closer to its target than the last one did.
+        let vs='';
+        if(prior!==null){
+          const a=gapAt(byVersion, prior, m.key, t);
+          if(a){
+            const moved=Math.abs(diff)-Math.abs(a.gap);   // negative = closer to target now
+            const better=moved<0;
+            const thin=(a.n<LOW)||low;
+            const col=thin?'rgba(255,255,255,.42)':(better?'var(--good,#4cd4a0)':'#ff8b7d');
+            const arrow=moved===0?'=':(better?'▲':'▼');
+            vs=`<div class="vsprior" style="color:${col};" title="v${prior}: ${a.gap>0?'+':''}${a.gap} vs target (n=${a.n}) → v${SELECTED}: ${diff>0?'+':''}${diff}">`+
+               `${arrow} ${Math.abs(moved)} vs v${prior}${thin?' ·thin':''}</div>`;
+          }
+        }
         h+=`<td class="mgrp ${cls}" title="${ok}/${att} · target ${tgt}%">`+
-           `<b>${pct}%</b> <span class="frac">(${ok}/${att})</span>${lowTag}</td>`+
+           `<b>${pct}%</b> <span class="frac">(${ok}/${att})</span>${lowTag}${vs}</td>`+
            `<td class="tgt">${tgt}%</td>`;
       }
     });
@@ -182,6 +219,9 @@ function tierTable(_ignored, tiersByMode){
   });
   h+='</tbody></table>';
   h+='<div class="meta" style="margin-top:6px;">Each mode is compared against <b>its own</b> target (Normal targets shifted by the ruleset\'s nudge). Actual shows hit rate with (correct/attempts). "low n" = under '+LOW+' answers — ignore it. "—" = no games played in that mode yet.</div>';
+  if(prior!==null){
+    h+='<div class="meta" style="margin-top:4px;">▲ / ▼ compares <b>distance from target</b> against v'+prior+' — not raw hit rate, since targets can differ between versions. ▲ = closer to target now, ▼ = further away. Greyed and marked <i>·thin</i> when either side has under '+LOW+' answers: still shown, but don\'t lean on it.</div>';
+  }
   return h;
 }
 
@@ -314,6 +354,41 @@ function buildAnalysisPayload(){
     hard_nudge:(r.hard_nudge==null?FALLBACK_HARD_NUDGE:r.hard_nudge),
     _note_on_nulls:'A null field means this row does not set it; the app falls back to its built-in default. Copy nulls as-is unless you are changing them.'
   };
+  // EVERY version's per-tier record, oldest first. Without this the assistant can
+  // only say "how far off are we", never "did the last change help or hurt" — and
+  // the second question is the one that actually decides what to do next.
+  // Gaps are computed per version against ITS OWN targets, so a version that moved
+  // a target is still comparable. Thin versions are included and flagged, not
+  // dropped: a version that flopped after nine answers is real history.
+  const bv=s.byVersion||{};
+  const version_history=Object.keys(bv).map(Number).sort((a,b)=>a-b).map(v=>{
+    const rr=RULESETS.find(x=>x.difficulty_ruleset_version===v)||{};
+    const per={};
+    modes.forEach(m=>{
+      const T=targetsForVersion(v,m);
+      const rows=tiers.map(t=>{
+        const d=((bv[v]||{})[m]||{})[t];
+        if(!d||!d.att) return {tier:t, target_pct:T[t], attempts:0, actual_pct:null, gap:null};
+        const pct=Math.round(d.ok/d.att*100);
+        return {tier:t, target_pct:T[t], attempts:d.att, actual_pct:pct, gap:pct-T[t],
+                thin:d.att<LOW};
+      });
+      if(rows.some(r=>r.attempts>0)) per[MODE_LABEL[m]]=rows;
+    });
+    const n=Object.values((bv[v]||{})).reduce((acc,byT)=>acc+Object.values(byT).reduce((a,d)=>a+d.att,0),0);
+    return {
+      difficulty_ruleset_version:v,
+      is_selected:v===SELECTED,
+      note:rr.note||null,
+      total_answers:n,
+      thin_overall:n<LOW,
+      tiers_definition:rr.tiers||null,
+      easy_nudge:(rr.easy_nudge==null?FALLBACK_EASY_NUDGE:rr.easy_nudge),
+      hard_nudge:(rr.hard_nudge==null?FALLBACK_HARD_NUDGE:rr.hard_nudge),
+      by_mode:per
+    };
+  });
+
   return {
     min_sample_size:LOW,
     current_ruleset,
@@ -321,7 +396,8 @@ function buildAnalysisPayload(){
       by_mode:byMode,
       category_matrix:{mode:MODE_LABEL[MODE], rows:catRows},
       total_answers:s.totalAll||0
-    }
+    },
+    version_history
   };
 }
 
@@ -364,8 +440,15 @@ There are NO columns like tier_200_target_normal. Tiers live inside the "tiers" 
 THE CURRENT RULESET ROW (copy every field you are not changing):
 ${JSON.stringify(payload.current_ruleset,null,2)}
 
-THE DATA:
+THE DATA (selected ruleset, v${payload.current_ruleset.difficulty_ruleset_version}):
 ${JSON.stringify(payload.stats,null,2)}
+
+EVERY RULESET VERSION THAT HAS BEEN PLAYED, oldest first. Each version's gaps are
+computed against ITS OWN targets, so versions remain comparable even when a target
+was moved between them. \`thin: true\` marks a cell with too few answers to trust;
+thin versions are included rather than hidden, so you can see history that exists
+but cannot be leaned on:
+${JSON.stringify(payload.version_history,null,2)}
 
 RULES YOU MUST FOLLOW:
 1. A cell with fewer than ${payload.min_sample_size} attempts is NOT evidence. Never draw a conclusion from it, in any direction.
@@ -374,8 +457,15 @@ RULES YOU MUST FOLLOW:
 4. Never invent a finding to seem useful. "The data does not support a conclusion here" is a valid answer.
 5. Look at the SHAPE of the misses, not just their size. If some tiers hit and others miss, ask what is different about the ones that miss (their anchors? their reference points?) rather than assuming everything is uniformly off.
 6. Be concrete: name the tier, mode, actual vs target, and sample size behind every claim.
+7. COMPARE VERSIONS, DO NOT JUST MEASURE THIS ONE. The most valuable question you can answer is "did the last change help or hurt?" Work it out from version_history and say so plainly.
+8. When comparing versions, compare GAP FROM TARGET, never raw hit rate. If a version moved a target, its raw rate means something different and subtracting the two is meaningless.
+9. A change that moved a tier AWAY from its target is evidence the lever was pulled the wrong way. Say that outright and consider reverting rather than compounding it. Re-read the CAUSAL DIRECTION section before concluding which way to move.
+10. If a previous version was closer to target than the current one, treat its settings as evidence about what worked - not as an obsolete thing to be improved on.
 
 Respond in this exact structure:
+
+## Did the last change help?
+Compare the selected version against the one before it, gap-by-gap. Say plainly whether it improved, worsened, or is too thin to tell - and name the tiers and modes that moved most. If there is only one version, say so and skip to the next section.
 
 ## What the data says
 Findings backed by at least ${payload.min_sample_size} attempts. Include the shape of the pattern, not just a list.
@@ -491,49 +581,78 @@ function wireModeSelector(){
   if(m) m.addEventListener('change',()=>{ MODE=m.value; loadStats(); });
 }
 
-function trendChart(trendByMode){
-  const modes=MODE_COLS;
-  // A bucket's EXPECTED rate = its tiers' targets, weighted by how often each was asked.
-  // We plot actual - expected, so 0 means "on target" for every mode alike.
-  function gaps(mode){
-    const T=targetsForMode(mode);
-    return (trendByMode[mode]||[]).map(b=>{
-      let w=0,n=0;
-      Object.keys(b.byTier||{}).forEach(t=>{ const a=b.byTier[t].att; w+=(T[t]||0)*a; n+=a; });
-      const expected=n>0?w/n:0;
-      return {gap:Math.round(b.pct-expected), n:b.n};
+// One dot per RULESET VERSION — the only axis on which anything actually changes.
+// (It used to plot ten equal slices of one version's answer history. Inside a
+// single version nothing varies but sampling noise, so that line only ever showed
+// an average settling down — a confidence property, not a trend. Confidence is
+// already carried per-number by "low n", so the axis was spent on nothing.)
+function versionChart(byVersion){
+  const versions=Object.keys(byVersion||{}).map(Number).sort((a,b)=>a-b);
+  if(versions.length<2) return '<div class="muted">Only one ruleset version has answers so far — a comparison needs at least two. The table above carries the numbers until then.</div>';
+
+  // A version's gap = its tiers' gaps, weighted by how often each tier was asked.
+  // Each version is measured against ITS OWN targets, so 0 means "on target" for
+  // every version alike even when the targets themselves changed between them.
+  function pointsFor(mode){
+    return versions.map(v=>{
+      const T=targetsForVersion(v, mode);
+      const byTier=((byVersion[v]||{})[mode])||{};
+      let wActual=0, wTarget=0, n=0;
+      Object.keys(byTier).forEach(t=>{
+        const d=byTier[t]; if(!d.att) return;
+        wActual+=(d.ok/d.att*100)*d.att;
+        wTarget+=(T[t]||0)*d.att;
+        n+=d.att;
+      });
+      return n>0 ? {v, gap:Math.round((wActual-wTarget)/n), n} : {v, gap:null, n:0};
     });
   }
-  const series=modes.map(m=>({...m, pts:gaps(m.key)})).filter(s=>s.pts.length>=2);
-  if(!series.length) return '<div class="muted">Not enough data yet for a trend.</div>';
 
-  const maxN=Math.max(...series.map(s=>s.pts.length));
-  const W=680,H=150,pad=30;
-  const x=i=>pad+(W-2*pad)*(maxN===1?0:i/(maxN-1));
+  const series=MODE_COLS.map(m=>({...m, pts:pointsFor(m.key)}))
+                        .filter(s2=>s2.pts.filter(p=>p.gap!==null).length>=1);
+  if(!series.length) return '<div class="muted">No answers recorded against any ruleset yet.</div>';
+
+  const W=680,H=170,padX=34,padY=30;
+  const x=i=>padX+(W-2*padX)*(versions.length===1?0:i/(versions.length-1));
   const LIM=40;                                   // clamp the axis to +/-40 points of gap
-  const y=g=>H/2-((H-2*pad)/2)*(Math.max(-LIM,Math.min(LIM,g))/LIM);
+  const y=g=>H/2-((H-2*padY)/2)*(Math.max(-LIM,Math.min(LIM,g))/LIM);
 
   let grid='';
   [30,15,0,-15,-30].forEach(g=>{
     const zero=g===0;
-    grid+=`<line x1="${pad}" y1="${y(g).toFixed(1)}" x2="${W-pad}" y2="${y(g).toFixed(1)}" stroke="rgba(255,255,255,${zero?'.35':'.07'})" stroke-width="${zero?1.5:1}"/>`;
+    grid+=`<line x1="${padX}" y1="${y(g).toFixed(1)}" x2="${W-padX}" y2="${y(g).toFixed(1)}" stroke="rgba(255,255,255,${zero?'.35':'.07'})" stroke-width="${zero?1.5:1}"/>`;
     grid+=`<text x="2" y="${(y(g)+3).toFixed(1)}" fill="rgba(255,255,255,${zero?'.5':'.28'})" font-size="9">${g>0?'+':''}${g}</text>`;
+  });
+  // Version labels along the bottom — the axis is now something you can point at.
+  versions.forEach((v,i)=>{
+    grid+=`<text x="${x(i).toFixed(1)}" y="${H-6}" fill="rgba(255,255,255,.45)" font-size="10" text-anchor="middle">v${v}</text>`;
   });
 
   let paths='',dots='',legend='';
-  series.forEach(s=>{
-    const pts=s.pts.map((p,i)=>`${x(i).toFixed(1)},${y(p.gap).toFixed(1)}`).join(' ');
-    paths+=`<polyline points="${pts}" fill="none" stroke="${s.col}" stroke-width="2"/>`;
-    dots+=s.pts.map((p,i)=>{
-      const thin=p.n<LOW;                          // don't imply confidence in a thin bucket
-      return `<circle cx="${x(i).toFixed(1)}" cy="${y(p.gap).toFixed(1)}" r="${thin?2:3.2}" fill="${thin?'transparent':s.col}" stroke="${s.col}" stroke-width="1.2"><title>${s.label}: ${p.gap>0?'+':''}${p.gap} pts vs target · n=${p.n}${thin?' (low n)':''}</title></circle>`;
+  series.forEach(s2=>{
+    // Break the line across versions a mode was never played in, rather than
+    // drawing straight through a gap it has no data for.
+    let run=[];
+    const flush=()=>{
+      if(run.length>=2) paths+=`<polyline points="${run.join(' ')}" fill="none" stroke="${s2.col}" stroke-width="2"/>`;
+      run=[];
+    };
+    s2.pts.forEach((p,i)=>{
+      if(p.gap===null){ flush(); return; }
+      run.push(`${x(i).toFixed(1)},${y(p.gap).toFixed(1)}`);
+    });
+    flush();
+    dots+=s2.pts.map((p,i)=>{
+      if(p.gap===null) return '';
+      const thin=p.n<LOW;                          // don't imply confidence in a thin version
+      return `<circle cx="${x(i).toFixed(1)}" cy="${y(p.gap).toFixed(1)}" r="${thin?2.4:3.6}" fill="${thin?'transparent':s2.col}" stroke="${s2.col}" stroke-width="1.4"><title>${s2.label} · v${p.v}: ${p.gap>0?'+':''}${p.gap} pts vs target · n=${p.n}${thin?' (thin)':''}</title></circle>`;
     }).join('');
-    legend+=`<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;"><span style="width:14px;height:2px;background:${s.col};display:inline-block;"></span><span style="color:${s.col};font-weight:700;">${s.label}</span></span>`;
+    legend+=`<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;"><span style="width:14px;height:2px;background:${s2.col};display:inline-block;"></span><span style="color:${s2.col};font-weight:700;">${s2.label}</span></span>`;
   });
 
   return `<div style="font-size:11px;margin-bottom:6px;">${legend}</div>`+
     `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;">${grid}${paths}${dots}</svg>`+
-    `<div class="meta">Gap from target over time (oldest → newest). <b>0 = on target.</b> Above the line = running easier than intended; below = harder. Each mode is measured against its own targets, so all three are comparable. Hollow dots are thin buckets (under ${LOW} answers) — don't read them.</div>`;
+    `<div class="meta">Distance from target, one point per ruleset version (oldest → newest). <b>0 = on target.</b> Above the line = running easier than intended; below = harder. Each version is measured against its own targets, so a version that moved a target is still comparable. Hollow dots are thin versions (under ${LOW} answers) — shown, but don't lean on them.</div>`;
 }
 
 async function loadStats(){
@@ -571,8 +690,8 @@ async function loadStats(){
       '</div>'+
       '<div id="assistOut" style="margin-top:12px;"></div>'+
     '</div>'+
-    '<div class="section">By Tier · All Modes</div>'+tierTable(s.byTier||{}, s.tiersByMode||{})+
-    '<div class="section">Drift From Target · All Modes</div>'+trendChart(s.trendByMode||{})+
+    '<div class="section">By Tier · All Modes</div>'+tierTable(s.byTier||{}, s.tiersByMode||{}, s.byVersion||{})+
+    '<div class="section">Drift From Target · By Ruleset Version</div>'+versionChart(s.byVersion||{})+
     '<hr style="border:none;border-top:1px solid rgba(255,255,255,.12);margin:26px 0 18px;">'+
     '<div class="section">Category × Tier</div>'+
     '<div class="muted" style="font-size:11px;margin-bottom:10px;">This section only \u2014 pick a mode:</div>'+
@@ -636,8 +755,8 @@ document.getElementById('detailsBtn').addEventListener('click',()=>{
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live.
-const ADMIN_VERSION='3.18';
-const ADMIN_BUILT_AT='2026-07-19T18:10:20Z';   // UTC; shown in the device's local time
+const ADMIN_VERSION='3.19';
+const ADMIN_BUILT_AT='2026-08-01T13:00:17Z';   // UTC; shown in the device's local time
 
 function fmtBuildTime(iso){
   try{
