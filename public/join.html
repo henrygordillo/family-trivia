@@ -94,17 +94,12 @@ body{
 
 /* ── Game ─────────────────────────────────────────────── */
 #game{display:none;flex-direction:column;gap:12px;min-height:calc(100dvh - 46px);position:relative;}
-/* The board changes under you with no explanation otherwise. Same event, same
-   4.5s, as the shared screen — a re-deal is a shared rule, so everyone sees it. */
-#splash{position:absolute;inset:0;z-index:60;display:none;flex-direction:column;
-  align-items:center;justify-content:center;gap:10px;text-align:center;padding:20px;
-  background:rgba(8,9,15,.94);border-radius:12px;}
-#splash.show{display:flex;animation:splashIn .35s ease;}
-@keyframes splashIn{from{opacity:0;transform:scale(.97);}to{opacity:1;transform:none;}}
-#splashTitle{font-family:'Playfair Display',serif;font-weight:900;color:var(--gold-hi);
-  font-size:34px;line-height:1.08;}
-#splashLine{font-size:12px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;
-  color:rgba(255,255,255,.6);}
+/* Same note, same moment, as the shared screen — a re-deal is a shared rule, so
+   everyone sees it. Under the board, not over it. */
+#splash{display:none;text-align:center;font-size:10.5px;font-weight:700;
+  letter-spacing:1.2px;text-transform:uppercase;color:var(--gold-hi);}
+#splash.show{display:block;animation:splashIn .4s ease;}
+@keyframes splashIn{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:none;}}
 /* Same two chips as the shared screen and the host — the conditions of play read
    as facts, not as a caption. No logo here: this is the tightest of the three
    screens and the player already knows what they opened. */
@@ -294,15 +289,12 @@ body{
 </div>
 
 <div id="game">
- <div id="splash">
-   <div id="splashTitle"></div>
-   <div id="splashLine"></div>
- </div>
  <div class="setupline" id="setupLine"></div>
  <div id="others"></div>
 
  <div class="jright">
   <div id="pboard"></div>
+  <div id="splash"></div>
 
   <div id="joinCard">
     <div class="jc-cap">Another personal screen can join by:</div>
@@ -353,8 +345,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='4.13';
-const JOIN_BUILT_AT='2026-08-01T15:16:01Z';
+const JOIN_VERSION='4.14';
+const JOIN_BUILT_AT='2026-08-01T15:28:23Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -708,16 +700,15 @@ function runTimer(t){
 // One-shot, sequenced like the rest — fire once per seq, ignore repeats.
 let _lastSplashSeq=null, _splashT=null;
 function handleSplash(sp){
-  if(!sp || !sp.title) return;
+  if(!sp || !sp.text) return;
   if(sp.seq === _lastSplashSeq) return;
   _lastSplashSeq = sp.seq;
   const el=document.getElementById('splash');
   if(!el) return;
-  document.getElementById('splashTitle').textContent = sp.title;
-  document.getElementById('splashLine').textContent  = sp.line || '';
+  el.textContent = sp.text;
   el.classList.add('show');
   clearTimeout(_splashT);
-  _splashT=setTimeout(()=>el.classList.remove('show'), 4500);
+  _splashT=setTimeout(()=>el.classList.remove('show'), 5000);
 }
 
 function waiting(msg, sub){

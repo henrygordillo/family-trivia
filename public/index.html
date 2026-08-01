@@ -901,8 +901,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.86';
-const APP_BUILT_AT='2026-08-01T15:16:01Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.87';
+const APP_BUILT_AT='2026-08-01T15:28:23Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -3417,11 +3417,16 @@ let _playersLocked=false;
 function openGameMenu(){ document.getElementById('gameMenuModal').classList.add('show'); }
 function closeGameMenu(){ document.getElementById('gameMenuModal').classList.remove('show'); }
 
-function _leaveBoard(){
+// `keepLive` is for a re-deal: the game does NOT end, the board just changes.
+// Without it we pushed active:false and the shared screen dropped all the way back
+// to "waiting for the host" for the second or two the new board took to load —
+// telling the room the night was over when nothing had happened.
+function _leaveBoard(keepLive){
   clearSave();
-  _inGame=false;
   try{ window.speechSynthesis?.cancel(); }catch(e){}
   try{ if(G.recording) stopMic(); }catch(e){}
+  if(keepLive) return;
+  _inGame=false;
   tvGameEnded();
 }
 // Categories from a board we're throwing away, held just long enough for the
@@ -3465,14 +3470,15 @@ async function dealAgain(){
   // The other screens see the board change under them with no explanation, so
   // say what happened and how much rope is left. It's a shared rule, not a
   // private allowance — everyone playing under it should be able to see it.
+  // The new categories are already on screen — the note only has to explain them,
+  // so it sits under the board rather than covering it.
   _splash = {
     seq: ++_splashSeq,
-    title: 'New categories',
-    line: left>0
-      ? `${left} re-deal${left===1?'':'s'} left`
-      : 'No more re-deals'
+    text: left>0
+      ? `New categories \u00b7 ${left} re-deal${left===1?'':'s'} left`
+      : 'New categories \u00b7 no more re-deals'
   };
-  _leaveBoard();
+  _leaveBoard(true);          // still the same game — don't tell the room it ended
   await startGame();
 }
 

@@ -4,7 +4,8 @@ const html=fs.readFileSync('index.html','utf8');
 const s=html.indexOf('<script>')+8, e=html.lastIndexOf('</script>');
 let code=html.slice(s,e).replace(/^\s*init\(\);\s*$/m,'');
 code+=`;globalThis.__api={get G(){return G;},publicState,redealState,dealAgain,
-  markBoardPlayed,syncDealAgainBtn,
+  markBoardPlayed,syncDealAgainBtn,_leaveBoard,
+  get inGame(){return _inGame;}, set inGame(v){_inGame=v;},
   get used(){return _redealsUsed;}, set used(v){_redealsUsed=v;},
   get answered(){return _answeredThisBoard;}, set answered(v){_answeredThisBoard=v;},
   get recorded(){return _gameRecorded;}, set recorded(v){_gameRecorded=v;},
@@ -69,5 +70,15 @@ chk('board marked as played', api.answered===true);
 api.answered=false; api.used=0;
 const before=api.publicState().splash;
 chk('no splash before a re-deal', before===null);
+
+// A re-deal must NOT tell the room the game ended — that dropped the shared screen
+// back to "waiting for the host" for the second the new board took to load.
+api.inGame=true;
+api._leaveBoard(true);
+chk('re-deal keeps the game live', api.inGame===true);
+chk('...and the wire still says active', api.publicState().active===true);
+api.inGame=true;
+api._leaveBoard();
+chk('a real exit still ends it', api.inGame===false);
 console.log(fail?('\n'+fail+' FAILED'):'\nall re-deal checks passed');
 process.exit(fail?1:0);
