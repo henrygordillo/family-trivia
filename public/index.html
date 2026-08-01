@@ -99,12 +99,15 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
    than adding a row of their own. */
 .game-title{font-family:'Playfair Display',serif;font-size:clamp(16px,3.5vw,21px);font-weight:700;color:var(--gold-hi);line-height:1.15;flex:0 0 auto;}
 .hchips{display:flex;gap:6px;margin-left:auto;flex:0 0 auto;}
-.hchips .chip{border:1px solid var(--card3);border-radius:12px;padding:6px 11px;
-  font-size:11px;line-height:1.3;font-weight:700;color:rgba(255,255,255,.82);
-  text-align:center;white-space:nowrap;font-family:'Outfit',sans-serif;}
+/* NOT called .chip — the setup screen already owns that name with a cream fill,
+   and inheriting it turned these into solid blocks. */
+.hchip{border:1px solid rgba(255,255,255,.22);background:transparent;border-radius:12px;
+  padding:6px 11px;font-size:11px;line-height:1.3;font-weight:700;
+  color:rgba(255,255,255,.82);text-align:center;white-space:nowrap;
+  font-family:'Outfit',sans-serif;}
 /* A failed write is invisible twice over, so it gets its own chip rather than
    being appended to a line nobody reads. */
-.hchips .chip.trouble{border-color:rgba(192,57,43,.6);color:#ff8b7d;cursor:pointer;}
+.hchip.trouble{border-color:rgba(192,57,43,.6);color:#ff8b7d;cursor:pointer;}
 .new-game-btn{background:rgba(192,57,43,.2);border:1.5px solid rgba(192,57,43,.6);border-radius:6px;
   padding:5px 12px;cursor:pointer;font-family:'Outfit',sans-serif;font-size:10px;font-weight:700;
   letter-spacing:1px;text-transform:uppercase;color:#ff8a80;white-space:nowrap;flex-shrink:0;transition:all .2s;}
@@ -138,8 +141,13 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 .progress-wrap{height:3px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;flex-shrink:0;}
 .progress-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-hi));transition:width .5s;}
-.grid-scroll{flex:1;overflow-y:auto;overflow-x:hidden;}
-.cat-grid{display:grid;gap:6px;}
+.grid-scroll{flex:1;overflow-y:auto;overflow-x:hidden;display:flex;}
+/* The grid claims the full height of its scroller, so leftover space becomes
+   taller tiles — bigger tap targets — rather than a dead gap under the board.
+   The header row stays its natural size; only the question rows stretch. min-height
+   on the tiles still wins when the screen is short, so a cramped phone scrolls
+   exactly as it did before. */
+.cat-grid{display:grid;gap:6px;flex:1;min-height:0;}
 .cat-head{background:rgba(255,255,255,.04);border:1px solid rgba(212,168,67,.18);border-radius:10px;
   display:flex;align-items:center;justify-content:center;text-align:center;
   padding:10px 6px;min-height:46px;font-family:'Playfair Display',serif;
@@ -876,8 +884,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.79';
-const APP_BUILT_AT='2026-08-01T13:45:56Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.80';
+const APP_BUILT_AT='2026-08-01T14:02:12Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -2331,6 +2339,10 @@ function buildBoard(S, interactive){
   if(interactive===undefined) interactive = true;
   const grid=document.getElementById('catGrid');
   grid.style.gridTemplateColumns=`repeat(${S.numCats},1fr)`;
+  // Header row stays its natural size; the question rows share the leftover height,
+  // so spare space becomes bigger tap targets instead of a dead gap under the board.
+  // minmax keeps the old min-height, so a short phone still scrolls as it did.
+  grid.style.gridTemplateRows=`auto repeat(${S.numQ},minmax(42px,1fr))`;
   grid.innerHTML='';
 
   // Category headers
@@ -3418,9 +3430,9 @@ function renderSetupLine(){
   const diff = gameMode==='easy' ? 'Easier' : gameMode==='hard' ? 'Harder' : 'Normal';
   const judge = (G.judgeMode==='ai') ? 'AI' : 'Human';
   el.innerHTML =
-    `<span class="chip">${diff}<br>difficulty</span>`+
-    `<span class="chip">${judge}<br>judge</span>`+
-    (DB_TROUBLE ? `<span class="chip trouble" id="dbTroubleChip">\u26a0 Dedup<br>offline</span>` : '');
+    `<span class="hchip">${diff}<br>difficulty</span>`+
+    `<span class="hchip">${judge}<br>judge</span>`+
+    (DB_TROUBLE ? `<span class="hchip trouble" id="dbTroubleChip">\u26a0 Dedup<br>offline</span>` : '');
   const tc=document.getElementById('dbTroubleChip');
   if(tc) tc.onclick=showDbTrouble;
 }
