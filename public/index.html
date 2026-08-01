@@ -94,8 +94,17 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .go:hover{transform:translateY(-2px);}
 
 /* ── Board ── */
-.board-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
-.game-title{font-family:'Playfair Display',serif;font-size:clamp(16px,3.5vw,22px);font-weight:700;color:var(--gold-hi);}
+.board-title-row{display:flex;align-items:center;gap:10px;}
+/* Two lines, so the row is tall enough for the chips to sit beside it rather
+   than adding a row of their own. */
+.game-title{font-family:'Playfair Display',serif;font-size:clamp(16px,3.5vw,21px);font-weight:700;color:var(--gold-hi);line-height:1.15;flex:0 0 auto;}
+.hchips{display:flex;gap:6px;margin-left:auto;flex:0 0 auto;}
+.hchips .chip{border:1px solid var(--card3);border-radius:12px;padding:6px 11px;
+  font-size:11px;line-height:1.3;font-weight:700;color:rgba(255,255,255,.82);
+  text-align:center;white-space:nowrap;font-family:'Outfit',sans-serif;}
+/* A failed write is invisible twice over, so it gets its own chip rather than
+   being appended to a line nobody reads. */
+.hchips .chip.trouble{border-color:rgba(192,57,43,.6);color:#ff8b7d;cursor:pointer;}
 .new-game-btn{background:rgba(192,57,43,.2);border:1.5px solid rgba(192,57,43,.6);border-radius:6px;
   padding:5px 12px;cursor:pointer;font-family:'Outfit',sans-serif;font-size:10px;font-weight:700;
   letter-spacing:1px;text-transform:uppercase;color:#ff8a80;white-space:nowrap;flex-shrink:0;transition:all .2s;}
@@ -538,8 +547,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <!-- BOARD -->
 <div id="board" class="screen">
   <div class="board-title-row">
-    <div class="game-title">Trivia Night</div>
-    <div class="setup-line" id="boardSetupLine" style="margin-left:auto;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:700;white-space:nowrap;"></div>
+    <div class="game-title">Trivia<br>Night</div>
+    <div class="hchips" id="boardSetupLine"></div>
   </div>
   <table class="ptable" id="ptable"></table>
   <div class="progress-wrap"><div class="progress-fill" id="progressFill"></div></div>
@@ -867,8 +876,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.78';
-const APP_BUILT_AT='2026-07-27T22:59:09Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.79';
+const APP_BUILT_AT='2026-08-01T13:45:56Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -3397,19 +3406,23 @@ function gmNewGame(){
   try{ renderRoster(); applyPlayerLock(); }catch(e){}
   show('setup');
 }
-// Difficulty, who judges, and whether a countdown will start — none of these can
-// be read off the board itself. Everything else here is already visible: the
-// categories are the columns, the players are the scoreboard.
+// Difficulty and who judges — neither can be read off the board itself. Everything
+// else is already visible: the categories are the columns, the players are the
+// scoreboard, and the timer counts down in front of you.
 function renderSetupLine(){
   const el=document.getElementById('boardSetupLine');
   if(!el) return;
+  // Same two chips, same words, as the shared and personal screens — the host is
+  // reading the same rules as everyone else. The timer is gone from here: it
+  // announces itself by counting down when a question is live.
   const diff = gameMode==='easy' ? 'Easier' : gameMode==='hard' ? 'Harder' : 'Normal';
-  const judge = (G.judgeMode==='ai') ? 'App judges' : 'You judge';
-  el.textContent = `${diff} · ${judge} · Timer ${timerOn?'on':'off'}`
-    + (DB_TROUBLE ? `  ·  \u26a0 DEDUP OFFLINE \u2014 TAP` : '');
-  el.style.color  = DB_TROUBLE ? '#ff8b7d' : '';
-  el.style.cursor = DB_TROUBLE ? 'pointer' : '';
-  el.onclick      = DB_TROUBLE ? showDbTrouble : null;
+  const judge = (G.judgeMode==='ai') ? 'AI' : 'Human';
+  el.innerHTML =
+    `<span class="chip">${diff}<br>difficulty</span>`+
+    `<span class="chip">${judge}<br>judge</span>`+
+    (DB_TROUBLE ? `<span class="chip trouble" id="dbTroubleChip">\u26a0 Dedup<br>offline</span>` : '');
+  const tc=document.getElementById('dbTroubleChip');
+  if(tc) tc.onclick=showDbTrouble;
 }
 
 // Finish for the night: the same teardown as ending a session, except we do NOT

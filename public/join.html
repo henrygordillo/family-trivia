@@ -94,8 +94,13 @@ body{
 
 /* ── Game ─────────────────────────────────────────────── */
 #game{display:none;flex-direction:column;gap:12px;min-height:calc(100dvh - 46px);}
-.setupline{font-size:10px;letter-spacing:.5px;text-transform:uppercase;
-  color:rgba(255,255,255,.4);font-weight:700;text-align:center;}
+/* Same two chips as the shared screen and the host — the conditions of play read
+   as facts, not as a caption. No logo here: this is the tightest of the three
+   screens and the player already knows what they opened. */
+.setupline{display:flex;gap:8px;justify-content:center;}
+.setupline .chip{border:1px solid rgba(255,255,255,.22);border-radius:12px;
+  padding:6px 13px;font-size:11.5px;line-height:1.3;font-weight:700;
+  color:rgba(255,255,255,.82);text-align:center;white-space:nowrap;}
 .jright{display:flex;flex-direction:column;flex:1;min-height:0;gap:12px;}
 @media (orientation:landscape){
   .orow .oname{font-size:11px;}
@@ -331,8 +336,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='4.10';
-const JOIN_BUILT_AT='2026-07-27T22:59:09Z';
+const JOIN_VERSION='4.11';
+const JOIN_BUILT_AT='2026-08-01T13:45:56Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -748,7 +753,9 @@ function render(S){
   const _sl=document.getElementById('setupLine');
   if(_sl){
     const d = S.gameMode==='easy' ? 'Easier' : S.gameMode==='hard' ? 'Harder' : 'Normal';
-    _sl.textContent = `${d} \u00b7 ${S.judgeMode==='ai' ? 'AI judge' : 'Human judge'}`;
+    const j = S.judgeMode==='ai' ? 'AI' : 'Human';
+    _sl.innerHTML = `<span class="chip">${d}<br>difficulty</span>`+
+                    `<span class="chip">${j}<br>judge</span>`;
   }
   _lastHeard=Date.now();
   _stale=false;          // we're hearing the judge again

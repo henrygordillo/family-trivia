@@ -70,8 +70,17 @@ body{
 
 /* ── Game screen ─────────────────────────────────────────── */
 #game{display:none;height:95vh;flex-direction:column;}
-.setupline{text-align:center;font-size:clamp(9px,1.05vw,23px);letter-spacing:.12vw;
-  text-transform:uppercase;color:rgba(255,255,255,.4);font-weight:700;margin-bottom:1vh;}
+/* The conditions of play — how hard, and who rules. Two facts, so two chips:
+   a "Normal - Human judge" text line read as a build stamp and got ignored.
+   Deliberately NOT tinted: gold already means points on this board, and colouring
+   difficulty would make the header look like a verdict on the game. */
+.gamehead{display:flex;align-items:center;gap:1.4vw;margin-bottom:1vh;}
+.ghlogo{font-family:'Playfair Display',serif;font-weight:900;color:var(--gold-hi);
+  font-size:clamp(15px,2.4vw,52px);line-height:1.08;flex:0 0 auto;}
+.chips{display:flex;gap:.7vw;margin-left:auto;flex:0 0 auto;}
+.chip{border:1px solid rgba(255,255,255,.24);border-radius:.9vw;text-align:center;
+  padding:.7vh 1.1vw;font-size:clamp(9px,1.05vw,23px);line-height:1.28;
+  font-weight:700;color:rgba(255,255,255,.85);letter-spacing:.04vw;white-space:nowrap;}
 .topband{display:flex;gap:1.2vw;align-items:stretch;margin-bottom:1.6vh;}
 .scores{display:flex;gap:1.2vw;flex:1;min-width:0;}
 .pcard{flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
@@ -411,7 +420,10 @@ body{
 </div>
 
 <div id="game" style="position:relative;">
-  <div class="setupline" id="setupLine"></div>
+  <div class="gamehead">
+    <div class="ghlogo">Trivia<br>Night</div>
+    <div class="chips" id="setupLine"></div>
+  </div>
   <div class="topband">
     <div class="scores" id="scores"></div>
     <div id="gameJoin">
@@ -464,8 +476,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='7.8';
-const TV_BUILT_AT='2026-07-27T22:59:09Z';
+const TV_VERSION='7.9';
+const TV_BUILT_AT='2026-08-01T13:45:56Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -915,8 +927,12 @@ window.addEventListener('keydown', (e)=>{
 function renderSetupLine(S){
   const el=document.getElementById('setupLine');
   if(!el) return;
+  // "Normal" alone is a floating adjective — say what it is the difficulty OF.
   const diff = S.gameMode==='easy' ? 'Easier' : S.gameMode==='hard' ? 'Harder' : 'Normal';
-  el.textContent = `${diff} \u00b7 ${S.judgeMode==='ai' ? 'AI judge' : 'Human judge'}`;
+  const judge = S.judgeMode==='ai' ? 'AI' : 'Human';
+  el.innerHTML =
+    `<span class="chip">${diff}<br>difficulty</span>`+
+    `<span class="chip">${judge}<br>judge</span>`;
 }
 
 function render(S){
