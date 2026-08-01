@@ -106,22 +106,22 @@ body{
 .scores{display:flex;gap:1.2vw;flex:1;min-width:0;}
 .pcard{flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
   border-radius:1vw;padding:1vh .8vw;text-align:center;transition:all .25s;}
-/* Who still owes a pick, said with SURFACE rather than words. Play sweeps left to
-   right, so the row reads as the progress of the round: lit cards ahead, recessed
-   ones behind, gold on whoever is up.
-   Not opacity — fading the whole card takes the score down with it, and the score
-   is the thing you most need to read from a sofa. Only the background and border
-   move; the numbers stay at full strength throughout. */
-.pcard.pending{background:rgba(255,255,255,.11);border-color:rgba(255,255,255,.28);}
-.pcard.done{background:rgba(255,255,255,.015);border-color:rgba(255,255,255,.06);}
-.pcard.done .pname{color:rgba(255,255,255,.5);}
-.pcard.done .pscore{color:rgba(212,168,67,.65);}
+/* Who still owes a pick, said with SURFACE rather than words.
+   The LIFT goes on pending, not the dimming on done. Having taken your turn is the
+   resting state, not a demotion — recessing it made the leader, crown and all, look
+   like the deadest thing on the screen. So `done` is simply the plain card, and the
+   players who still owe a pick are the ones brightened.
+   Not opacity either: fading a card takes its score with it, and the score is what
+   you read from across the room. Only surface and border move. */
+.pcard.pending{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.55);}
+.pcard.pending .pname{color:#fff;}
+.pcard.done{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.09);}
 .pcard.active{background:rgba(212,168,67,.16);border-color:var(--gold);transform:translateY(-.4vh);}
 .pcard.active .pname{color:#fff;}
 .pcard.active .pscore{color:var(--gold-hi);}
 .pcard.steal{background:rgba(124,58,237,.16);border-color:var(--purple-hi);}
 .pcard.steal .pscore{color:var(--gold-hi);}
-.pcard.ondeck{border-color:rgba(255,255,255,.34);}
+.pcard.ondeck{border-color:rgba(255,255,255,.55);}
 .pname{font-size:clamp(9px,1.4vw,31px);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .pscore{font-family:'Playfair Display',serif;font-size:clamp(11px,2.6vw,57px);font-weight:900;color:var(--gold-hi);line-height:1.15;}
 /* Hit rate only. Whether they've picked is the card's opacity now. */
@@ -511,8 +511,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='7.18';
-const TV_BUILT_AT='2026-08-01T17:05:20Z';
+const TV_VERSION='7.19';
+const TV_BUILT_AT='2026-08-01T17:09:44Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
