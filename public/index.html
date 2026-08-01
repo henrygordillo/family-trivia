@@ -901,8 +901,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.85';
-const APP_BUILT_AT='2026-08-01T15:10:04Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.86';
+const APP_BUILT_AT='2026-08-01T15:16:01Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1066,6 +1066,13 @@ function deviceLabel(){
 }
 
 let _stateSeq = 0;
+// One-shot events for the other screens, sequenced like `speak` so a repeat push
+// doesn't replay them.
+let _splash=null, _splashSeq=0;
+// Has anything actually been played on THIS board? Drives both the re-deal lock
+// and when the game gets written to the DB.
+let _answeredThisBoard=false;
+
 function publicState(){
   const out = {};
   STATE_PUBLIC.forEach(k => { out[k] = G[k]; });
@@ -1107,6 +1114,7 @@ function publicState(){
   // Speech: the phone can't make the TV talk — it can only ASK it to. The TV runs
   // its own speechSynthesis. `seq` lets it ignore repeats of the same utterance.
   out.speak = G.speak || null;
+  out.splash = _splash || null;
 
   // Timer: we push it ONCE when it starts and let the TV run its own countdown.
   // Pushing every tick would be 30 network round-trips per question.
@@ -2322,7 +2330,11 @@ async function startGame(){
   const pool=available.length>=G.numCats?available:CAT_POOL;
   G.categories=shuffle([...pool]).slice(0,G.numCats);
   _rejectedCats=null;                    // only the very next deal avoids them
-  dbRecordGame(G.categories, rulesetVersion(), G.players.length);
+  // NOT recorded here. A board that gets dealt and thrown away is not a game, and
+  // writing one row per deal left phantom games with no attempts attached. The row
+  // goes in when somebody actually plays a tile — see recordAttemptFor.
+  _answeredThisBoard=false;
+  _gameRecorded=false;
 
   // Block the leftover tiles so remaining tiles divide evenly by player count
   // (spread across distinct categories and tiers so it looks intentional).
@@ -2340,6 +2352,7 @@ async function startGame(){
   // buildBoard is a pure renderer now, so the caller owns the state change.
   G.phase='pick';
   buildBoard();
+  syncDealAgainBtn();
   show('board');          // this sets _inGame — which publicState()'s `active` depends on
   pushToTV();             // ...so the TV needs one more push AFTER it, or it thinks no game started
 }
@@ -3415,11 +3428,50 @@ function _leaveBoard(){
 // next deal to steer clear of them.
 let _rejectedCats=null;
 
-// A mulligan: same players, same setup, another board — and pointedly not the
-// categories you just turned down.
+// A mulligan, and mulligans have a limit. Two is "we've all seen these" plus one
+// for bad luck; a third is shopping for a board you like. The harder rule is the
+// one below it: once a question has been answered there are points on this board,
+// so re-dealing would mean either wiping what people earned or carrying it onto
+// a board it wasn't earned on. Both are wrong.
+const REDEAL_LIMIT = 2;
+let _redealsUsed = 0;
+
+function redealState(){
+  if(_answeredThisBoard) return {ok:false, why:'The game has started'};
+  if(_redealsUsed >= REDEAL_LIMIT) return {ok:false, why:'No re-deals left'};
+  return {ok:true, left: REDEAL_LIMIT - _redealsUsed};
+}
+
+// Greyed with a reason, never hidden — a button that vanishes teaches nothing.
+function syncDealAgainBtn(){
+  const b=document.getElementById('dealAgainBtn');
+  if(!b) return;
+  const st=redealState();
+  b.disabled = !st.ok;
+  b.style.opacity = st.ok ? '' : '.4';
+  b.style.cursor  = st.ok ? '' : 'default';
+  b.textContent = st.ok
+    ? `\u21bb Deal again${_redealsUsed?' ('+st.left+' left)':''}`
+    : `\u21bb ${st.why}`;
+}
+
 async function dealAgain(){
+  const st=redealState();
+  if(!st.ok){ toast(st.why); return; }
   closeGameMenu();
+  _redealsUsed++;
   _rejectedCats=(G.categories||[]).slice();
+  const left = REDEAL_LIMIT - _redealsUsed;
+  // The other screens see the board change under them with no explanation, so
+  // say what happened and how much rope is left. It's a shared rule, not a
+  // private allowance — everyone playing under it should be able to see it.
+  _splash = {
+    seq: ++_splashSeq,
+    title: 'New categories',
+    line: left>0
+      ? `${left} re-deal${left===1?'':'s'} left`
+      : 'No more re-deals'
+  };
   _leaveBoard();
   await startGame();
 }
@@ -3427,6 +3479,8 @@ async function dealAgain(){
 // Same players, everything else open.
 function gmChangeSetup(){
   closeGameMenu(); _leaveBoard();
+  _redealsUsed=0;            // a different setup is a different game
+
   _playersLocked=true; applyPlayerLock(); show('setup');
 }
 
@@ -3434,6 +3488,8 @@ function gmChangeSetup(){
 // only one where connected screens have to ask again whose device they are.
 function gmNewGame(){
   closeGameMenu(); _leaveBoard();
+  _redealsUsed=0;            // different people, clean slate
+
   // A blank slate, the same one you get on a fresh launch — pick who's playing
   // from scratch. Only the room survives, so nobody has to rejoin.
   selectedPlayers=[];
@@ -3564,12 +3620,28 @@ async function dbGetRecentCategories(){
 // A silently skipped attempt is invisible twice over: the stats lose a row, and
 // the category never registers as played.
 function recordAttemptFor(idx, category, tier, correct, pts, isSteal){
+  // First real play on this board — this is the moment it becomes a game.
+  markBoardPlayed();
   const id = (G.playerIds||[])[idx] || null;
   if(!id){
     dbFail('saving attempts', 'no player id for '+(G.players[idx]||('seat '+idx)));
     return;
   }
   dbRecordAttempt(id, category, tier, correct, pts, isSteal);
+}
+
+// Fires once per board. Writes the game row and closes the re-deal window: from
+// here on there are points on this board, so it can't be thrown away.
+let _gameRecorded=false;
+function markBoardPlayed(){
+  if(!_answeredThisBoard){
+    _answeredThisBoard=true;
+    syncDealAgainBtn();
+  }
+  if(!_gameRecorded){
+    _gameRecorded=true;
+    dbRecordGame(G.categories, rulesetVersion(), G.players.length);
+  }
 }
 
 async function dbRecordAttempt(player_id, category, tier, correct, pts, is_steal){

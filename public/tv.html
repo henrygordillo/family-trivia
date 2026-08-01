@@ -84,6 +84,18 @@ body{
   padding:.55vh .9vw;font-size:clamp(9px,.95vw,20px);line-height:1.2;
   font-weight:700;letter-spacing:.06vw;text-transform:uppercase;
   color:rgba(255,255,255,.6);white-space:nowrap;}
+/* A re-deal swaps every category under the room's feet. Without this the board
+   just silently becomes a different board. Sits OVER the new board so the change
+   and the reason arrive together. */
+#splash{position:absolute;inset:0;z-index:60;display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:1.2vh;
+  background:rgba(8,9,15,.93);border-radius:1vw;text-align:center;}
+#splash.show{display:flex;animation:splashIn .35s ease;}
+@keyframes splashIn{from{opacity:0;transform:scale(.97);}to{opacity:1;transform:none;}}
+#splashTitle{font-family:'Playfair Display',serif;font-weight:900;color:var(--gold-hi);
+  font-size:clamp(26px,5.5vw,110px);line-height:1.05;}
+#splashLine{font-size:clamp(12px,1.8vw,38px);font-weight:700;letter-spacing:.15vw;
+  text-transform:uppercase;color:rgba(255,255,255,.62);}
 .topband{display:flex;gap:1.2vw;align-items:stretch;margin-bottom:1.6vh;}
 .scores{display:flex;gap:1.2vw;flex:1;min-width:0;}
 .pcard{flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
@@ -423,6 +435,10 @@ body{
 </div>
 
 <div id="game" style="position:relative;">
+  <div id="splash">
+    <div id="splashTitle"></div>
+    <div id="splashLine"></div>
+  </div>
   <div class="gamehead">
     <div class="ghlogo">Trivia Night</div>
     <div class="chips" id="setupLine"></div>
@@ -479,8 +495,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='7.10';
-const TV_BUILT_AT='2026-08-01T14:14:07Z';
+const TV_VERSION='7.11';
+const TV_BUILT_AT='2026-08-01T15:16:01Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -776,6 +792,22 @@ function sayIt(text){
   }catch(e){}
 }
 
+// Same one-shot pattern as speak: fire once per seq, ignore repeats of the same
+// push. 4.5s is long enough to read two lines from a sofa without stalling play.
+let _lastSplashSeq=null, _splashT=null;
+function handleSplash(sp){
+  if(!sp || !sp.title) return;
+  if(sp.seq === _lastSplashSeq) return;
+  _lastSplashSeq = sp.seq;
+  const el=document.getElementById('splash');
+  if(!el) return;
+  document.getElementById('splashTitle').textContent = sp.title;
+  document.getElementById('splashLine').textContent  = sp.line || '';
+  el.classList.add('show');
+  clearTimeout(_splashT);
+  _splashT=setTimeout(()=>el.classList.remove('show'), 4500);
+}
+
 function handleSpeak(sp){
   if(!sp || !sp.text) return;
   if(sp.seq === _lastSpeakSeq) return;         // already said this one
@@ -967,6 +999,7 @@ function render(S){
   document.getElementById('game').style.display='flex';
 
   handleSpeak(S.speak);
+  handleSplash(S.splash);
 
   const q = S.currentQuestion;
   const questionOpen = !!(q && q.text);
