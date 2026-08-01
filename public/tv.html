@@ -110,7 +110,6 @@ body{
 .pcard.steal{background:rgba(124,58,237,.16);border-color:var(--purple-hi);}
 .pcard.ondeck{border-color:rgba(255,255,255,.22);}
 .pname{font-size:clamp(9px,1.4vw,31px);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.pnum{color:rgba(255,255,255,.25);font-weight:700;margin-right:.35vw;}
 .pscore{font-family:'Playfair Display',serif;font-size:clamp(11px,2.6vw,57px);font-weight:900;color:var(--gold-hi);line-height:1.15;}
 /* Hit rate + whether they've picked this round — the phone shows both, so the TV must too */
 .pmeta{display:flex;align-items:center;justify-content:center;gap:.5vw;flex-wrap:wrap;
@@ -278,7 +277,6 @@ body{
   .scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-bottom:10px;}
   .pcard{padding:7px 6px;border-radius:10px;}
   .pname{font-size:13px;}
-  .pnum{margin-right:3px;}
   .pscore{font-size:22px;}
   .pmeta{height:auto;gap:3px;}
   .pmeta .chip{font-size:9px;padding:1px 6px;}
@@ -501,8 +499,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='7.15';
-const TV_BUILT_AT='2026-08-01T16:35:46Z';
+const TV_VERSION='7.16';
+const TV_BUILT_AT='2026-08-01T16:54:48Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -1071,7 +1069,10 @@ function render(S){
       : '<span class="chip owed">not yet picked this round</span>';
 
     return `<div class="${cls}">
-      <div class="pname"><span class="pnum">${i+1}</span>${crown}${p}${badge}</div>
+      <!-- No seat number. G.players is reordered into play order at deal time, so
+           the cards already run left to right in turn order — the position IS the
+           number. "Picking" and "On deck" mark where the loop currently is. -->
+      <div class="pname">${crown}${p}${badge}</div>
       <div class="pscore">${S.scores[i]}</div>
       <div class="pmeta">${hit}${picked}</div>
       <div class="${statCls}">${stat}</div>
