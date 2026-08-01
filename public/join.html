@@ -355,8 +355,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='4.15';
-const JOIN_BUILT_AT='2026-08-01T15:41:16Z';
+const JOIN_VERSION='4.16';
+const JOIN_BUILT_AT='2026-08-01T15:55:23Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -719,7 +719,7 @@ function handleSplash(sp){
   document.getElementById('splashLine').textContent  = sp.line  || '';
   el.classList.add('show');
   clearTimeout(_splashT);
-  _splashT=setTimeout(()=>el.classList.remove('show'), 5000);
+  _splashT=setTimeout(()=>el.classList.remove('show'), 4000);
 }
 
 function waiting(msg, sub){

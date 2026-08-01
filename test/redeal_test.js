@@ -89,5 +89,14 @@ chk('all three screens centre the card', (allHtml.match(/id="splashWrap"/g)||[])
 chk('all three read title and line',     (allHtml.match(/splashTitle/g)||[]).length>=6);
 chk('host announces to itself',          allHtml.includes('showSplash(_splash)'));
 
+// Setup and board must offer the SAME two doors in the same shape — one pattern,
+// two moments. Four .boardlink buttons total: two on setup, two on the board.
+const idx=fs.readFileSync('public/index.html','utf8');
+chk('four paired connect buttons', (idx.match(/class="boardlink"/g)||[]).length===4);
+chk('setup pair wired',  idx.includes("getElementById('tvBtn')") && idx.includes("getElementById('addScreenBtn')"));
+chk('board pair wired',  idx.includes("getElementById('joinBtnBoard')") && idx.includes("getElementById('addScreenBtnBoard')"));
+chk('old setup strip gone', !idx.includes('tvBtnLabel') && !idx.includes('joinQr'));
+chk('both places report attached screens', (idx.match(/joinWatchers/g)||[]).length>=2);
+
 console.log(fail?('\n'+fail+' FAILED'):'\nall re-deal checks passed');
 process.exit(fail?1:0);

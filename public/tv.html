@@ -497,8 +497,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='7.13';
-const TV_BUILT_AT='2026-08-01T15:41:16Z';
+const TV_VERSION='7.14';
+const TV_BUILT_AT='2026-08-01T15:55:23Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -807,7 +807,7 @@ function handleSplash(sp){
   document.getElementById('splashLine').textContent  = sp.line  || '';
   el.classList.add('show');
   clearTimeout(_splashT);
-  _splashT=setTimeout(()=>el.classList.remove('show'), 5000);
+  _splashT=setTimeout(()=>el.classList.remove('show'), 4000);
 }
 
 function handleSpeak(sp){

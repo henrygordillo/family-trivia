@@ -478,24 +478,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button id="openSettingsBtn" aria-label="Settings" style="display:flex;align-items:center;gap:5px;background:transparent;border:none;cursor:pointer;color:var(--gold-lo);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px;"><span style="font-size:16px;">⚙</span> Settings</button>
       <button id="endGameBtnSetup" style="background:transparent;border:none;cursor:pointer;font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;padding:4px;opacity:.8;">Exit app</button>
     </div>
-    <!-- Two different operations, so two different controls. Joining is something
-         this phone DISPLAYS (others scan it). A shared screen is something this
-         phone DOES (you scan the screen). Only the first one can be a strip. -->
-    <button id="tvBtn" style="width:100%;margin-top:12px;display:flex;align-items:center;gap:12px;
-      background:var(--card2);border:1.5px solid var(--card3);border-radius:12px;cursor:pointer;
-      padding:9px 12px;text-align:left;font-family:'Outfit',sans-serif;">
-      <span id="joinQr" style="flex:0 0 auto;display:flex;"></span>
-      <span style="flex:1;min-width:0;">
-        <span style="display:block;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;">To follow on a personal screen</span>
-        <span id="tvBtnLabel" style="display:block;font-family:'Playfair Display',serif;font-size:26px;font-weight:900;color:var(--ink);letter-spacing:4px;line-height:1.15;">····</span>
-        <span id="joinUrl" style="display:block;font-size:10px;color:var(--muted);line-height:1.35;"></span>
-        <span id="joinWatchers" style="display:block;font-size:10px;color:var(--teal);font-weight:700;"></span>
-      </span>
-    </button>
-
-    <div style="display:flex;justify-content:center;margin-top:6px;">
-      <button id="addScreenBtn" style="display:flex;align-items:center;gap:5px;background:transparent;border:none;cursor:pointer;color:var(--muted);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px;"><span style="font-size:14px;">📺</span> Add a shared screen</button>
+    <!-- The same two doors as the board, in the same shape. Setup is where you get
+         the room ready; the board is for latecomers. Different moments, identical
+         controls — the sheet behind them does the work in both places. -->
+    <div class="boardlinks" style="margin-top:12px;">
+      <button class="boardlink" id="addScreenBtn"><span class="bl-i">📺</span><span>Add a<br>shared screen</span></button>
+      <button class="boardlink" id="tvBtn"><span class="bl-i">📱</span><span>Connect a<br>personal screen</span></button>
     </div>
+    <div class="bl-watchers" id="joinWatchers"></div>
     <div id="buildFooter" style="margin-top:10px;text-align:center;font-size:10px;line-height:1.5;color:var(--muted);opacity:.65;"></div>
 
   </div>
@@ -924,8 +914,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.88';
-const APP_BUILT_AT='2026-08-01T15:41:16Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.89';
+const APP_BUILT_AT='2026-08-01T15:55:23Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1495,17 +1485,11 @@ async function connectTV(code){
   return {ok:true};
 }
 
+// The code no longer lives on the button — it's in the sheet. All the button has
+// to say is whether a room is open at all.
 function updateTVBadge(){
-  const lbl=document.getElementById('tvBtnLabel');
-  const btn=document.getElementById('tvBtn');
-  if(!lbl||!btn) return;
-  if(TV_CODE){
-    lbl.textContent=TV_CODE;
-    btn.style.color='var(--teal)';
-  } else {
-    lbl.textContent='\u00b7\u00b7\u00b7\u00b7';
-    btn.style.color='var(--muted)';
-  }
+  document.querySelectorAll('#tvBtn, #joinBtnBoard, #addScreenBtn, #addScreenBtnBoard')
+    .forEach(b=>{ b.style.borderColor = TV_CODE ? 'rgba(31,173,160,.55)' : ''; });
 }
 
 function openTVModal(){
@@ -1544,39 +1528,16 @@ function startWatchPoll(){
   tick(); _watchPoll=setInterval(tick, 5000);
 }
 
+// Setup and board carry the same pair of buttons, so both just report who's
+// attached — you shouldn't have to open a panel to find out whether anybody is
+// actually watching. The code and QR live in the sheet, in one place.
 function syncJoinBtns(){
-
-  // The setup strip is a DISPLAY: hold the phone out and people scan it. No tap
-  // needed for the common case; tapping just opens the bigger version.
-  const lbl=document.getElementById('tvBtnLabel');
-  const url=document.getElementById('joinUrl');
-  const box=document.getElementById('joinQr');
-  if(lbl) lbl.textContent = TV_CODE || '\u00b7\u00b7\u00b7\u00b7';
-  if(url) url.textContent = TV_CODE
-    ? ('Scan the QR, or enter the code at '+location.host+'/join')
-    : 'Opening a room\u2026';
-  // Say how many are attached right on the strip — you shouldn't have to open a
-  // panel to find out whether anybody is actually watching.
-  const w=document.getElementById('joinWatchers');
-  if(w) w.textContent = screensLine();
-  // The board shows only who's attached — the code and QR live in the sheet now.
-  const wB=document.getElementById('joinWatchersBoard');
-  if(wB) wB.textContent = screensLine();
-
-  [box].forEach(b=>{
-    if(!b) return;
-    if(!TV_CODE){ b.innerHTML=''; b.dataset.code=''; return; }
-    if(b.dataset.code===TV_CODE) return;        // already drawn for this room
-    b.dataset.code=TV_CODE;
-    b.innerHTML='';
-    const img=document.createElement('img');
-    img.alt='Scan to join';
-    img.style.cssText='width:58px;height:58px;background:#fff;padding:4px;border-radius:7px;display:block;';
-    img.src='https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=0&data='+
-            encodeURIComponent(location.origin+'/join?code='+TV_CODE);
-    img.onerror=()=>{ img.style.display='none'; };
-    b.appendChild(img);
+  const line=screensLine();
+  ['joinWatchers','joinWatchersBoard'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.textContent=line;
   });
+  updateTVBadge();
 }
 let _viewerCount=0, _sharedCount=0;
 // Shared and personal screens are counted separately now that each one says what
@@ -3480,7 +3441,7 @@ function showSplash(sp){
   document.getElementById('splashLine').textContent  = sp.line  || '';
   w.classList.add('show');
   clearTimeout(_hostSplashT);
-  _hostSplashT=setTimeout(()=>w.classList.remove('show'), 5000);
+  _hostSplashT=setTimeout(()=>w.classList.remove('show'), 4000);
 }
 
 // Greyed with a reason, never hidden — a button that vanishes teaches nothing.
