@@ -928,8 +928,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.93';
-const APP_BUILT_AT='2026-08-01T16:47:34Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.95';
+const APP_BUILT_AT='2026-08-01T17:29:37Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1197,6 +1197,12 @@ function show(id){
   var bb=document.getElementById('backBtn');
   if(bb) bb.style.display=(id==='qscreen'?'':'none');
   if(id==='board'){ try{ renderSetupLine(); }catch(e){} }
+  // Every screen change is news. _inGame above drives publicState()'s `active`,
+  // which decides whether the other screens show a board at all — so a transition
+  // that doesn't push can leave the room on the wrong screen entirely (the
+  // retire-tile path did exactly that). pushToTV() coalesces and no-ops without a
+  // room, so this is safe on all 16 call sites, init included.
+  try{ pushToTV(); }catch(e){}
   ensureBackTrap();     // every transition tops the trap back up
 }
 // ── GAME RESUME ───────────────────────────────────────────────────────────
@@ -2411,9 +2417,15 @@ function buildBoard(S, interactive){
 // refreshBoard = a state CHANGE (we're back on the board) followed by a render.
 // The two jobs are now separate: renderBoard() is pure and can draw any state,
 // including one that arrived from another device.
+// The single funnel for "we're back on the board" — endQuestion (the Next button),
+// backToBoard, retireTile and setJudge all land here. None of them pushed, so after
+// tapping Next the room kept showing the finished question until the 8s heartbeat.
+// Pushing here covers all four at once, and pushToTV() already coalesces, so a
+// burst can only ever send the latest state.
 function refreshBoard(){
   G.phase='pick';        // mutation
   renderBoard(G);        // render
+  pushToTV();            // tell the room
 }
 
 // PURE: paints the board from whatever state it's given. No mutations, no reads of G.
@@ -2608,6 +2620,10 @@ function goToAnswer(){
   } else {
     setupAiAnswer(G.answererIdx, false);
   }
+  // Explicit, not incidental. This beat used to reach the room only because
+  // startTimer() happens to push — and startTimer returns immediately when the
+  // timer setting is off, so with it off the shared screen never left "reading".
+  pushToTV();
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -2781,6 +2797,11 @@ function resolveAnswer(correct){
       showFinalReveal();
     }
   }
+  // TELL THE ROOM. Every branch above has finished mutating G by here — the score,
+  // the streak, the miss, whose turn it is, whether a steal is open. None of it
+  // used to be pushed at all: the shared screen only caught up on the 8s heartbeat,
+  // so a wrong answer or a steal could sit several seconds behind the table.
+  pushToTV();
 }
 
 function autoRotateJudge(){
@@ -2862,17 +2883,23 @@ function doSteal(idx){
   } else {
     setupAiAnswer(idx, true);
   }
+  pushToTV();          // the steal is live — don't wait on startTimer to say so
 }
 
 function noSteal(){
   G.lastResult={player:G.players[G.answererIdx], pts:0, steal:false, correct:false};
   markUsed(); advanceTurnPos(); autoRotateJudge(); showFinalReveal();
+  pushToTV();
 }
 
 function showFinalReveal(){
   // Regen comes back; the back-out never left.
   var rb=document.getElementById('regenBtn');
   if(rb) rb.style.display=G.judgeMode==='human'?'block':'none';
+  // The reveal is its own beat: publicState() only releases the answer and the
+  // explanation once phase==='reveal', so the room needs a push at this exact
+  // moment or it stares at a question whose answer has already been read out.
+  setTimeout(pushToTV, 0);
   const qd=G.qData[`${G.curCat}-${G.curQ}`];
 
   // THE REVEAL. Until now the answer has never left this device; from here the
