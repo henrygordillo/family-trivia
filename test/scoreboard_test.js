@@ -8,22 +8,29 @@ const css=tv.slice(0, tv.indexOf('</style>'));
 
 chk('no seat numbers', !tv.includes('pnum'));
 chk('no picked/owed chips', !tv.includes('picked this round</span>') && !tv.includes('chip owed'));
-chk('done state exists', /\.pcard\.done\{opacity:\.\d+/.test(css));
-chk('done is applied from pickedThisRound', /pickedThisRound\|\|\[\]\)\.includes\(i\)[\s\S]{0,120}cls\+=' done'/.test(tv));
-
-// Cascade: .done must be declared BEFORE the live states, and each live state
-// must re-assert opacity:1 — otherwise the current picker dims mid-turn.
+// Three states, told by SURFACE. Opacity is the wrong channel: fading the card
+// takes the score with it, and the score is what you read from across the room.
 const at=k=>css.indexOf('.pcard.'+k);
-chk('.done precedes the live states',
-    at('done') < at('active') && at('done') < at('steal') && at('done') < at('ondeck'));
-for(const k of ['active','steal','ondeck']){
-  const rule=css.slice(at(k), css.indexOf('}', at(k)));
-  chk('.'+k+' stays fully opaque', /opacity:1/.test(rule));
-}
+chk('both states are explicit, never an implicit default', at('pending')>0 && at('done')>0);
+chk('states are assigned per player',
+    /pickedThisRound\|\|\[\]\)\.includes\(i\)[\s\S]{0,160}done \? ' done' : ' pending'/.test(tv));
+chk('no whole-card opacity fade', !/\.pcard\.(done|pending)\{[^}]*opacity/.test(css));
 
-// The muting must be readable but not illegible from a sofa.
-const op=Number((css.match(/\.pcard\.done\{opacity:(\.\d+)/)||[])[1]);
-chk('muted cards are still readable ('+op+')', op>=0.3 && op<=0.6);
+for(const k of ['pending','done']){
+  const rule=css.slice(at(k), css.indexOf('}', at(k)));
+  chk('.'+k+' differs by background', /background:/.test(rule));
+  chk('.'+k+' differs by border',     /border-color:/.test(rule));
+}
+// Done and pending must not resolve to the same surface, or there are no states.
+const bg=k=>(css.slice(at(k), css.indexOf('}', at(k))).match(/background:([^;]+)/)||[])[1];
+chk('done and pending are visibly different', bg('done')!==bg('pending'));
+
+// Cascade: the live states are declared after, so whoever is up wins regardless
+// of whether they have already picked.
+chk('live states override both', at('active')>at('done') && at('active')>at('pending')
+    && at('steal')>at('done') && at('ondeck')>at('done'));
+// ...and the score stays legible on a done card rather than vanishing.
+chk('done keeps a readable score', /\.pcard\.done \.pscore\{color:rgba\(212,168,67,\.\d+\)/.test(css));
 
 console.log(fail?('\n'+fail+' FAILED'):'\nscoreboard checks passed');
 process.exit(fail?1:0);

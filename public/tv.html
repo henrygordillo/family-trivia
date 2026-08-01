@@ -106,17 +106,22 @@ body{
 .scores{display:flex;gap:1.2vw;flex:1;min-width:0;}
 .pcard{flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
   border-radius:1vw;padding:1vh .8vw;text-align:center;transition:all .25s;}
-/* Who still owes a pick, said with weight instead of words. Play sweeps left to
-   right, so a row of bright cards followed by muted ones IS the progress of the
-   round — two chips reading "not yet picked this round" said the same thing in
-   text nobody had room to read from a sofa.
-   Deliberately last-but-one in the cascade: `active` and `steal` re-assert their
-   full opacity below, because dimming whoever is playing right now would fight
-   the very thing this is meant to make legible. */
-.pcard.done{opacity:.42;}
-.pcard.active{background:rgba(212,168,67,.16);border-color:var(--gold);transform:translateY(-.4vh);opacity:1;}
-.pcard.steal{background:rgba(124,58,237,.16);border-color:var(--purple-hi);opacity:1;}
-.pcard.ondeck{border-color:rgba(255,255,255,.22);opacity:1;}
+/* Who still owes a pick, said with SURFACE rather than words. Play sweeps left to
+   right, so the row reads as the progress of the round: lit cards ahead, recessed
+   ones behind, gold on whoever is up.
+   Not opacity — fading the whole card takes the score down with it, and the score
+   is the thing you most need to read from a sofa. Only the background and border
+   move; the numbers stay at full strength throughout. */
+.pcard.pending{background:rgba(255,255,255,.11);border-color:rgba(255,255,255,.28);}
+.pcard.done{background:rgba(255,255,255,.015);border-color:rgba(255,255,255,.06);}
+.pcard.done .pname{color:rgba(255,255,255,.5);}
+.pcard.done .pscore{color:rgba(212,168,67,.65);}
+.pcard.active{background:rgba(212,168,67,.16);border-color:var(--gold);transform:translateY(-.4vh);}
+.pcard.active .pname{color:#fff;}
+.pcard.active .pscore{color:var(--gold-hi);}
+.pcard.steal{background:rgba(124,58,237,.16);border-color:var(--purple-hi);}
+.pcard.steal .pscore{color:var(--gold-hi);}
+.pcard.ondeck{border-color:rgba(255,255,255,.34);}
 .pname{font-size:clamp(9px,1.4vw,31px);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .pscore{font-family:'Playfair Display',serif;font-size:clamp(11px,2.6vw,57px);font-weight:900;color:var(--gold-hi);line-height:1.15;}
 /* Hit rate only. Whether they've picked is the card's opacity now. */
@@ -506,8 +511,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const TV_VERSION='7.17';
-const TV_BUILT_AT='2026-08-01T17:00:26Z';
+const TV_VERSION='7.18';
+const TV_BUILT_AT='2026-08-01T17:05:20Z';
 const BACKEND='';   // same origin
 
 const PTS=[100,200,300,400,500];
@@ -1068,9 +1073,10 @@ function render(S){
       ? `<span class="chip hit">${Math.round(ok/mine.length*100)}% correct</span>`
       : '';
 
-    // Carried by the card's weight now, not by a chip — see .pcard.done.
+    // Three explicit states, never an implicit default: done, still to pick, or
+    // currently up. The live states are applied after, so they win.
     const done=(S.pickedThisRound||[]).includes(i);
-    if(done) cls+=' done';
+    cls += done ? ' done' : ' pending';
 
     return `<div class="${cls}">
       <!-- No seat number. G.players is reordered into play order at deal time, so
