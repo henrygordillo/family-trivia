@@ -6,8 +6,8 @@ const path = require('path');
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
-const VERSION = '3.27';
-const BUILT_AT = '2026-08-01T13:00:17Z';
+const VERSION = '3.28';
+const BUILT_AT = '2026-08-06T19:32:54Z';
 
 const app = express();
 app.use(cors());
@@ -341,6 +341,52 @@ app.post('/api/questions', async (req, res) => {
     .single();
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
+});
+
+// ── Bad questions ───────────────────────────────────────────────────────────
+// Recorded at the moment the host throws one away. A regenerated question used to
+// leave no trace, so a bad-question rate could be felt but never counted.
+const FLAG_REASONS = ['wrong_answer','ambiguous','unclear','repeat','other'];
+
+app.post('/api/flags', async (req, res) => {
+  const { question, answer, explanation, reason, category, tier, mode,
+          difficulty_ruleset_version, model } = req.body;
+  if (!question) return res.status(400).json({ error: 'question is required' });
+  // Free text can't be counted, so an unrecognised reason becomes 'other' rather
+  // than being stored as-is and quietly poisoning the tallies.
+  const r = FLAG_REASONS.includes(reason) ? reason : 'other';
+  const { data, error } = await supabase
+    .from('question_flags')
+    .insert({ question, answer: answer ?? null, explanation: explanation ?? null,
+              reason: r, category: category ?? null, tier: tier ?? null,
+              mode: mode ?? null,
+              difficulty_ruleset_version: difficulty_ruleset_version ?? null,
+              model: model ?? null })
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+// Everything flagged, newest first, plus tallies by reason and by category+tier —
+// the two cuts that answer "is this one bad category or a general problem?".
+app.get('/api/flags', async (req, res) => {
+  const { data, error } = await supabase
+    .from('question_flags')
+    .select('*')
+    .order('flagged_at', { ascending: false })
+    .limit(1000);
+  if (error) return res.status(500).json({ error: error.message });
+  const rows = data || [];
+  const byReason = {}, byCatTier = {}, byVersion = {};
+  rows.forEach(f => {
+    byReason[f.reason] = (byReason[f.reason] || 0) + 1;
+    const ck = `${f.category || '?'}|${f.tier ?? '?'}`;
+    byCatTier[ck] = (byCatTier[ck] || 0) + 1;
+    const v = f.difficulty_ruleset_version ?? '?';
+    byVersion[v] = (byVersion[v] || 0) + 1;
+  });
+  res.json({ rows, byReason, byCatTier, byVersion, total: rows.length });
 });
 
 app.get('/api/questions/recent/:category', async (req, res) => {
