@@ -45,6 +45,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   box-shadow:0 40px 80px rgba(0,0,0,.6),0 0 0 1px rgba(212,168,67,.15);}
 .sec{margin-bottom:18px;}
 .slabel{font-size:10px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:block;}
+/* A placeholder vanishes as soon as there's a value, so "Alec / Gordillo / Alec"
+   gave no way to tell first name from nickname while editing. Labels stay. */
+.flabel{display:block;font-size:9.5px;font-weight:700;letter-spacing:1.6px;
+  text-transform:uppercase;color:rgba(255,255,255,.42);margin:0 0 4px 2px;}
+.flabel.dark{color:var(--muted);}
 .sep{height:1px;background:var(--card3);margin:18px 0;}
 .p-row{display:flex;align-items:center;gap:10px;background:var(--card2);border:2px solid var(--card3);
   border-radius:12px;padding:10px 12px;margin-bottom:8px;transition:border-color .2s;}
@@ -62,8 +67,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .roster-player{display:flex;align-items:center;gap:11px;padding:9px 11px;background:var(--card);
   border:1.5px solid var(--card3);border-radius:12px;cursor:pointer;transition:all .15s;margin-bottom:8px;}
 .roster-player.selected{background:rgba(31,173,160,.14);border-color:var(--teal);}
-/* Off the roster: visible only when you ask to see them, and not selectable —
-   tapping opens the editor, which is where you put them back. */
+/* Inactive: visible only when you ask to see them, and not selectable — tapping
+   opens the editor, which is where they're made active again. */
 .roster-player.off{background:rgba(0,0,0,.05);border-style:dashed;opacity:.72;}
 .roster-player.off .rp-box{background:none;border-color:#c3bba6;color:#a09a92;font-size:14px;}
 .roster-player.off .rp-name{color:var(--muted);}
@@ -861,8 +866,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <div class="modal-box" style="max-width:380px;text-align:left;">
     <div style="font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:16px;">Edit Player</div>
     <input type="hidden" id="editPlayerId">
+    <label class="flabel" for="editFirstName">First name</label>
     <input id="editFirstName" placeholder="First name" style="width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:10px 12px;color:#fff;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
+    <label class="flabel" for="editLastName">Last name</label>
     <input id="editLastName" placeholder="Last name" style="width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:10px 12px;color:#fff;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
+    <label class="flabel" for="editNickname">Nickname — this is what shows in the game</label>
     <input id="editNickname" placeholder="Nickname" style="width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:10px 12px;color:#fff;font-family:Outfit,sans-serif;font-size:14px;margin-bottom:16px;box-sizing:border-box;">
     
     <!-- Change email section -->
@@ -876,8 +884,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
     <!-- Nothing is ever deleted. Attempts link to player_id and feed both the
          lifetime stats and the ruleset calibration, so a player who stops playing
-         must not take real answer data with them. They come off the roster and can
-         come back. -->
+         must not take real answer data with them. They go inactive and can come
+         back. -->
     <div style="border-top:1px solid rgba(255,255,255,.1);padding-top:14px;margin-bottom:14px;">
       <button id="rosterToggleBtn" style="background:none;border:1px solid rgba(192,57,43,.45);border-radius:8px;color:#ff8b7d;font-family:Outfit,sans-serif;font-size:12px;font-weight:700;padding:9px 12px;cursor:pointer;width:100%;"></button>
       <div id="rosterToggleNote" style="font-size:11px;color:rgba(255,255,255,.4);margin-top:7px;line-height:1.45;"></div>
@@ -897,7 +905,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
       <span class="slabel" style="margin-bottom:0;color:var(--muted);">Select Players</span>
       <div style="display:flex;gap:6px;">
-        <button id="showRemovedBtn" title="Show players taken off the roster" style="background:none;border:1.5px solid var(--card3);border-radius:8px;color:var(--muted);font-family:Outfit,sans-serif;font-size:12px;font-weight:700;padding:5px 10px;cursor:pointer;">Removed</button>
+        <button id="showRemovedBtn" title="Switch between active and inactive players" style="background:none;border:1.5px solid var(--card3);border-radius:8px;color:var(--muted);font-family:Outfit,sans-serif;font-size:12px;font-weight:700;padding:5px 10px;cursor:pointer;">Show inactive</button>
         <button id="reloadRosterBtn" title="Reload players" style="background:none;border:1.5px solid var(--card3);border-radius:8px;color:var(--muted);font-family:Outfit,sans-serif;font-size:12px;font-weight:700;padding:5px 10px;cursor:pointer;">&#8635; Reload</button>
       </div>
     </div>
@@ -908,9 +916,13 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <!-- Add player form (hidden by default) -->
     <div id="addPlayerForm" style="display:none;background:var(--card2);border-radius:12px;padding:14px;margin-top:10px;border:2px solid var(--card3);">
       <div style="font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--ink);margin-bottom:12px;display:block;">New Player</div>
+      <label class="flabel dark" for="newFirstName">First name</label>
       <input id="newFirstName" placeholder="First name" style="width:100%;background:#fff;border:1px solid var(--card3);border-radius:8px;padding:10px 12px;color:var(--ink);font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
+      <label class="flabel dark" for="newLastName">Last name</label>
       <input id="newLastName" placeholder="Last name" style="width:100%;background:#fff;border:1px solid var(--card3);border-radius:8px;padding:10px 12px;color:var(--ink);font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
+      <label class="flabel dark" for="newNickname">Nickname — shown in the game</label>
       <input id="newNickname" placeholder="Nickname (shown in game)" style="width:100%;background:#fff;border:1px solid var(--card3);border-radius:8px;padding:10px 12px;color:var(--ink);font-family:Outfit,sans-serif;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
+      <label class="flabel dark" for="newEmail">Email</label>
       <input id="newEmail" placeholder="Email (unique identifier)" type="text" style="width:100%;background:#fff;border:1px solid var(--card3);border-radius:8px;padding:10px 12px;color:var(--ink);font-family:Outfit,sans-serif;font-size:14px;margin-bottom:10px;box-sizing:border-box;">
       <div style="display:flex;gap:8px;">
         <button id="savePlayerBtn" style="flex:1;padding:10px;background:var(--gold);border:none;border-radius:10px;color:#000;font-family:Outfit,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Save Player</button>
@@ -987,8 +999,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.98';
-const APP_BUILT_AT='2026-08-07T13:43:42Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.99';
+const APP_BUILT_AT='2026-08-07T15:49:40Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -2092,7 +2104,7 @@ async function setPlayerActive(id, active){
     if(!d || !d.id) return false;
     const i=roster.findIndex(p=>p.id===id);
     if(i>=0) roster[i]={...roster[i], active};
-    // Coming off the roster also means coming out of tonight's game.
+    // Going inactive also means coming out of tonight's game.
     if(!active){
       const si=selectedPlayers.findIndex(p=>p.id===id);
       if(si>=0) selectedPlayers.splice(si,1);
@@ -2105,8 +2117,10 @@ async function toggleShowRemoved(){
   _showRemoved=!_showRemoved;
   const btn=document.getElementById('showRemovedBtn');
   if(btn){
+    // Names the list you'd be switching TO, so the button always describes what
+    // pressing it does rather than what you're currently looking at.
     btn.style.background=_showRemoved?'rgba(0,0,0,.08)':'none';
-    btn.textContent=_showRemoved?'Hide removed':'Removed';
+    btn.textContent=_showRemoved?'Show active':'Show inactive';
   }
   const fresh=await dbGetPlayers(_showRemoved);
   if(Array.isArray(fresh)) roster=fresh;
@@ -2173,7 +2187,7 @@ function renderSelectedSummary(){
 
 function togglePlayerSelect(playerId){
   { const p=roster.find(x=>x.id===playerId);
-    if(p && p.active===false){ toast(`${p.nickname} is off the roster`); return; } }
+    if(p && p.active===false){ toast(`${p.nickname} is inactive`); return; } }
   const player=roster.find(p=>p.id===playerId);
   if(!player) return;
   const idx=selectedPlayers.findIndex(p=>p.id===playerId);
@@ -3933,8 +3947,11 @@ function openEditPlayer(playerId){
   const tb=document.getElementById('rosterToggleBtn');
   const tn=document.getElementById('rosterToggleNote');
   if(tb){
-    tb.textContent = off ? `Put ${p.nickname} back on the roster`
-                         : `Take ${p.nickname} off the roster`;
+    // One word for the state, used identically here and on the picker's toggle.
+    // "Take off the roster" described an action and left you guessing what the
+    // resulting state was called.
+    tb.textContent = off ? `Make ${p.nickname} active again`
+                         : `Make ${p.nickname} inactive`;
     tb.style.borderColor = off ? 'rgba(31,173,160,.5)' : 'rgba(192,57,43,.45)';
     tb.style.color       = off ? 'var(--teal-hi)'      : '#ff8b7d';
     tb.onclick = async ()=>{
@@ -3947,13 +3964,13 @@ function openEditPlayer(playerId){
         return;
       }
       closeEditPlayer();
-      toast(off ? `${p.nickname} is back` : `${p.nickname} is off the roster`);
+      toast(`${p.nickname} is now ${off?'active':'inactive'}`);
       renderRoster(); renderSelectedSummary(); rebuildJudgeChips(); updateStartBtn();
     };
   }
   if(tn) tn.textContent = off
-    ? 'They\u2019ll show up in the list again and can be picked for a game.'
-    : 'Nothing is deleted \u2014 their scores and history stay. They just stop showing in the list.';
+    ? 'They\u2019ll appear in the player list again and can be picked for a game.'
+    : 'Nothing is deleted \u2014 their scores and history stay. Inactive players just don\u2019t appear when you\u2019re picking.';
 
   document.getElementById('editPlayerModal').classList.add('show');
 }
