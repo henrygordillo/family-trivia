@@ -52,7 +52,7 @@ chk('active flag drives the default list', /req\.query\.all !== '1'[\s\S]{0,60}e
 chk('removed players can be fetched on request', /\?all=1/.test(idx));
 chk('a bare active toggle is accepted', /active !== undefined && first_name === undefined/.test(srv));
 chk('removing also drops them from tonight\'s game', /if\(!active\)[\s\S]{0,180}selectedPlayers\.splice/.test(idx));
-chk('a removed player cannot be selected', /active===false\)\{ toast\(`\$\{p\.nickname\} is off the roster`\)/.test(idx));
+chk('an inactive player cannot be selected', /active===false\)\{ toast\(`\$\{p\.nickname\} is inactive`\)/.test(idx));
 chk('removed rows look different', /\.roster-player\.off\{/.test(css));
 
 // ── Two Johns are indistinguishable, so make them impossible ───────────────
@@ -71,6 +71,28 @@ chk('clash check includes removed players',
 chk('reactivation is guarded against a name taken meanwhile',
     /if \(active\) \{[\s\S]{0,500}nk\.active\) return res\.status\(409\)/.test(srv));
 chk('clash returns a sentence, not a Postgres error', /There's already a player called/.test(srv));
+
+// ── Labels, not placeholders ───────────────────────────────────────────────
+// A placeholder disappears the moment a field has a value, so an edit form full
+// of real data showed "Alec / Gordillo / Alec" with nothing saying which was the
+// first name and which the nickname.
+{
+  const labels=[...idx.matchAll(/<label class="flabel[^"]*" for="([^"]+)"/g)].map(m=>m[1]);
+  const fields=['editFirstName','editLastName','editNickname',
+                'newFirstName','newLastName','newNickname','newEmail'];
+  for(const f of fields) chk('labelled: '+f, labels.includes(f));
+  const inputs=new Set([...idx.matchAll(/<input id="([^"]+)"/g)].map(m=>m[1]));
+  chk('no label points at a missing field', labels.every(l=>inputs.has(l)));
+}
+
+// ── One vocabulary ─────────────────────────────────────────────────────────
+// The button said "take off the roster" while the state was called "removed" and
+// the filter said something else again. Active / inactive, everywhere.
+chk('edit button uses active/inactive', /Make \$\{p\.nickname\} (active again|inactive)/.test(idx));
+chk('picker toggle uses active/inactive', /'Show active':'Show inactive'/.test(idx));
+chk('no stray "off the roster" in the UI',
+    !/(textContent|toast|innerHTML)[^;]*off the roster/.test(idx));
+chk('no stray "removed" wording', !/>Removed</.test(idx) && !/Hide removed/.test(idx));
 
 console.log(fail?('\n'+fail+' FAILED'):'\nroster checks passed');
 process.exit(fail?1:0);
