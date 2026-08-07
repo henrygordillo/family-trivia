@@ -999,8 +999,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.99';
-const APP_BUILT_AT='2026-08-07T15:49:40Z';   // UTC; displayed in the device's local time
+const APP_VERSION='4.0';
+const APP_BUILT_AT='2026-08-07T15:54:39Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -2088,6 +2088,13 @@ async function loadRoster(){
   roster=players.slice().sort((a,b)=>
     String(a.nickname||'').localeCompare(String(b.nickname||''), undefined, {sensitivity:'base'})
   );
+  // Reload must refresh whichever view is showing — landing back on the active
+  // list after reloading from the inactive one would look like a lost filter.
+  if(_showRemoved){
+    const all=await dbGetPlayers(true);
+    _inactive = Array.isArray(all) ? all.filter(x=>x.active===false) : [];
+  }
+  syncRosterFilterBtn();
   renderRoster(); // renderRoster hides the loading text and draws the cards (or "No players yet")
 }
 
@@ -2102,10 +2109,17 @@ async function setPlayerActive(id, active){
     });
     const d=await r.json();
     if(!d || !d.id) return false;
-    const i=roster.findIndex(p=>p.id===id);
-    if(i>=0) roster[i]={...roster[i], active};
-    // Going inactive also means coming out of tonight's game.
-    if(!active){
+    // Move them between the two lists rather than flipping a flag in place —
+    // `roster` must never contain an inactive player, since the judge chips, the
+    // selected summary and the game itself all read from it.
+    if(active){
+      const j=_inactive.findIndex(p=>p.id===id);
+      if(j>=0){ const [p]=_inactive.splice(j,1); roster.push({...p, active:true});
+                roster.sort((a,b)=>a.nickname.localeCompare(b.nickname)); }
+    } else {
+      const i=roster.findIndex(p=>p.id===id);
+      if(i>=0){ const [p]=roster.splice(i,1); _inactive.push({...p, active:false}); }
+      // Going inactive also means coming out of tonight's game.
       const si=selectedPlayers.findIndex(p=>p.id===id);
       if(si>=0) selectedPlayers.splice(si,1);
     }
@@ -2113,18 +2127,34 @@ async function setPlayerActive(id, active){
   }catch(e){ return false; }
 }
 
+// Inactive players are held SEPARATELY rather than mixed into `roster`, which is
+// read by the judge chips, the selected summary and the game itself — an inactive
+// player leaking into any of those would be a bug.
+let _inactive=[];
+
+// A filter, not an "also show these". The first version fetched active AND
+// inactive together, so pressing it returned the same list with a couple of extra
+// rows appended — which reads as nothing happening. Two views: the ones you can
+// pick, or the ones you might bring back.
 async function toggleShowRemoved(){
   _showRemoved=!_showRemoved;
-  const btn=document.getElementById('showRemovedBtn');
-  if(btn){
-    // Names the list you'd be switching TO, so the button always describes what
-    // pressing it does rather than what you're currently looking at.
-    btn.style.background=_showRemoved?'rgba(0,0,0,.08)':'none';
-    btn.textContent=_showRemoved?'Show active':'Show inactive';
+  if(_showRemoved){
+    const all=await dbGetPlayers(true);
+    _inactive = Array.isArray(all) ? all.filter(p=>p.active===false) : [];
   }
-  const fresh=await dbGetPlayers(_showRemoved);
-  if(Array.isArray(fresh)) roster=fresh;
+  syncRosterFilterBtn();
   renderRoster();
+}
+
+function syncRosterFilterBtn(){
+  const btn=document.getElementById('showRemovedBtn');
+  if(!btn) return;
+  // Names the list you'd be switching TO, so the button always says what pressing
+  // it does rather than what you're already looking at.
+  btn.textContent   = _showRemoved ? 'Show active' : 'Show inactive';
+  btn.style.background  = _showRemoved ? 'var(--card2)' : 'none';
+  btn.style.borderColor = _showRemoved ? 'var(--muted)' : 'var(--card3)';
+  btn.style.color       = _showRemoved ? 'var(--ink)'   : 'var(--muted)';
 }
 
 function renderRoster(){
@@ -2132,11 +2162,14 @@ function renderRoster(){
   const loading=document.getElementById('rosterLoading');
   if(loading) loading.style.display='none';
   if(!list) return;
-  if(roster.length===0){
-    list.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px 0;">No players yet — add your first player below</div>';
+  const view = _showRemoved ? _inactive : roster;
+  if(view.length===0){
+    list.innerHTML = _showRemoved
+      ? '<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px 0;">Nobody is inactive \u2014 everyone is available to pick.</div>'
+      : '<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px 0;">No players yet \u2014 add your first player below</div>';
     return;
   }
-  list.innerHTML=roster.map(p=>{
+  list.innerHTML=view.map(p=>{
     const sel=selectedPlayers.find(s=>s.id===p.id);
     // Full name only. The email identified a database record, not a person — you're
     // picking your family here, not disambiguating accounts.
@@ -3932,7 +3965,9 @@ function toggleEmailChange(){
 }
 
 function openEditPlayer(playerId){
-  const p=roster.find(r=>r.id===playerId);
+  // Must search BOTH views: tapping an inactive row is the only way to reactivate
+  // someone, and looking in `roster` alone would silently do nothing.
+  const p=roster.find(r=>r.id===playerId) || _inactive.find(r=>r.id===playerId);
   if(!p) return;
   document.getElementById('editPlayerId').value=p.id;
   document.getElementById('editFirstName').value=p.first_name;
