@@ -6,8 +6,8 @@ const path = require('path');
 
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // Bump BUILD every time this file ships. BUILT_AT is UTC (clients localize it).
-const VERSION = '3.28';
-const BUILT_AT = '2026-08-06T19:32:54Z';
+const VERSION = '3.30';
+const BUILT_AT = '2026-08-07T15:29:40Z';
 
 const app = express();
 app.use(cors());
@@ -249,20 +249,41 @@ app.post('/api/claude', async (req, res) => {
 });
 
 // ── Players ───────────────────────────────────────────────────────────────────
+// Active players by default. ?all=1 includes the ones taken off the roster, which
+// is how they get put back.
 app.get('/api/players', async (req, res) => {
-  const { data, error } = await supabase
-    .from('players')
-    .select('*')
-    .order('nickname');
+  let q = supabase.from('players').select('*').order('nickname');
+  if (req.query.all !== '1') q = q.eq('active', true);
+  const { data, error } = await q;
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
+
+// The roster shows the nickname and nothing else, so two players called "John" are
+// indistinguishable while picking. Checked here as well as by the unique index, so
+// the host gets a sentence instead of a raw Postgres error — and checked against
+// INACTIVE rows too, or reactivating the first John would recreate the collision.
+async function nameClash(field, value, exceptId) {
+  if (!value) return null;
+  const { data } = await supabase.from('players').select('id, nickname, email, active');
+  const v = String(value).trim().toLowerCase();
+  return (data || []).find(p =>
+    p.id !== exceptId && String(p[field] || '').trim().toLowerCase() === v) || null;
+}
 
 app.post('/api/players', async (req, res) => {
   const { first_name, last_name, nickname, email } = req.body;
   if (!first_name || !last_name || !nickname || !email) {
     return res.status(400).json({ error: 'first_name, last_name, nickname and email are required' });
   }
+  const nk = await nameClash('nickname', nickname);
+  if (nk) return res.status(409).json({
+    error: `There's already a player called "${nk.nickname}"${nk.active ? '' : ' (currently off the roster)'}.`,
+    conflict: 'nickname', player: nk });
+  const em = await nameClash('email', email);
+  if (em) return res.status(409).json({
+    error: `That email already belongs to "${em.nickname}".`,
+    conflict: 'email', player: em });
   const { data, error } = await supabase
     .from('players')
     .insert({ first_name, last_name, nickname, email })
@@ -274,11 +295,48 @@ app.post('/api/players', async (req, res) => {
 
 // ── Player update ────────────────────────────────────────────────────────────
 app.put('/api/players/:id', async (req, res) => {
-  const { first_name, last_name, nickname, email } = req.body;
+  const { first_name, last_name, nickname, email, active } = req.body;
+  // A bare {active:false} is a valid update — coming off the roster shouldn't
+  // require resending the whole player.
+  if (active !== undefined && first_name === undefined) {
+    // Coming BACK onto the roster can collide: the name may have been taken while
+    // they were away. The unique index only covers active rows, so this is the
+    // check that stops it — and it explains what to do instead of failing raw.
+    if (active) {
+      const { data: me } = await supabase
+        .from('players').select('nickname, email').eq('id', req.params.id).single();
+      if (me) {
+        const nk = await nameClash('nickname', me.nickname, req.params.id);
+        if (nk && nk.active) return res.status(409).json({
+          error: `"${nk.nickname}" is taken by someone on the roster now. Rename one of them first.`,
+          conflict: 'nickname', player: nk });
+        const em = await nameClash('email', me.email, req.params.id);
+        if (em && em.active) return res.status(409).json({
+          error: `That email is in use by "${em.nickname}" now.`,
+          conflict: 'email', player: em });
+      }
+    }
+    const { data, error } = await supabase
+      .from('players').update({ active: !!active }).eq('id', req.params.id)
+      .select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data);
+  }
   if (!first_name || !last_name || !nickname) {
     return res.status(400).json({ error: 'All fields required' });
   }
+  const nk = await nameClash('nickname', nickname, req.params.id);
+  if (nk) return res.status(409).json({
+    error: `There's already a player called "${nk.nickname}"${nk.active ? '' : ' (currently off the roster)'}.`,
+    conflict: 'nickname', player: nk });
+  if (email) {
+    const em = await nameClash('email', email, req.params.id);
+    if (em) return res.status(409).json({
+      error: `That email already belongs to "${em.nickname}".`,
+      conflict: 'email', player: em });
+  }
   const updates = { first_name, last_name, nickname };
+  if (active !== undefined) updates.active = !!active;
   if (email) updates.email = email;
   const { data, error } = await supabase
     .from('players')

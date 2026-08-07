@@ -62,6 +62,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .roster-player{display:flex;align-items:center;gap:11px;padding:9px 11px;background:var(--card);
   border:1.5px solid var(--card3);border-radius:12px;cursor:pointer;transition:all .15s;margin-bottom:8px;}
 .roster-player.selected{background:rgba(31,173,160,.14);border-color:var(--teal);}
+/* Off the roster: visible only when you ask to see them, and not selectable —
+   tapping opens the editor, which is where you put them back. */
+.roster-player.off{background:rgba(0,0,0,.05);border-style:dashed;opacity:.72;}
+.roster-player.off .rp-box{background:none;border-color:#c3bba6;color:#a09a92;font-size:14px;}
+.roster-player.off .rp-name{color:var(--muted);}
 .roster-player .rp-box{flex:0 0 auto;width:26px;height:26px;border:2px solid #c3bba6;border-radius:7px;
   background:#fff;display:flex;align-items:center;justify-content:center;
   font-size:16px;font-weight:900;color:#fff;transition:all .15s;}
@@ -869,6 +874,15 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       </div>
     </div>
 
+    <!-- Nothing is ever deleted. Attempts link to player_id and feed both the
+         lifetime stats and the ruleset calibration, so a player who stops playing
+         must not take real answer data with them. They come off the roster and can
+         come back. -->
+    <div style="border-top:1px solid rgba(255,255,255,.1);padding-top:14px;margin-bottom:14px;">
+      <button id="rosterToggleBtn" style="background:none;border:1px solid rgba(192,57,43,.45);border-radius:8px;color:#ff8b7d;font-family:Outfit,sans-serif;font-size:12px;font-weight:700;padding:9px 12px;cursor:pointer;width:100%;"></button>
+      <div id="rosterToggleNote" style="font-size:11px;color:rgba(255,255,255,.4);margin-top:7px;line-height:1.45;"></div>
+    </div>
+
     <div id="editPlayerError" style="font-size:12px;color:#e05c6e;margin-bottom:10px;display:none;"></div>
     <div style="display:flex;gap:8px;">
       <button id="saveEditBtn" style="flex:1;padding:10px;background:var(--gold);border:none;border-radius:10px;color:#000;font-family:Outfit,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Save Changes</button>
@@ -882,7 +896,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <div class="modal-box" style="background:var(--card);border:1px solid var(--card3);max-width:400px;text-align:left;max-height:82vh;overflow-y:auto;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
       <span class="slabel" style="margin-bottom:0;color:var(--muted);">Select Players</span>
-      <button id="reloadRosterBtn" title="Reload players" style="background:none;border:1.5px solid var(--card3);border-radius:8px;color:var(--muted);font-family:Outfit,sans-serif;font-size:12px;font-weight:700;padding:5px 10px;cursor:pointer;">&#8635; Reload</button>
+      <div style="display:flex;gap:6px;">
+        <button id="showRemovedBtn" title="Show players taken off the roster" style="background:none;border:1.5px solid var(--card3);border-radius:8px;color:var(--muted);font-family:Outfit,sans-serif;font-size:12px;font-weight:700;padding:5px 10px;cursor:pointer;">Removed</button>
+        <button id="reloadRosterBtn" title="Reload players" style="background:none;border:1.5px solid var(--card3);border-radius:8px;color:var(--muted);font-family:Outfit,sans-serif;font-size:12px;font-weight:700;padding:5px 10px;cursor:pointer;">&#8635; Reload</button>
+      </div>
     </div>
     <div id="rosterList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;"></div>
     <div id="rosterLoading" style="font-size:12px;color:var(--muted);text-align:center;padding:8px;">Loading players&#8230;</div>
@@ -970,8 +987,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='3.97';
-const APP_BUILT_AT='2026-08-06T19:32:54Z';   // UTC; displayed in the device's local time
+const APP_VERSION='3.98';
+const APP_BUILT_AT='2026-08-07T13:43:42Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -2062,6 +2079,40 @@ async function loadRoster(){
   renderRoster(); // renderRoster hides the loading text and draws the cards (or "No players yet")
 }
 
+// Off the roster, not deleted. Everything they ever answered stays in the record.
+let _showRemoved=false;
+
+async function setPlayerActive(id, active){
+  try{
+    const r=await fetch(BACKEND+'/api/players/'+id,{
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({active})
+    });
+    const d=await r.json();
+    if(!d || !d.id) return false;
+    const i=roster.findIndex(p=>p.id===id);
+    if(i>=0) roster[i]={...roster[i], active};
+    // Coming off the roster also means coming out of tonight's game.
+    if(!active){
+      const si=selectedPlayers.findIndex(p=>p.id===id);
+      if(si>=0) selectedPlayers.splice(si,1);
+    }
+    return true;
+  }catch(e){ return false; }
+}
+
+async function toggleShowRemoved(){
+  _showRemoved=!_showRemoved;
+  const btn=document.getElementById('showRemovedBtn');
+  if(btn){
+    btn.style.background=_showRemoved?'rgba(0,0,0,.08)':'none';
+    btn.textContent=_showRemoved?'Hide removed':'Removed';
+  }
+  const fresh=await dbGetPlayers(_showRemoved);
+  if(Array.isArray(fresh)) roster=fresh;
+  renderRoster();
+}
+
 function renderRoster(){
   const list=document.getElementById('rosterList');
   const loading=document.getElementById('rosterLoading');
@@ -2076,8 +2127,10 @@ function renderRoster(){
     // Full name only. The email identified a database record, not a person — you're
     // picking your family here, not disambiguating accounts.
     const full=[p.first_name,p.last_name].filter(Boolean).join(' ');
-    return `<div class="roster-player${sel?' selected':''}" onclick="togglePlayerSelect('${p.id}')">
-      <span class="rp-box">${sel?'✓':''}</span>
+    const off = p.active===false;
+    return `<div class="roster-player${sel?' selected':''}${off?' off':''}"
+      onclick="${off?`openEditPlayer('${p.id}')`:`togglePlayerSelect('${p.id}')`}">
+      <span class="rp-box">${off?'—':(sel?'✓':'')}</span>
       <div class="rp-mid">
         <div class="rp-name">${p.nickname}</div>
         ${full?`<div class="rp-full">${full}</div>`:''}
@@ -2119,6 +2172,8 @@ function renderSelectedSummary(){
 }
 
 function togglePlayerSelect(playerId){
+  { const p=roster.find(x=>x.id===playerId);
+    if(p && p.active===false){ toast(`${p.nickname} is off the roster`); return; } }
   const player=roster.find(p=>p.id===playerId);
   if(!player) return;
   const idx=selectedPlayers.findIndex(p=>p.id===playerId);
@@ -3669,9 +3724,9 @@ window.pickQ=pickQ;
 // PERSISTENCE — Supabase via backend
 // ═══════════════════════════════════════════════════════════════════
 
-async function dbGetPlayers(){
+async function dbGetPlayers(includeRemoved){
   try{
-    const r=await fetch(BACKEND+'/api/players');
+    const r=await fetch(BACKEND+'/api/players'+(includeRemoved?'?all=1':''));
     const d=await r.json();
     if(!Array.isArray(d)) return null; // server returned an error object, not a list
     return d;
@@ -3871,6 +3926,35 @@ function openEditPlayer(playerId){
   document.getElementById('editNickname').value=p.nickname;
   document.getElementById('editCurrentEmail').value=p.email||'';
   document.getElementById('editPlayerError').style.display='none';
+
+  // Off the roster / back on. Deliberately says what it does NOT do, because
+  // "remove" reads as "delete" and this never deletes anything.
+  const off = p.active===false;
+  const tb=document.getElementById('rosterToggleBtn');
+  const tn=document.getElementById('rosterToggleNote');
+  if(tb){
+    tb.textContent = off ? `Put ${p.nickname} back on the roster`
+                         : `Take ${p.nickname} off the roster`;
+    tb.style.borderColor = off ? 'rgba(31,173,160,.5)' : 'rgba(192,57,43,.45)';
+    tb.style.color       = off ? 'var(--teal-hi)'      : '#ff8b7d';
+    tb.onclick = async ()=>{
+      tb.disabled=true;
+      const ok = await setPlayerActive(p.id, off);
+      tb.disabled=false;
+      if(!ok){
+        const e=document.getElementById('editPlayerError');
+        e.textContent='Couldn\u2019t save that just now.'; e.style.display='block';
+        return;
+      }
+      closeEditPlayer();
+      toast(off ? `${p.nickname} is back` : `${p.nickname} is off the roster`);
+      renderRoster(); renderSelectedSummary(); rebuildJudgeChips(); updateStartBtn();
+    };
+  }
+  if(tn) tn.textContent = off
+    ? 'They\u2019ll show up in the list again and can be picked for a game.'
+    : 'Nothing is deleted \u2014 their scores and history stay. They just stop showing in the list.';
+
   document.getElementById('editPlayerModal').classList.add('show');
 }
 
@@ -3965,6 +4049,7 @@ function init(){
   }
   document.getElementById('openPickerBtn').addEventListener('click',openPicker);
   document.getElementById('pickerDoneBtn').addEventListener('click',closePicker);
+  document.getElementById('showRemovedBtn').addEventListener('click',toggleShowRemoved);
   document.getElementById('reloadRosterBtn').addEventListener('click',loadRoster);
   document.getElementById('addPlayerBtn').addEventListener('click',()=>{
     document.getElementById('addPlayerForm').style.display='block';
