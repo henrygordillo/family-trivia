@@ -51,7 +51,7 @@ chk('no delete endpoint exists', !/app\.delete\('\/api\/players/.test(srv));
 chk('active flag drives the default list', /req\.query\.all !== '1'[\s\S]{0,60}eq\('active', true\)/.test(srv));
 chk('removed players can be fetched on request', /\?all=1/.test(idx));
 chk('a bare active toggle is accepted', /active !== undefined && first_name === undefined/.test(srv));
-chk('removing also drops them from tonight\'s game', /if\(!active\)[\s\S]{0,180}selectedPlayers\.splice/.test(idx));
+chk('going inactive also drops them from tonight\'s game', /_inactive\.push[\s\S]{0,220}selectedPlayers\.splice/.test(idx));
 chk('an inactive player cannot be selected', /active===false\)\{ toast\(`\$\{p\.nickname\} is inactive`\)/.test(idx));
 chk('removed rows look different', /\.roster-player\.off\{/.test(css));
 
@@ -89,10 +89,31 @@ chk('clash returns a sentence, not a Postgres error', /There's already a player 
 // The button said "take off the roster" while the state was called "removed" and
 // the filter said something else again. Active / inactive, everywhere.
 chk('edit button uses active/inactive', /Make \$\{p\.nickname\} (active again|inactive)/.test(idx));
-chk('picker toggle uses active/inactive', /'Show active':'Show inactive'/.test(idx));
+chk('picker toggle uses active/inactive', /_showRemoved \? 'Show active' : 'Show inactive'/.test(idx));
 chk('no stray "off the roster" in the UI',
     !/(textContent|toast|innerHTML)[^;]*off the roster/.test(idx));
 chk('no stray "removed" wording', !/>Removed</.test(idx) && !/Hide removed/.test(idx));
+
+// ── The toggle is a FILTER, not an "also show these" ───────────────────────
+// The first version fetched active AND inactive together, so pressing it returned
+// the same list with a couple of rows appended — which reads as nothing happening.
+chk('inactive players are held in their own list', /let _inactive=\[\]/.test(idx));
+chk('the view is one list or the other',
+    /const view = _showRemoved \? _inactive : roster/.test(idx));
+chk('inactive list is filtered, not merged',
+    /all\.filter\(p=>p\.active===false\)/.test(idx));
+chk('roster never holds an inactive player',
+    !/roster\s*=\s*fresh/.test(idx));
+
+// Tapping an inactive row is the ONLY route to reactivating someone, so the editor
+// has to find players in both lists or that row silently does nothing.
+chk('editor searches both lists',
+    /roster\.find\(r=>r\.id===playerId\) \|\| _inactive\.find/.test(idx));
+// And the two lists must stay consistent when the state flips.
+chk('activating moves them across', /_inactive\.splice\(j,1\)[\s\S]{0,80}roster\.push/.test(idx));
+chk('deactivating moves them across', /roster\.splice\(i,1\)[\s\S]{0,60}_inactive\.push/.test(idx));
+chk('reload keeps the current view', /if\(_showRemoved\)\{[\s\S]{0,180}renderRoster/.test(idx));
+chk('empty inactive list says so', /Nobody is inactive/.test(idx));
 
 console.log(fail?('\n'+fail+' FAILED'):'\nroster checks passed');
 process.exit(fail?1:0);
