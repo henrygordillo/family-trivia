@@ -134,12 +134,21 @@ body{
 .jc-num{font-family:'Playfair Display',serif;font-size:30px;font-weight:900;color:var(--gold-hi);letter-spacing:4px;}
 
 /* Board — mirrors the TV, display-only (the judge still drives every pick) */
-#pboard{display:none;gap:5px;flex:1;min-height:0;}
+/* The board here MIRRORS the host's — picking happens there, on the host's
+   device. Styled like the host's tappable tiles it read as an invitation, and
+   people tried. So: no pointer, no press feedback, no text selection, and quieter
+   than the host's. pointer-events:none makes a stray tap a no-op rather than a
+   thing that looks like it should have worked. */
+#pcap{display:none;text-align:center;font-size:11px;font-weight:700;letter-spacing:.4px;
+  color:rgba(255,255,255,.6);padding:2px 0 6px;}
+#pcap b{color:var(--gold-hi);font-weight:800;}
+#pboard{display:none;gap:5px;flex:1;min-height:0;cursor:default;user-select:none;pointer-events:none;}
 .pcat{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:rgba(255,255,255,.55);
   text-align:center;padding:3px 2px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.ptile{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;
+.ptile{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);border-radius:8px;
   display:flex;align-items:center;justify-content:center;min-height:0;
-  font-family:'Playfair Display',serif;font-weight:900;font-size:clamp(11px,4vw,22px);color:var(--gold-hi);}
+  font-family:'Playfair Display',serif;font-weight:900;font-size:clamp(11px,4vw,22px);
+  color:rgba(212,168,67,.72);}
 .ptile.used{opacity:.13;}
 .ptile.blocked{background:rgba(124,58,237,.12);border:1px dashed rgba(167,139,250,.5);color:var(--purple-hi);font-size:15px;}
 
@@ -304,6 +313,7 @@ body{
  <div id="others"></div>
 
  <div class="jright">
+  <div id="pcap"></div>
   <div id="pboard"></div>
 
   <div id="joinCard">
@@ -355,8 +365,8 @@ body{
 <div class="tag" id="tag"></div>
 
 <script>
-const JOIN_VERSION='4.16';
-const JOIN_BUILT_AT='2026-08-01T15:55:23Z';
+const JOIN_VERSION='4.17';
+const JOIN_BUILT_AT='2026-11-06T22:32:42Z';
 const BACKEND='';
 const PTS=[100,200,300,400,500];
 
@@ -459,7 +469,7 @@ function backToConnect(msg){
   document.getElementById('code').value='';
   document.getElementById('err').textContent='';
   try{ localStorage.removeItem('ftn_last_code'); }catch(e){}   // don't creep back in
-  CODE=null; ME=null; _askedWho=false; _rosterId=null;
+  CODE=null; ME=null; _askedWho=false;
   // A finished game is an announcement, not a question — so it plays for a few
   // seconds and clears itself, the same way the shared screen does it.
   if(msg){
@@ -642,25 +652,59 @@ document.getElementById('scanCancel').addEventListener('click', stopScan);
 // ── Who is holding this device? ───────────────────────────────────────────
 // A TV is impersonal — it shows everyone equally. A phone is in someone's HAND,
 // so it should know whose. This is also the identity we'd need for buzz-in later.
+//
+// What this device remembers is a PLAYER ID, never a position. It used to store
+// an index into players[] — but the turn shuffle reorders players[], and the
+// rosterId guard didn't catch it because rosterId is built from a SORTED id list:
+// same people, same signature, different order. So "Me (Alec)" quietly became
+// "Me (Ceci)". An id survives any reordering; a position never could.
+//
+// ME stays an index, because every comparison in render() is against indices in
+// the live snapshot. It is now DERIVED on each render from the stored id rather
+// than read from storage, so it can't go stale.
 let _askedWho=false, _lastS=null;
-// Whose device this is, remembered per room. But the memory is only good for the
-// roster it was answered against — if the judge starts a game with different
-// people, "Me (Alec)" may no longer be true, so we ask again.
-let _rosterId=null;
-function checkRoster(S){
-  const rid = S.rosterId || null;
-  if(rid && _rosterId && rid !== _rosterId){
-    ME=null; _askedWho=false;
-    try{ localStorage.removeItem('ftn_me_'+CODE); }catch(e){}
-  }
-  if(rid) _rosterId=rid;
+const WATCHING = -1;                       // "I'm just watching" — a seat, but nobody's
+
+function seatKey(){ return 'ftn_me_'+CODE; }
+
+// {v:2, id:'<uuid>'} or {v:2, watching:true}. A bare integer is a v1 value: the
+// stale index that caused the bug, so it's discarded rather than migrated — there
+// is no way to tell which person it meant.
+function readSeat(){
+  try{
+    const raw=localStorage.getItem(seatKey());
+    if(raw===null) return null;
+    if(/^-?\d+$/.test(raw.trim())){ localStorage.removeItem(seatKey()); return null; }
+    const v=JSON.parse(raw);
+    if(!v || v.v!==2) return null;
+    return v.watching ? {watching:true} : (v.id ? {id:String(v.id)} : null);
+  }catch(e){ return null; }
+}
+function writeSeat(v){ try{ localStorage.setItem(seatKey(), JSON.stringify(v)); }catch(e){} }
+function clearSeat(){ try{ localStorage.removeItem(seatKey()); }catch(e){} }
+
+// Resolve the stored identity against THIS snapshot, every render. Returns the
+// index, WATCHING, or null when we still have to ask.
+function resolveSeat(S){
+  const seat=readSeat();
+  if(!seat) return null;
+  if(seat.watching) return WATCHING;
+  const ids=S.playerIds||[];
+  const i=ids.indexOf(seat.id);
+  if(i>=0) return i;
+  // They're not in this game. An older host may not be sending playerIds at all;
+  // either way we can't place them, so forget the seat and ask again.
+  clearSeat();
+  return null;
 }
 
-function askWho(players){
-  if(_askedWho) return;
+function askWho(S){
+  const players=S.players||[];
+  const seated=resolveSeat(S);
+  if(seated!==null){ ME=seated; _askedWho=true; return; }
+  if(_askedWho && ME!==null) return;      // picker already on screen
   _askedWho=true;
-  const saved=(()=>{ try{ return localStorage.getItem('ftn_me_'+CODE); }catch(e){ return null; } })();
-  if(saved!==null && players[+saved]!==undefined){ ME=+saved; return; }
+  ME=null;
 
   document.getElementById('game').style.display='none';
   const w=document.getElementById('who');
@@ -670,13 +714,14 @@ function askWho(players){
   players.forEach((p,i)=>{
     const b=document.createElement('button');
     b.className='wbtn'; b.textContent=p;
-    b.onclick=()=>{ ME=i; try{ localStorage.setItem('ftn_me_'+CODE, String(i)); }catch(e){}
+    const pid=(S.playerIds||[])[i] || null;
+    b.onclick=()=>{ ME=i; if(pid) writeSeat({v:2, id:pid});
       w.style.display='none'; if(_lastS) render(_lastS); };
     list.appendChild(b);
   });
   const s=document.createElement('button');
   s.className='wbtn skip'; s.textContent="I'm just watching";
-  s.onclick=()=>{ ME=-1; try{ localStorage.setItem('ftn_me_'+CODE,'-1'); }catch(e){}
+  s.onclick=()=>{ ME=WATCHING; writeSeat({v:2, watching:true});
     w.style.display='none'; if(_lastS) render(_lastS); };
   list.appendChild(s);
 }
@@ -801,17 +846,18 @@ function render(S){
     waiting('Waiting for the host', 'to start the game');
     document.getElementById('others').innerHTML='';
     document.getElementById('pboard').style.display='none';
+    { const c=document.getElementById('pcap'); if(c) c.style.display='none'; }
     showJoinCard(true);
     return;
   }
 
-  askWho(S.players);
+  askWho(S);                             // resolves the stored id against THIS snapshot
   if(ME===null) return;                  // still choosing
 
   document.getElementById('game').style.display='flex';
-  checkRoster(S);
   _meName = (ME>=0 && S.players) ? S.players[ME] : null;
   document.getElementById('pboard').style.display='none';
+  { const c=document.getElementById('pcap'); if(c) c.style.display='none'; }
   showJoinCard(false);
 
   const ph=S.phase;
@@ -923,6 +969,18 @@ function render(S){
     document.getElementById('wait').style.display='none';
     document.getElementById('rend').style.display='none';
     drawBoard(S);
+    // Say whose pick it is. Naming the picker beats "your turn" — on a screen that
+    // can't be picked on, "your turn" is the thing that makes people tap.
+    const cap=document.getElementById('pcap');
+    if(cap){
+      const pi=(S.nextPickerIdx!=null) ? S.nextPickerIdx : S.turnOrder?.[S.turnPos];
+      const nm=(pi!=null) ? S.players[pi] : null;
+      cap.innerHTML = nm
+        ? (pi===ME ? `<b>Your pick</b> \u00b7 choose on the host\u2019s device`
+                   : `<b>${nm}</b> is picking`)
+        : '';
+      cap.style.display = nm ? 'block' : 'none';
+    }
     document.getElementById('pboard').style.display='grid';
     stopTimer();
     return;

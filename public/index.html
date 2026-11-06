@@ -999,8 +999,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='4.0';
-const APP_BUILT_AT='2026-08-07T15:54:39Z';   // UTC; displayed in the device's local time
+const APP_VERSION='4.1';
+const APP_BUILT_AT='2026-11-06T22:32:42Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1132,6 +1132,11 @@ const STATE_PUBLIC = [
   'attempts',   // {cat,tier,player,type,correct,pts} — no answers; the hit-rate column needs it
   'gameMode',   // difficulty — the room can't infer it from the board
   'rosterId',   // changes only when WHO is playing changes — see below
+  // A personal screen remembers WHICH PLAYER it belongs to. It used to remember a
+  // position in players[], but players[] is reordered by the turn shuffle, so the
+  // same seat silently became someone else. Identity has to travel for the phone
+  // to store an identity rather than an index.
+  'playerIds',
 ];
 const STATE_PRIVATE = ['qData','askedQuestions'];              // hold answers
 const STATE_LOCAL   = ['timer','speak',                        // hand-published (see publicState)
