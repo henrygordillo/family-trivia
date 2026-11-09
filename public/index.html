@@ -587,6 +587,13 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
 
     <div id="tvErr" style="font-size:12px;color:var(--red);margin-top:8px;min-height:14px;text-align:center;"></div>
+    <div style="text-align:center;">
+      <button id="tvRetry" style="display:none;margin-top:8px;background:rgba(212,168,67,.12);
+        border:1.5px solid rgba(212,168,67,.45);border-radius:8px;color:var(--gold-hi);
+        font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;padding:7px 16px;cursor:pointer;">
+        Try again
+      </button>
+    </div>
     <div style="display:flex;gap:8px;margin-top:12px;">
       <button class="mbtn mbtn-cancel" id="tvCancel" style="flex:1;">Done</button>
       <button class="mbtn" id="tvStop" style="flex:1;display:none;background:transparent;border:1.5px solid rgba(255,255,255,.25);color:rgba(255,255,255,.7);">Stop sharing</button>
@@ -999,8 +1006,8 @@ const BACKEND = (typeof location!=='undefined' && /^https?:/.test(location.proto
 // ── Build stamp ───────────────────────────────────────────────────────────────
 // This page self-reports its own build. The SERVER's build is fetched live from
 // /api/version — never hardcoded here, or it could report a server that isn't deployed.
-const APP_VERSION='4.1';
-const APP_BUILT_AT='2026-11-06T22:32:42Z';   // UTC; displayed in the device's local time
+const APP_VERSION='4.2';
+const APP_BUILT_AT='2026-11-07T17:14:34Z';   // UTC; displayed in the device's local time
 
 function fmtBuildTime(iso){
   try{
@@ -1555,30 +1562,103 @@ async function openRoom(quiet){
 }
 
 // Re-attach to a room we already own (used when resuming a game).
+// A room's current occupancy, or null if it's gone. `shared` counts TVs and
+// `personal` counts phones — the stream registers a role, so they're separable.
+async function roomInfo(code){
+  try{
+    const r = await fetch(BACKEND+'/api/room/'+code);
+    if(!r.ok) return null;
+    const d = await r.json();
+    return { shared:d.shared||0, personal:d.personal||0, listeners:d.listeners||0 };
+  }catch(e){ return undefined; }        // undefined = couldn't ask, ≠ null = not there
+}
+
+// ── Pairing with a shared screen ───────────────────────────────────────────
+// A night should run on ONE number, and the number people read is the TV's. So
+// where it's safe, the HOST moves to the TV's code rather than dragging the TV
+// to ours — which is what used to put two codes in play on one evening.
+//
+// "Safe" means nothing is attached to our room yet and no game is running. The
+// host opens a room at launch (see init) so the join code is on the button from
+// the start, but until someone actually joins it there is nothing to strand.
+// Connecting the TV during setup — the normal case — always takes this path.
+//
+// The host never subscribes to its own stream, so it never counts itself in
+// `listeners`: zero really means empty.
 async function connectTV(code){
   code = String(code||'').trim();
   if(!/^\d{4}$/.test(code)) return {ok:false, err:'Bad code.'};
-  try{
-    const r = await fetch(BACKEND+'/api/room/'+code);
-    if(!r.ok) return {ok:false, err:'That room is gone.'};
-  }catch(e){ return {ok:false, err:'Could not reach the server.'}; }
-  // If we already run a room, players may be in it — switching to the TV's code
-  // would strand them somewhere nobody pushes to. Keep ours; the TV comes to us.
+
+  const target = await roomInfo(code);
+  if(target===undefined) return {ok:false, err:'Could not reach the server.', retry:true};
+  if(target===null)      return {ok:false, err:'That room is gone.'};
+  // No shared screen on that code. Could be the wrong code — but far more often
+  // it's a TV whose stream blinked, so this is a retry, not an accusation.
+  if(target.shared < 1){
+    return {ok:false, retry:true,
+      err:'That TV isn\u2019t reachable right now \u2014 check it\u2019s showing its code and try again.'};
+  }
+
   if(TV_CODE && TV_CODE !== code){
+    const mine = await roomInfo(TV_CODE);
+    const canMove = !_inGame && mine && mine.listeners===0;
+
+    if(canMove){
+      // One last look immediately before the switch. A phone that joined in the
+      // last few seconds would be stranded by it, and this is the whole window.
+      const again = await roomInfo(TV_CODE);
+      if(again && again.listeners===0){
+        const old = TV_CODE;
+        TV_CODE = code;
+        try{ localStorage.setItem('ftn_tv', code); }catch(e){}
+        try{ fetch(BACKEND+'/api/room/'+old+'/close',{method:'POST'}).catch(()=>{}); }catch(e){}
+        stopWatchPoll(); startWatchPoll();      // watch the new room, not the dead one
+        armBack(BACK_BUFFER);
+        pushToTV();
+        // Nothing to confirm here: the TV was already streaming this code before
+        // we arrived, and it has no way to answer a push. `shared>=1` was true
+        // before we did anything, so claiming a handshake would be a lie. The
+        // green tick on the TV itself is the confirmation, and the room can see it.
+        return {ok:true, path:'host-moved', confirmed:false};
+      }
+      // Someone joined in the gap — fall through and adopt instead.
+    }
+
+    // The TV comes to us. This one IS a real transition, so it can be confirmed.
+    const before = (mine && mine.shared) || 0;
     try{
       await fetch(BACKEND+'/api/room/'+code+'/adopt',{
         method:'POST', headers:{'Content-Type':'application/json'},
         body:JSON.stringify({target:TV_CODE})
       });
-    }catch(e){}
+    }catch(e){ return {ok:false, err:'Could not reach the server.', retry:true}; }
     pushToTV();
-    return {ok:true};
+    const confirmed = await awaitAdopt(TV_CODE, code, before);
+    return {ok:true, path:'adopt', confirmed};
   }
+
   TV_CODE = code;
   try{ localStorage.setItem('ftn_tv', code); }catch(e){}
   armBack(BACK_BUFFER);
   pushToTV();
-  return {ok:true};
+  return {ok:true, path:'host-moved', confirmed:false};
+}
+
+// Did the TV actually arrive? Two independent signals, either will do:
+//   • our room's SHARED count rose above what it was — a delta, not an absolute,
+//     because another TV may already have been attached, in which case shared>=1
+//     was true before the adopt and proves nothing
+//   • the TV's old room is gone — it closes it on adopt
+async function awaitAdopt(ourCode, tvCode, sharedBefore){
+  const deadline = Date.now() + 4000;
+  while(Date.now() < deadline){
+    await new Promise(r=>setTimeout(r, 400));
+    const ours = await roomInfo(ourCode);
+    if(ours && ours.shared > sharedBefore) return true;
+    const theirs = await roomInfo(tvCode);
+    if(theirs===null) return true;              // they closed it: they moved
+  }
+  return false;
 }
 
 // The code no longer lives on the button — it's in the sheet. All the button has
@@ -1590,6 +1670,7 @@ function updateTVBadge(){
 
 function openTVModal(){
   document.getElementById('tvErr').textContent='';
+  showTvRetry(false);
   document.getElementById('tvModal').classList.add('show');
   if(TV_CODE) showLive(TV_CODE); else showSetup();
 }
@@ -1622,6 +1703,13 @@ function startWatchPoll(){
     }catch(e){}
   };
   tick(); _watchPoll=setInterval(tick, 5000);
+}
+// The poll closes over nothing but TV_CODE, so it follows a code change on its
+// own — but the counts it last wrote describe the OLD room. Stop and restart so
+// the next tick is the first thing the buttons report.
+function stopWatchPoll(){
+  if(_watchPoll){ clearInterval(_watchPoll); _watchPoll=null; }
+  _viewerCount=0; _sharedCount=0;
 }
 
 // Setup and board carry the same pair of buttons, so both just report who's
@@ -1720,19 +1808,46 @@ function closeTVModal(){
   document.getElementById('tvModal').classList.remove('show');
 }
 
+// Three outcomes, and they are NOT the same claim:
+//   host-moved — we took the TV's code. Nothing was confirmed and nothing could
+//                be: the TV was already streaming that code, and it has no way to
+//                answer. Say what we know, not what we'd like to.
+//   adopt      — the TV had to move, so arrival is a real event we can wait for.
+//   retry      — probably a blinked stream, not a wrong code. Keep the digits,
+//                offer another go.
 async function tvJoin(code){
   const err=document.getElementById('tvErr');
+  showTvRetry(false);
+  err.style.color='var(--red)';
   err.textContent='Connecting\u2026';
   const r=await connectTV(code);
+
   if(r.ok){
     // Adding a screen is finished business — say so and get out of the way. It
     // used to open the player-joining panel, which is a different subject, and
     // showed the screen's code when the room is actually ours.
     err.textContent='';
     closeTVModal();
-    toast('\ud83d\udcfa Shared screen connected');
+    if(r.path==='adopt' && !r.confirmed){
+      toast('\u26a0 Sent to the screen \u2014 check it picked it up');
+    } else if(r.path==='adopt'){
+      toast('\ud83d\udcfa Shared screen connected');
+    } else {
+      // No handshake to report, so report the thing we did verify.
+      toast('\ud83d\udcfa Shared screen found \u2014 check the tick on the TV');
+    }
+    return;
   }
-  else { err.textContent = 'No screen with that code. Check the TV.'; }
+
+  err.textContent = r.err || 'No screen with that code. Check the TV.';
+  if(r.retry) showTvRetry(true);          // digits stay in the box
+}
+
+// The code input fires tvJoin on its 4th digit, so re-typing the same number
+// does nothing. A recoverable failure needs its own way back in.
+function showTvRetry(on){
+  const b=document.getElementById('tvRetry');
+  if(b) b.style.display = on ? 'inline-block' : 'none';
 }
 
 // ── QR scanning (the judge scanning the TV's code) ─────────────────────────
@@ -4132,6 +4247,11 @@ function init(){
   if(tvStop) tvStop.addEventListener('click',()=>{ disconnectTV(); closeTVModal(); toast('Stopped sharing'); });
   const tvScan=document.getElementById('tvScan');
   if(tvScan) tvScan.addEventListener('click',startScan);
+  const tvRetry=document.getElementById('tvRetry');
+  if(tvRetry) tvRetry.addEventListener('click',()=>{
+    const v=(document.getElementById('tvCode').value||'').replace(/\D/g,'');
+    if(v.length===4) tvJoin(v);
+  });
   const tvInput=document.getElementById('tvCode');
   if(tvInput){
     tvInput.addEventListener('input',()=>{
